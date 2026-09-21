@@ -1,6 +1,7 @@
 # 📚 Bài tập nhóm môn [Trí Tuệ Nhân Tạo Nâng Cao]
 
-> **Giảng viên hướng dẫn: Đỗ Như Tài** 
+> **Giảng viên hướng dẫn: Đỗ Như Tài**
+>  
 > **Lớp: DNT1241**
 
 
