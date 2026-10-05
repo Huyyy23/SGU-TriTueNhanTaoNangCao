@@ -1,264 +1,313 @@
-import numpy as np
+"""Tree-search implementations for the Maze Assignment (SGU - Tri Tue Nhan Tao).
+
+API used by 02_Maze_Example.ipynb:
+    ts.set_order(order / random=...)
+    ts.best_first_search(maze, strategy="BFS"|"DFS"|"GBFS"|"A*", W=..., debug=..., vis=..., anim=...)
+    ts.DFS(maze, check_cycle=..., limit=..., frontier_option=..., max_tries=..., debug_reached=..., vis=..., anim=...)
+    ts.IDS(maze, frontier_option=..., max_tries=..., vis=..., anim=...)
+    ts.show_path(maze, result) / ts.show_maze(maze)
+    ts.heuristic = ts.manhattan
+    ts.min_index(list)
+Moi ham search tra ve dict: {'path', 'actions', 'reached', 'maze_anim', 'tries'}
+"""
 import heapq
 import random
+
+import numpy as np
 import matplotlib.pyplot as plt
-import maze_helper as mh
+from matplotlib import colors
 
-# --- Các biến toàn cục ---
-_directions_order = ['N', 'E', 'S', 'W']
-_is_random = False
-heuristic = None
-
-
-def set_order(order_str=None, random=False):
-    """Thiết lập thứ tự duyệt các hướng đi."""
-    global _directions_order, _is_random
-    _is_random = random
-    if order_str:
-        _directions_order = list(order_str)
+# ----------------------------------------------------------------------
+# Thu tu mo rong huong di
+# ----------------------------------------------------------------------
+DELTAS = {'N': (-1, 0), 'E': (0, 1), 'S': (1, 0), 'W': (0, -1)}
+ORDER = list("NESW")
+RANDOM = False
 
 
-def manhattan(state, goal):
-    """Tính khoảng cách Manhattan giữa 2 điểm (x, y)."""
-    return abs(state[0] - goal[0]) + abs(state[1] - goal[1])
-
-
-def min_index(lst):
-    """Trả về index của phần tử nhỏ nhất trong list."""
-    return min(range(len(lst)), key=lst.__getitem__)
-
-
-# --- Cấu trúc Node ---
-class Node:
-    def __init__(self, state, parent=None, action=None, path_cost=0):
-        self.state = state
-        self.parent = parent
-        self.action = action
-        self.path_cost = path_cost
-        self.depth = 0 if parent is None else parent.depth + 1
-
-    def __lt__(self, other):
-        # Cần thiết cho Priority Queue (heapq)
-        return self.path_cost < other.path_cost
-
-    def path(self):
-        """Trả về danh sách các state từ start đến node hiện tại."""
-        node, path_back = self, []
-        while node:
-            path_back.append(node.state)
-            node = node.parent
-        return list(reversed(path_back))
-
-    def actions(self):
-        """Trả về danh sách các action từ start đến node hiện tại."""
-        node, actions_back = self, []
-        while node and node.parent:
-            actions_back.append(node.action)
-            node = node.parent
-        return list(reversed(actions_back))
-
-
-# --- Các hàm hỗ trợ Maze ---
-def get_neighbors(maze, state):
-    """Trả về danh sách các (action, next_state) hợp lệ."""
-    x, y = state
-    moves = {
-        'N': (-1, 0),
-        'E': (0, 1),
-        'S': (1, 0),
-        'W': (0, -1)
-    }
-
-    # Xác định thứ tự duyệt
-    if _is_random:
-        order = random.sample(_directions_order, len(_directions_order))
+def set_order(order=None, random=False):
+    """Dat thu tu duyet cac huong (vd "NESW") hooc che do random."""
+    global ORDER, RANDOM
+    RANDOM = random
+    if order is not None:
+        ORDER = list(order)
+    if RANDOM:
+        print("Directions are checked at every step in random order.")
     else:
-        order = _directions_order
+        print(f"Directions are checked in the order {ORDER}")
 
-    neighbors = []
-    for action in order:
-        dx, dy = moves[action]
+
+# ----------------------------------------------------------------------
+# Cac ham tien ich tren maze
+# ----------------------------------------------------------------------
+def find_pos(maze, what="S"):
+    """Tra ve vi tri (x, y) dau tien cua ky tu `what` ('S' hooc 'G')."""
+    pos = np.where(maze == what)
+    return (pos[0][0], pos[1][0])
+
+
+def look(maze, pos):
+    """Doc ky tu tai o (x, y)."""
+    x, y = pos
+    return maze[x, y]
+
+
+def _successors(maze, pos):
+    """Cac nuoc di hop le tu `pos` theo thu tu hien tai (random neu RANDOM)."""
+    order = ORDER[:]
+    if RANDOM:
+        random.shuffle(order)
+    x, y = pos
+    succ = []
+    for a in order:
+        dx, dy = DELTAS[a]
         nx, ny = x + dx, y + dy
-        # Kiểm tra biên và tường
-        if 0 <= nx < maze.shape[0] and 0 <= ny < maze.shape[1]:
-            if maze[nx, ny] != 'X':
-                neighbors.append((action, (nx, ny)))
-    return neighbors
+        if 0 <= nx < maze.shape[0] and 0 <= ny < maze.shape[1] and maze[nx, ny] != 'X':
+            succ.append((a, (nx, ny)))
+    return succ
 
 
-def reconstruct_result(node, reached, maze):
-    """Đóng gói kết quả trả về cho notebook."""
-    if node is None:
-        return {'path': None, 'actions': None, 'reached': reached, 'maze_anim': []}
-
-    path = node.path()
-    actions = node.actions()
-
-    # Tạo maze_anim để visualize
-    maze_anim = []
-    temp_maze = np.copy(maze)
-    for r, c in reached:
-        if temp_maze[r, c] == ' ':
-            temp_maze[r, c] = '.'
-    maze_anim.append(np.copy(temp_maze))
-
-    # Vẽ đường đi
-    for r, c in path:
-        if temp_maze[r, c] == ' ' or temp_maze[r, c] == '.':
-            temp_maze[r, c] = 'P'
-    maze_anim.append(np.copy(temp_maze))
-
-    return {
-        'path': path,
-        'actions': actions,
-        'reached': reached,
-        'maze_anim': maze_anim
-    }
+def manhattan(maze, pos):
+    """Heuristic: khoang cach Manhattan tu pos den goal."""
+    gx, gy = find_pos(maze, 'G')
+    return abs(pos[0] - gx) + abs(pos[1] - gy)
 
 
-def show_path(maze, result):
-    """Hiển thị maze với đường đi đã tìm được."""
-    if result['path'] is None:
-        print("No solution found!")
-        mh.show_maze(maze)
-        return
-
-    temp_maze = np.copy(maze)
-
-    # Đánh dấu các ô đã duyệt (.)
-    for r, c in result['reached']:
-        if temp_maze[r, c] == ' ':
-            temp_maze[r, c] = '.'
-
-    # Đánh dấu đường đi (P)
-    for r, c in result['path']:
-        if temp_maze[r, c] == ' ' or temp_maze[r, c] == '.':
-            temp_maze[r, c] = 'P'
-
-    mh.show_maze(temp_maze)
+heuristic = manhattan          # co gan lai: ts.heuristic = ts.manhattan
 
 
-# --- Thuật toán Best-First Search (BFS, DFS, GBFS, A*) ---
-def best_first_search(maze, strategy='BFS', W=1.0, debug=False, vis=False):
-    start_state = mh.find_pos(maze, 'S')
-    goal_state = mh.find_pos(maze, 'G')
-
-    start_node = Node(start_state)
-
-    if strategy == 'BFS' or strategy == 'DFS':
-        frontier = [start_node]
-        reached = {start_state}
-    else:
-        # GBFS hoặc A*
-        h = heuristic(start_state, goal_state)
-        if strategy == 'GBFS':
-            priority = h
-        else:  # A*
-            priority = start_node.path_cost + W * h
-        frontier = [(priority, 0, start_node)]
-        reached = {start_state}
-
-    reached_set = {start_state}
-    explored_count = 0
-    counter = 1  # Tie-breaker cho heap
-
-    while frontier:
-        if strategy == 'BFS':
-            node = frontier.pop(0)  # FIFO
-        elif strategy == 'DFS':
-            node = frontier.pop()  # LIFO
-        else:
-            _, _, node = heapq.heappop(frontier)  # Min priority
-
-        explored_count += 1
-
-        if node.state == goal_state:
-            if debug: print(f"Goal found! Explored: {explored_count}")
-            return reconstruct_result(node, reached_set, maze)
-
-        for action, next_state in get_neighbors(maze, node.state):
-            child = Node(next_state, node, action, node.path_cost + 1)
-
-            if next_state not in reached_set:
-                reached_set.add(next_state)
-
-                if strategy in ['BFS', 'DFS']:
-                    frontier.append(child)
-                else:
-                    h = heuristic(next_state, goal_state)
-                    if strategy == 'GBFS':
-                        priority = h
-                    else:  # A*
-                        priority = child.path_cost + W * h
-                    heapq.heappush(frontier, (priority, counter, child))
-                    counter += 1
-
-    if debug: print("No solution found.")
-    return reconstruct_result(None, reached_set, maze)
+def min_index(values):
+    """Chi muc cua phan tu nho nhat."""
+    return min(range(len(values)), key=lambda i: values[i])
 
 
-# --- Thuật toán DFS (Depth-First Search) ---
-def DFS(maze, limit=None, frontier_option=1, max_tries=100000, check_cycle=True, debug_reached=False, vis=False):
-    start_state = mh.find_pos(maze, 'S')
-    goal_state = mh.find_pos(maze, 'G')
+# ----------------------------------------------------------------------
+# Ve hinh
+# ----------------------------------------------------------------------
+def show_maze(maze, fontsize=10):
+    """Ve maze (giong maze_helper.show_maze)."""
+    cmap = colors.ListedColormap(['white', 'black', 'blue', 'green', 'red', 'gray', 'orange'])
+    maze = np.copy(maze)
+    start = find_pos(maze, 'S')
+    goal = find_pos(maze, 'G')
+    maze[maze == ' '] = 0
+    maze[maze == 'X'] = 1
+    maze[maze == 'S'] = 2
+    maze[maze == 'G'] = 3
+    maze[maze == 'P'] = 4
+    maze[maze == '.'] = 5
+    maze[maze == 'F'] = 6
+    maze = maze.astype(int)
+    fig, ax = plt.subplots()
+    ax.imshow(maze, cmap=cmap, norm=colors.BoundaryNorm(list(range(cmap.N + 1)), cmap.N))
+    plt.text(start[1], start[0], "S", fontsize=fontsize, color="white",
+             horizontalalignment='center', verticalalignment='center')
+    plt.text(goal[1], goal[0], "G", fontsize=fontsize, color="white",
+             horizontalalignment='center', verticalalignment='center')
+    plt.show()
 
-    start_node = Node(start_state)
 
-    # frontier_option 1: Dùng stack (LIFO), 2: Dùng đệ quy (hoặc mô phỏng)
-    frontier = [start_node]
-    reached = set()
-    explored_count = 0
-    tries = 0
+def show_path(maze, result, fontsize=10):
+    """In thong tin va ve duong di (P) + cac o da duyet (.) tu ket qua search."""
+    if result['path'] is not None:
+        print(f"Path length: {len(result['path']) - 1}")
+    print(f"Reached squares: {len(result['reached'])}")
+    m = np.copy(maze)
+    for pos in result['reached']:
+        if m[pos] == ' ':
+            m[pos] = '.'
+    if result['path'] is not None:
+        for pos in result['path']:
+            if m[pos] in (' ', '.'):
+                m[pos] = 'P'
+    show_maze(m, fontsize)
 
-    while frontier and tries < max_tries:
-        tries += 1
-        node = frontier.pop()
 
-        if node.state == goal_state:
-            if debug_reached: print(f"Goal found! Explored: {explored_count}")
-            return reconstruct_result(node, reached, maze)
+def _snapshot(maze, explored, frontier_set, current):
+    """Mot frame de animation: '.' = da duyet, 'F' = frontier, 'P' = o dang mo rong."""
+    m = np.copy(maze)
+    for pos in explored:
+        if m[pos] == ' ':
+            m[pos] = '.'
+    for pos in frontier_set:
+        if m[pos] in (' ', '.'):
+            m[pos] = 'F'
+    if current is not None and m[current] not in ('S', 'G'):
+        m[current] = 'P'
+    return m
 
-        if node.state not in reached or not check_cycle:
-            reached.add(node.state)
-            explored_count += 1
 
-            if limit is not None and node.depth >= limit:
+def _display_anim(result):
+    """Hien animation neu co maze_anim (dung maze_helper.animate_maze)."""
+    try:
+        from maze_helper import animate_maze
+        import IPython.display as display
+        display.display(animate_maze(result))
+    except Exception:
+        pass
+
+
+def _reconstruct(parent, state):
+    """Lui theo parent de tra ve (path, actions)."""
+    path = [state]
+    actions = []
+    while parent[state] is not None:
+        p, a = parent[state]
+        actions.append(a)
+        path.append(p)
+        state = p
+    path.reverse()
+    actions.reverse()
+    return path, actions
+
+
+def _new_result():
+    return {'path': None, 'actions': None, 'reached': set(), 'maze_anim': None, 'tries': 0}
+
+
+# ----------------------------------------------------------------------
+# Best-first search (BFS / DFS / GBFS / A* / Weighted A*)
+# ----------------------------------------------------------------------
+def best_first_search(maze, strategy="BFS", W=1, debug=False, vis=False, anim=False):
+    """Best-first search tong quat.
+
+    strategy: "BFS" (f=g), "DFS" (f=-g), "GBFS" (f=h), "A*" (f=g+W*h).
+    Tie-break: node moi duoc them gan nhat (de giu huong di).
+    """
+    start = find_pos(maze, 'S')
+    goal = find_pos(maze, 'G')
+    use_h = strategy in ("GBFS", "A*")
+
+    def f_value(g, h):
+        if strategy == "BFS":
+            return g
+        if strategy == "DFS":
+            return -g
+        if strategy == "GBFS":
+            return h
+        if strategy == "A*":
+            return g + W * h
+        raise ValueError(f"Unknown strategy: {strategy}")
+
+    counter = 0
+    gmap = {start: 0}
+    parent = {start: None}
+    reached = {start}
+    explored = set()
+    frontier_set = {start}
+    heap = [(f_value(0, heuristic(maze, start) if use_h else 0), -counter, start)]
+    maze_anim = [] if (anim or vis) else None
+    result = _new_result()
+
+    while heap:
+        f, _, state = heapq.heappop(heap)
+        frontier_set.discard(state)
+        explored.add(state)
+        result['tries'] += 1
+        if maze_anim is not None:
+            maze_anim.append(_snapshot(maze, explored, frontier_set, state))
+        if debug:
+            print(f"Expand {state} f={f} frontier_size={len(heap)}")
+        if state == goal:
+            result['path'], result['actions'] = _reconstruct(parent, state)
+            break
+        g = gmap[state]
+        for a, nxt in _successors(maze, state):
+            if nxt in reached:                      # cycle checking (graph search)
                 continue
+            reached.add(nxt)
+            frontier_set.add(nxt)
+            parent[nxt] = (state, a)
+            gmap[nxt] = g + 1
+            counter += 1
+            hn = heuristic(maze, nxt) if use_h else 0
+            heapq.heappush(heap, (f_value(g + 1, hn), -counter, nxt))
 
-            for action, next_state in get_neighbors(maze, node.state):
-                child = Node(next_state, node, action, node.path_cost + 1)
+    result['reached'] = reached
+    if maze_anim is not None:
+        result['maze_anim'] = maze_anim
+    if vis:
+        _display_anim(result)
+    return result
 
-                # Kiểm tra cycle
-                if check_cycle:
-                    # Kiểm tra xem next_state có nằm trong path hiện tại không
-                    in_path = False
-                    temp = node
-                    while temp:
-                        if temp.state == next_state:
-                            in_path = True
-                            break
-                        temp = temp.parent
-                    if in_path:
+
+# ----------------------------------------------------------------------
+# Depth-first search (stack, LIFO)
+# ----------------------------------------------------------------------
+def DFS(maze, check_cycle=True, limit=None, frontier_option=1,
+        max_tries=100000, debug_reached=False, vis=False, anim=False):
+    """DFS dung stack (LIFO).
+
+    check_cycle:      chan cycle bang reached.
+    limit:            gioi han sau (depth-limited DFS), None = khong gioi han.
+    frontier_option:  1 = chi check cac o da mo rong;
+                      2 = check ca cac o dang nam trong frontier (frontier + explored).
+    max_tries:        so lan mo rong toi da truoc khi bo cuoc (tra ve path=None).
+    debug_reached:    True thi result['reached'] chua cac o da duyet (de ve vung xam).
+    """
+    start = find_pos(maze, 'S')
+    goal = find_pos(maze, 'G')
+    parent = {start: None}
+    seen = {start}
+    explored = set()
+    frontier_set = {start}
+    stack = [(start, 0)]
+    maze_anim = [] if (anim or vis) else None
+    result = _new_result()
+
+    while stack and result['tries'] < max_tries:
+        state, depth = stack.pop()
+        frontier_set.discard(state)
+        explored.add(state)
+        result['tries'] += 1
+        if maze_anim is not None:
+            maze_anim.append(_snapshot(maze, explored, frontier_set, state))
+        if state == goal:
+            result['path'], result['actions'] = _reconstruct(parent, state)
+            break
+        if limit is not None and depth >= limit:
+            continue
+        # LIFO: day vao theo thu tu -> lay ra theo thu tu dao nguoc
+        for a, nxt in _successors(maze, state):
+            if check_cycle:
+                if frontier_option == 2:
+                    if nxt in seen:
                         continue
+                else:
+                    if nxt in explored:
+                        continue
+                seen.add(nxt)
+            if nxt not in parent:
+                parent[nxt] = (state, a)
+            stack.append((nxt, depth + 1))
+            frontier_set.add(nxt)
 
-                frontier.append(child)
+    result['reached'] = explored if debug_reached else set()
+    if maze_anim is not None:
+        result['maze_anim'] = maze_anim
+    if vis:
+        _display_anim(result)
+    return result
 
-    if debug_reached: print(f"No solution found. Tries: {tries}")
-    return reconstruct_result(None, reached, maze)
 
-
-# --- Thuật toán IDS (Iterative Deepening Search) ---
-def IDS(maze, frontier_option=2, max_tries=100000, vis=False):
-    start_state = mh.find_pos(maze, 'S')
-    goal_state = mh.find_pos(maze, 'G')
-
-    # IDS chạy DFS với độ sâu tăng dần
-    for depth in range(max_tries):
-        result = DFS(maze, limit=depth, frontier_option=frontier_option,
-                     max_tries=max_tries, check_cycle=True, debug_reached=False, vis=False)
+# ----------------------------------------------------------------------
+# Iterative deepening search
+# ----------------------------------------------------------------------
+def IDS(maze, frontier_option=2, max_tries=100000, vis=False, anim=False):
+    """IDS: lap lai depth-limited DFS voi limit tang dan 0, 1, 2, ..."""
+    max_limit = maze.shape[0] * maze.shape[1]
+    result = _new_result()
+    for limit in range(0, max_limit + 1):
+        result = DFS(maze, check_cycle=True, limit=limit,
+                     frontier_option=frontier_option, max_tries=max_tries,
+                     anim=anim)
         if result['path'] is not None:
-            print(f"IDS found solution at depth {depth}")
-            return result
+            break
+    result['reached'] = set()          # IDS khong giu reached (giong ban goc)
+    if vis:
+        _display_anim(result)
+    return result
 
-    print("IDS: No solution found.")
-    return reconstruct_result(None, set(), maze)
+
+# khoi dong: thu tu mac dinh (in ra 1 lan khi import, giong notebook goc)
+set_order("NESW")
