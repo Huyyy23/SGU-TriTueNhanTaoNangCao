@@ -73,6 +73,12 @@ def manhattan(maze, pos):
     return abs(pos[0] - gx) + abs(pos[1] - gy)
 
 
+def euclidean(maze, pos):
+    """Heuristic: khoang cach Euclidean tu pos den goal."""
+    gx, gy = find_pos(maze, 'G')
+    return ((pos[0] - gx) ** 2 + (pos[1] - gy) ** 2) ** 0.5
+
+
 heuristic = manhattan          # co gan lai: ts.heuristic = ts.manhattan
 
 
