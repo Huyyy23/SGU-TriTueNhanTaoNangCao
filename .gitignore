@@ -18,4 +18,5 @@ Thumbs.db
 # OpenCode: local skills, subagent và hướng dẫn agent, không commit
 .opencode/skills/
 .opencode/agents/
+.opencode/notes/
 AGENTS.md
