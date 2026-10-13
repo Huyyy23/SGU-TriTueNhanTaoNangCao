@@ -14,3 +14,8 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# OpenCode: local skills, subagent và hướng dẫn agent, không commit
+.opencode/skills/
+.opencode/agents/
+AGENTS.md
