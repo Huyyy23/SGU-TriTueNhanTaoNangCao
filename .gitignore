@@ -20,3 +20,6 @@ Thumbs.db
 .opencode/agents/
 .opencode/notes/
 AGENTS.md
+
+# Graphify output
+graphify-out/
