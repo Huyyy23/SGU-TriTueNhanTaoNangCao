@@ -28,3 +28,7 @@ Thumbs.db
 .opencode/notes/
 AGENTS.md
 docs/agents/
+
+# AlphaZero
+AlphaZero_Gomoku/docs/agents/
+AlphaZero_Gomoku/Agents.md
