@@ -1,0 +1,9 @@
+# Default: plain `torch` from PyPI — CPU-only build, installs on any machine.
+# NVIDIA GPU (optional, ~15x faster self-play): install the CUDA build instead of the line below:
+#   pip install torch==2.14.1+cu126 --index-url https://download.pytorch.org/whl/cu126
+# Verify afterwards: python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+torch
+numpy
+pyyaml
+pytest
+pygame
