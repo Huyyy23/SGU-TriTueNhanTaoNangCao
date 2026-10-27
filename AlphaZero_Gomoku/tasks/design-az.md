@@ -23,7 +23,7 @@
 ### 2.1 Nhận từ `gomoku/`
 
 - `board_to_planes(board, rules, player) -> np.uint8 (4, 11, 11)`, thứ tự plane cố định: 0 quân bên đang đi, 1 quân đối thủ, 2 nước cấm, 3 màu bên đang đi.
-- `rules.legal_moves(board)`, `rules.forbidden_moves(board)`, `rules.is_terminal(board)`, `rules.is_win(board)`; `Board.play` / `Board.undo` / `Board.current_player`.
+- `rules.legal_moves(board)`, `rules.forbidden_moves(board)`, `rules.is_terminal(board)`, `rules.is_win(board)`; `Board.play` / `Board.undo` / `Board.current_player`; `Rules.name` (`"normal"` / `"renju"`) là nguồn duy nhất của nhãn bộ luật, self-play assert nó khớp `cfg["rule_set"]`.
 - `gomoku/` không import torch. `az/` không import `gomoku.rules.*` (chỉ nhận instance `rules`).
 
 ### 2.2 `az/model.py`
@@ -51,7 +51,7 @@ class MCTS:
     def visit_counts(self) -> np.ndarray      # (121,) int
     def select_move(self, temperature: float) -> int
     def root_value(self) -> float
-    def reset(self) -> None                   # dựng cây mới cho nước tiếp theo
+    def reset(self, board) -> None              # dựng cây mới cho nước tiếp theo
 ```
 
 Ngữ nghĩa:
@@ -74,7 +74,7 @@ for _ in range(n_simulations):
 
 ### 2.4 `az/selfplay.py` — driver gom lô
 
-- `run_games(model, rules, cfg, n_games, seed) -> Iterator[GameRecord]` chạy `parallel_games` ván xen kẽ trong **một tiến trình**.
+- `run_games(model, rules, cfg, n_games, seed, buffer) -> Iterator[GameRecord]` chạy `parallel_games` ván xen kẽ trong **một tiến trình**. `buffer` là nơi nhận mẫu; `model` là bất kỳ evaluator có `predict` hoặc `predict_batch`.
 - Mỗi tick: mỗi ván chưa có lá chờ tiến **đúng một** lượt mô phỏng; gom mọi `LeafRequest` đang chờ thành một lô; một lượt `predict`; phân kết quả về từng ván bằng `receive`. Ván đủ `n_simulations` → chọn nước theo τ bậc thang → lưu mẫu `(planes, π, )` → `board.play`. Ván kết thúc → gán `z`, đẩy mẫu vào buffer, ghi JSONL, nạp ván mới vào chỗ trống.
 - Lô thật dao động 1…`parallel_games`, nên phải **log kích thước lô trung bình**, không giả định bằng `parallel_games`.
 - Chế độ tất định (`parallel_games: 1`) phải cho cùng kết quả với seed cố định — đó là mốc so sánh của GĐ5.
@@ -84,7 +84,7 @@ for _ in range(n_simulations):
 - Cấp phát trước `buffer_size` (50 000) slot: `features` uint8 `(N,4,11,11)`, `pi` float16 `(N,121)`, `z` float32 `(N,)`, `rule_set` uint8 `(N,)`. Đầy thì **ghi đè mẫu cũ nhất**; `__len__` trả số mẫu trước tăng cường.
 - `add(features, pi, z, rule_set)`; `sample(batch_size, rule_set, rng)` → mỗi mẫu một phép đối xứng ngẫu nhiên trong 8 phép, áp **đồng thời** lên feature và π; trả tensor torch float32.
 - Trộn hai bộ luật trong một buffer → `raise` (hard rule 7).
-- `save_npz` / `load_npz` ghi `buffer_last.npz` cạnh checkpoint, chỉ trên đĩa local (ADR-0002).
+- `save_npz` / `load_npz` ghi `buffer_last.npz` cạnh checkpoint, chỉ trên đĩa local (ADR-0002). Làm ở GĐ4 cùng `--resume`, vì GĐ3 chưa có checkpoint.
 
 ### 2.6 `az/trainer.py`
 

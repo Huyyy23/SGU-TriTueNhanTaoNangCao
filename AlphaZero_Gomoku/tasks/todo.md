@@ -128,8 +128,8 @@ Quy ước phối hợp:
 **Acceptance criteria:**
 - [ ] 4 plane cố định: `my_stones`, `opp_stones`, `forbidden`, `color_to_move`
 - [ ] Plane `forbidden` bằng 0 khi rule set không cấm nước nào
-- [ ] `symmetry_transform(arrays, k)` trả 8 biến thể; áp dụng 2 lần cùng k cho identity
-- [ ] `transform_policy(pi, k)` ánh xạ chỉ số policy đúng theo phép biến đổi (121 chỉ số)
+- [ ] `symmetry_transform(array, k)` trả 8 biến thể; phép tự nghịch áp 2 lần ra identity, rot90 và rot270 nghịch nhau; một hàm dùng chung cho cả features và policy
+- [ ] Policy one-hot tại `(r,c)` biến đổi ra đúng ô ảnh, khớp với phép biến đổi áp lên plane (cùng `symmetry_transform`)
 - [ ] Không import torch (trả numpy; torch chuyển đổi ở tầng az/)
 
 **Verification:**

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import numpy as np
+
+from gomoku.board import SIZE
+from gomoku.features import board_to_planes
 
 
 @dataclass
@@ -46,7 +49,6 @@ class MCTS:
         dirichlet_alpha: float = 0.15,
         dirichlet_eps: float = 0.25,
         root_noise: bool = False,
-        feature_fn=None,
         rng: np.random.Generator | None = None,
     ) -> None:
         self.rules = rules
@@ -56,12 +58,12 @@ class MCTS:
         self.dirichlet_alpha = dirichlet_alpha
         self.dirichlet_eps = dirichlet_eps
         self.root_noise = root_noise
-        self.feature_fn = feature_fn
         self.rng = rng if rng is not None else np.random.default_rng()
 
         self.board = None
         self.root: Node | None = None
         self.simulations_done: int = 0
+        # Cumulative over the whole instance: one game = one MCTS object, so this is nn_calls per game.
         self.nn_calls: int = 0
 
         self.pending_request: LeafRequest | None = None
@@ -292,10 +294,7 @@ class MCTS:
         self.root.value_sum += v
 
     def _play_move(self, board, move: int) -> None:
-        try:
-            board.play(move // 11, move % 11)
-        except TypeError:
-            board.play(move)
+        board.play(*divmod(move, SIZE))
 
     def _undo_move(self, board) -> None:
         board.undo()
@@ -305,34 +304,10 @@ class MCTS:
             self._undo_move(self.board)
 
     def _get_planes(self, board) -> np.ndarray:
-        if self.feature_fn is not None:
-            curr_player = getattr(board, "current_player", 1)
-            return self.feature_fn(board, self.rules, curr_player)
-        try:
-            from gomoku.features import board_to_planes
-            curr_player = getattr(board, "current_player", 1)
-            return board_to_planes(board, self.rules, curr_player)
-        except (ImportError, ModuleNotFoundError, AttributeError):
-            # ponytail: mock fallback planes, remove when gomoku.features ready
-            if hasattr(board, "get_planes"):
-                return board.get_planes()
-            return np.zeros((4, 11, 11), dtype=np.uint8)
+        return board_to_planes(board, self.rules, board.current_player)
 
     def _get_legal_mask(self, board) -> np.ndarray:
-        mask = np.zeros(121, dtype=bool)
-        if hasattr(self.rules, "legal_moves"):
-            legals = self.rules.legal_moves(board)
-            for m in legals:
-                if isinstance(m, (tuple, list)):
-                    mask[m[0] * 11 + m[1]] = True
-                else:
-                    mask[int(m)] = True
-
-        if hasattr(self.rules, "forbidden_moves"):
-            for m in self.rules.forbidden_moves(board):
-                if isinstance(m, (tuple, list)):
-                    mask[m[0] * 11 + m[1]] = False
-                else:
-                    mask[int(m)] = False
-
+        mask = np.zeros(SIZE * SIZE, dtype=bool)
+        mask[self.rules.legal_moves(board)] = True
+        mask[self.rules.forbidden_moves(board)] = False
         return mask
