@@ -62,6 +62,18 @@ _Avoid_: sequential mode, debug mode
 Số ván tự chơi mà một lần chạy phải hoàn thành, bằng số vòng nhân số ván mỗi vòng. Đọc từ cấu hình, không bao giờ là hằng số trong mã.
 _Avoid_: 1000 ván, số ván cố định
 
+**loss_eval_on_fixed_batch**:
+Mất mát đo trên tập 512 mẫu cố định (seed cố định), không dùng để huấn luyện. Là thước đo duy nhất để kết luận mô hình hội tụ trong báo cáo vì loss trên batch ngẫu nhiên dao động quá mạnh.
+_Avoid_: validation loss, eval loss ngẫu nhiên
+
+**Mã kết thúc (end_reason)**:
+Nguyên nhân kết thúc ván cờ được chuẩn hoá trong log: five_in_row, board_full, forbidden_move, timeout. Dùng để phân loại ván đấu và giải trình nguyên nhân thua cuộc.
+_Avoid_: game result string, termination type
+
+**Lợi thế đi trước**:
+Hiện tượng bên cầm Đen có tỉ lệ thắng áp đảo trong luật Gomoku tiêu chuẩn. Báo cáo bắt buộc bóc tách tỉ lệ thắng khi cầm Đen và khi cầm Trắng riêng biệt.
+_Avoid_: win rate tổng thể không phân loại
+
 **Agent AlphaZero**:
 Người chơi đóng gói cây tìm kiếm cùng mạng đã huấn luyện, chỉ lộ ra một phương thức chọn nước cho bộ chạy ván.
 _Avoid_: AI player, bot, engine
