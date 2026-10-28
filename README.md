@@ -46,4 +46,24 @@ python -m venv .venv
 .venv\Scripts\python -m pytest
 ```
 
-Máy có GPU NVIDIA thì cài thêm bản CUDA theo hướng dẫn trong `AlphaZero_Gomoku/requirements.txt`. Số đo hiệu năng CPU và GPU nằm ở `AlphaZero_Gomoku/docs/benchmarks.md`.
+Máy có GPU NVIDIA thì cài thêm bản CUDA theo hướng dẫn trong `AlphaZero_Gomoku/requirements.txt`. Số đo hiệu năng nằm ở `AlphaZero_Gomoku/docs/benchmarks.md`.
+
+## 🚧 Tiến độ đồ án AlphaZero
+
+Cập nhật 2026-10-28. Test hiện tại: `71 passed, 2 skipped`.
+
+| Nhóm | Xong | Còn lại |
+|---|---|---|
+| Luật + bàn cờ + người chơi (A) | 3/8 | `gomoku/runner.py`, `players/random.py`, `human.py`, `mcts_pure`, UI, luật Renju, train Renju |
+| Tầng AlphaZero (B) | 6/7 | gom lô 16 ván, log từng ván cho self-play, chạy 20 × 50 ván |
+| Đánh giá + hạ tầng (C) | 2/11 | `az/evaluator.py`, `scripts/arena.py`, Colab, shard, `simulate.py`, tài liệu, báo cáo |
+
+Năm giai đoạn của `az/`: GĐ1 mạng 6×64, GĐ2 PUCT, GĐ3 self-play, GĐ4 trainer + `--resume` + `AZPlayer` — xong, có test. GĐ5 (gom lô, log ván, chạy 1000 ván) chưa làm.
+
+Ba chỗ đang chặn nghiệm thu:
+
+1. `gomoku/runner.py` và `players/random.py` chưa có, nên `AZPlayer` mới được kiểm bằng test cục bộ.
+2. `gomoku/rules/renju.py` chưa có, nên `scripts/train.py` dừng khi `rule_set: renju`.
+3. `az/evaluator.py` chưa có, nên cổng arena (thắng `best` ≥ 55%) chưa chạy được.
+
+Cổng GĐ4 (2 vòng × 50 ván × 200 lượt) chưa chạy. Số đo hiện có là 4 vòng × 10 ván × 100 lượt, ghi ở `AlphaZero_Gomoku/docs/benchmarks.md`.
