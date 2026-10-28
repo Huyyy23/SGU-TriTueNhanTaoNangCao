@@ -1,17 +1,20 @@
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from az.game_log import GameLogger, GameRecord
 from az.model import AZNet, save_checkpoint
+from config import load_config
 from gomoku.board import BLACK, SIZE, WHITE, Board
 from gomoku.rules.normal import NormalRules
 from players.az_player import AZPlayer
 
 RUN_SLOW = os.environ.get("RUN_SLOW") == "1"
+GATE_CHECKPOINT = Path("checkpoints/last.pt")
 
 
 def tiny_checkpoint(path) -> str:
@@ -97,3 +100,27 @@ def test_twenty_games_against_random_are_valid_and_logged(tmp_path):
     records = GameLogger.read_records(tmp_path / "games.jsonl")
     assert len(records) == 20
     assert all(record["num_moves"] > 0 for record in records)
+
+
+@pytest.mark.skipif(not RUN_SLOW, reason="GD5 gate check; set RUN_SLOW=1 to run 20 games")
+@pytest.mark.skipif(not GATE_CHECKPOINT.is_file(), reason="needs checkpoints/last.pt from the GD5 run")
+def test_az_beats_random_in_at_least_18_of_20_games():
+    cfg = load_config()
+    rules = NormalRules()
+    az = AZPlayer(str(GATE_CHECKPOINT), rules, cfg={"n_simulations": cfg["n_simulations"]}, seed=0)
+    random_player = RandomOpponent(rules, seed=1)
+
+    wins = 0
+    for game_id in range(20):
+        board = Board()
+        az_is_black = game_id % 2 == 0
+        players = {BLACK: az if az_is_black else random_player, WHITE: random_player if az_is_black else az}
+        while not rules.is_terminal(board):
+            row, col = players[board.current_player].select_move(board)
+            board.play(row, col)
+
+        winner = int(board.grid[board.history[-1]]) if rules.is_win(board) else None
+        wins += winner == (BLACK if az_is_black else WHITE)
+
+    assert wins >= 18, f"AZ won {wins}/20 vs random"
+    print(f"AZ wins: {wins}/20 vs random")

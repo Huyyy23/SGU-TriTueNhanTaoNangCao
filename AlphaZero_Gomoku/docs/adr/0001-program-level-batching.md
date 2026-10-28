@@ -13,3 +13,5 @@ Lý do: cách này cho lô thật mà không phải trả giá IPC và nhân b�
 
 - Kích thước lô dao động từ 1 đến G (ván vừa kết thúc thì ít lá chờ hơn), nên phải log kích thước lô trung bình thay vì giả định nó bằng G.
 - Bộ đếm `nn_calls` là chỉ số kiểm chứng: một ván phải tốn xấp xỉ `n_simulations × số nước`, không phụ thuộc G.
+- Multiprocessing đã được đo ở GĐ5 (`scripts/spike_mp.py`): 4 process × 4 ván nhanh 2,13× so với 1 process × 16 ván, nhưng **không** nối vào `scripts/train.py` — truyền mẫu về tiến trình chính, gộp buffer và seed theo worker tốn hơn 1,2 h tiết kiệm được cho một lần chạy 1000 ván. Mục multiprocessing trong `tasks/todo.md` T11 được thay bằng gom lô cấp chương trình; chia shard song song là T17–T18 của C.
+

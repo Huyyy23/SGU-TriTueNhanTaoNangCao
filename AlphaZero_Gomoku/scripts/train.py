@@ -13,6 +13,8 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+import torch
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -76,9 +78,15 @@ def main(argv: list[str] | None = None) -> int:
         buffer = ReplayBuffer(cfg["buffer_size"])
         trainer = Trainer(AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"]), cfg, buffer=buffer, seed=args.seed)
 
+    device_name = torch.cuda.get_device_name(0) if trainer.device.type == "cuda" else "cpu"
+    print(f"device: {trainer.device.type} ({device_name})")
+
     for iteration in range(trainer.n_iter, cfg["n_iter"]):
         selfplay_started = time.perf_counter()
-        records = list(run_games(trainer.model, rules, cfg, cfg["games_per_iter"], seed=args.seed + iteration, buffer=buffer))
+        records = list(run_games(
+            trainer.model, rules, cfg, cfg["games_per_iter"],
+            seed=args.seed + iteration, buffer=buffer, model_iter=iteration,
+        ))
         selfplay_sec = time.perf_counter() - selfplay_started
 
         # One JSONL line per game, so every game of the run leaves a trace (T19 schema).
@@ -99,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         games = len(records)
         row = {
             "iteration": trainer.n_iter,
+            "device": device_name,
             "selfplay_sec": round(selfplay_sec, 2),
             "train_sec": round(train_sec, 2),
             "games": games,

@@ -39,6 +39,8 @@ class GameRecord:
     duration_sec: float
     nn_calls: int = 0
     mean_batch: float = 1.0
+    model_iter: int = 0
+    config: dict[str, Any] = field(default_factory=dict)
     moves: list[MoveRecord] | None = None
 
     def validate(self) -> None:

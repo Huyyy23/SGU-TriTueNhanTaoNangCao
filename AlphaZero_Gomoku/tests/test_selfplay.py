@@ -83,3 +83,31 @@ def test_twenty_moves_under_five_seconds():
         f"{seconds_per_20_moves:.2f}s per 20 moves "
         f"({record.duration_sec:.2f}s for {record.num_moves} moves, {cfg['n_simulations']} sims)"
     )
+
+
+def test_parallel_games_batches_leaves_and_keeps_search_budget_per_move():
+    single = list(run_games(UniformEvaluator(), NormalRules(), small_cfg(parallel_games=1), 3, seed=3))
+    batched = list(run_games(UniformEvaluator(), NormalRules(), small_cfg(parallel_games=4), 3, seed=3))
+
+    assert all(record.mean_batch == 1.0 for record in single)
+    assert all(record.mean_batch > 1.0 for record in batched)
+
+    ratio_single = sum(r.nn_calls / r.num_moves for r in single) / len(single)
+    ratio_batched = sum(r.nn_calls / r.num_moves for r in batched) / len(batched)
+    assert 6.5 <= ratio_batched <= 8.0
+    assert abs(ratio_batched - ratio_single) < 0.1
+
+
+def test_parallel_games_plays_exactly_n_games():
+    cfg = small_cfg(parallel_games=3, n_simulations=3)
+    records = list(run_games(UniformEvaluator(), NormalRules(), cfg, 7, seed=5))
+    # Records finish out of order; ids are assigned when a game starts.
+    assert sorted(r.game_id for r in records) == list(range(7))
+
+
+def test_records_carry_model_iter_and_config():
+    cfg = small_cfg(n_simulations=3)
+    record = list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=1, model_iter=4))[0]
+    assert record.model_iter == 4
+    assert record.config["n_simulations"] == 3
+
