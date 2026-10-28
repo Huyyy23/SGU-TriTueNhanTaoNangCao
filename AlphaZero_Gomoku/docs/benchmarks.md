@@ -26,9 +26,9 @@ Một ván tự chơi trọn vẹn, `n_simulations: 200`, evaluator giả (khôn
 
 `nn_calls`/nước ≈ 200 đúng như kỳ vọng (chênh lệch là các lượt mô phỏng kết thúc ở node thắng, không gọi mạng). Entropy của π ở nước đầu là 4.55, tức π còn mềm, không bị one-hot hoá sớm. Đây là mốc so sánh cho GĐ5: cùng một ván ở chế độ gom lô phải có `nn_calls` tương đương và thời gian thấp hơn.
 
-## GĐ4 — trainer end-to-end (CPU, batch = 1)
+## GĐ4 — trainer end-to-end (batch = 1)
 
-Máy đo không có CUDA dùng được (`torch.cuda.is_available()` = False), mạng 6 block × 64 filter, `configs/normal.yaml` với `--games 10 --simulations 100`, `train_steps_per_iter: 200`, `batch_size: 128`:
+Mạng 6 block × 64 filter, `configs/normal.yaml` với `--games 10 --simulations 100`, `train_steps_per_iter: 200`, `batch_size: 128`:
 
 | Vòng | Giây tự chơi | Giây train | Mẫu trong buffer | `loss` | `loss_eval_on_fixed_batch` |
 |---|---|---|---|---|---|
