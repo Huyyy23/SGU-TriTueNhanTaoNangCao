@@ -26,8 +26,20 @@ Một ván tự chơi trọn vẹn, `n_simulations: 200`, evaluator giả (khôn
 
 `nn_calls`/nước ≈ 200 đúng như kỳ vọng (chênh lệch là các lượt mô phỏng kết thúc ở node thắng, không gọi mạng). Entropy của π ở nước đầu là 4.55, tức π còn mềm, không bị one-hot hoá sớm. Đây là mốc so sánh cho GĐ5: cùng một ván ở chế độ gom lô phải có `nn_calls` tương đương và thời gian thấp hơn.
 
-## Máy đã cài bản CUDA
+## GĐ4 — trainer end-to-end (CPU, batch = 1)
 
+Máy đo không có CUDA dùng được (`torch.cuda.is_available()` = False), mạng 6 block × 64 filter, `configs/normal.yaml` với `--games 10 --simulations 100`, `train_steps_per_iter: 200`, `batch_size: 128`:
+
+| Vòng | Giây tự chơi | Giây train | Mẫu trong buffer | `loss` | `loss_eval_on_fixed_batch` |
+|---|---|---|---|---|---|
+| 1 | 200.5 | 56.6 | 416 | 4.808 | 4.722 |
+| 2 | 176.0 | 35.3 | 878 | 4.726 | 4.759 |
+| 3 | 212.7 | 44.2 | 1263 | 4.563 | 4.752 |
+| 4 | 273.7 | 34.9 | 1750 | 4.598 | 4.754 |
+
+Đọc bảng này: 200 bước tối ưu mỗi vòng là quá ít để `loss_eval_on_fixed_batch` giảm rõ — nó đi ngang trong khoảng ±0,04 (0,8%). π mục tiêu ở 100 lượt mô phỏng vẫn gần đều (entropy trung bình 3,75 trên tập eval), nên loss còn cách sàn lý thuyết ~1 nat; muốn thấy đường cong đi xuống phải chạy `n_simulations: 200` với đủ `games_per_iter: 50`. `nn_calls`/ván ≈ 4081–4787 cho ván 39–49 nước, tức ≈ 98–105 lượt suy luận mỗi nước ở 100 lượt mô phỏng, khớp kỳ vọng.
+
+## Máy đã cài bản CUDA
 Máy đo bảng trên đang chạy `torch 2.14.1+cu126`. `requirements.txt` cố ý để `torch` trơn (bản CPU) cho teammate không có GPU, nên **đừng chạy `pip install -r requirements.txt` trên máy này** — pip sẽ hạ cấp về bản CPU và mất CUDA mà không báo lỗi. Kiểm tra trước khi chạy thí nghiệm dài:
 
 ```

@@ -48,6 +48,22 @@ _Avoid_: góc nhìn Đen, góc nhìn cố định
 Kho mẫu giới hạn dung lượng, dùng chung cho các vòng huấn luyện, tách riêng theo bộ luật.
 _Avoid_: replay memory, dataset
 
+**Vòng**:
+Một chu kỳ huấn luyện: tự chơi xong một lượt ván, thêm mẫu vào Buffer, chạy một số bước tối ưu, rồi lưu Checkpoint. Ngân sách của một lần chạy là số vòng.
+_Avoid_: epoch, chu kỳ train
+
+**Checkpoint**:
+Bản lưu để chạy tiếp: trọng số mô hình, trạng thái bộ tối ưu, Số bước tối ưu đã chạy, số vòng đã xong và cấu hình. Buffer đi kèm thành một tệp riêng.
+_Avoid_: model file, snapshot, trọng số
+
+**Nối tiếp**:
+Chạy tiếp một lần huấn luyện đã dừng, từ Checkpoint và Buffer đã lưu: không chạy lại các vòng đã xong và không đặt lại lịch tốc độ học.
+_Avoid_: restart, khôi phục, load model
+
+**Số bước tối ưu**:
+Số lần cập nhật trọng số đã thực hiện, cộng dồn qua các vòng và qua cả những lần nối tiếp. Là biến độc lập của lịch tốc độ học.
+_Avoid_: step, số batch
+
 ### Kiểm chứng
 
 **Evaluator giả**:

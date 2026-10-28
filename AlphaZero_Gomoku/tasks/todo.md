@@ -302,6 +302,8 @@ Quy ước phối hợp:
 **Files likely touched:** `az/trainer.py`, `scripts/train.py`, `tests/test_trainer.py`
 **Estimated scope:** M (3-5 files)
 
+> GĐ4 (B): `scripts/train.py` bản tối thiểu đã có với `--config`, `--iterations`, `--resume`, `--out-dir`, `--log-dir`, `--seed`, `--games`, `--simulations`. C tiếp quản file này ở T14 để thêm `--device`, `--workers`, `--time-budget-hours`, `--ckpt-every`.
+
 ---
 
 ## Task 13: `az/evaluator.py` + `scripts/arena.py` + cổng promote

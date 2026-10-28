@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -25,6 +27,9 @@ class ReplayBuffer:
         self._size = 0
         self._cursor = 0
         self._label: int | None = None
+        # Fixed eval batch (features, pi, z) persisted next to the buffer so the metric survives resume.
+        self.eval_batch: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
+        self.eval_indices: np.ndarray | None = None
 
     def __len__(self) -> int:
         """Number of stored samples, before augmentation."""
@@ -58,8 +63,14 @@ class ReplayBuffer:
         batch_size: int,
         rule_set: str,
         rng: np.random.Generator | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Draw a batch with one random symmetry per sample, applied to features and pi together."""
+        return_indices: bool = False,
+        exclude_indices=None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor, np.ndarray]:
+        """Draw a batch with one random symmetry per sample, applied to features and pi together.
+
+        The source indices are returned as a fourth element when `return_indices` is set.
+        `exclude_indices` keeps the fixed eval samples out of training draws.
+        """
         if self._size == 0:
             raise ValueError("Cannot sample from an empty buffer.")
         if rule_set not in RULE_SET_IDS:
@@ -69,6 +80,12 @@ class ReplayBuffer:
 
         rng = rng if rng is not None else np.random.default_rng()
         indices = rng.integers(0, self._size, size=batch_size)
+        if exclude_indices is not None:
+            blocked = {int(i) for i in np.asarray(exclude_indices).reshape(-1) if int(i) < self._size}
+            if len(blocked) < self._size:
+                for i in range(batch_size):
+                    while int(indices[i]) in blocked:
+                        indices[i] = rng.integers(0, self._size)
         symmetries = rng.integers(0, N_SYMMETRIES, size=batch_size)
 
         features = np.empty((batch_size, N_PLANES, SIZE, SIZE), dtype=np.float32)
@@ -77,8 +94,43 @@ class ReplayBuffer:
             features[i] = symmetry_transform(self.features[index], k)
             pi[i] = symmetry_transform(self.pi[index].astype(np.float32), k)
 
-        return (
+        batch = (
             torch.from_numpy(features),
             torch.from_numpy(pi),
             torch.from_numpy(self.z[indices]),
         )
+        return (*batch, indices) if return_indices else batch
+
+    def save_npz(self, path: str | Path, extra: dict | None = None) -> None:
+        """Write the stored samples (and any extra arrays) to `path`. Local disk only (ADR-0002)."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        arrays = {
+            "features": self.features[: self._size],
+            "pi": self.pi[: self._size],
+            "z": self.z[: self._size],
+            "rule_set": self.rule_set[: self._size],
+            "capacity": np.array(self.capacity),
+        }
+        arrays.update(extra or {})
+        np.savez(path, **arrays)
+
+    @classmethod
+    def load_npz(cls, path: str | Path) -> ReplayBuffer:
+        """Read a buffer written by `save_npz`, including the fixed eval batch when present."""
+        with np.load(path) as data:
+            buffer = cls(capacity=int(data["capacity"]))
+            n = int(data["z"].shape[0])
+            buffer.features[:n] = data["features"]
+            buffer.pi[:n] = data["pi"]
+            buffer.z[:n] = data["z"]
+            buffer.rule_set[:n] = data["rule_set"]
+            buffer._size = n
+            buffer._cursor = n % buffer.capacity
+            if n:
+                buffer._label = int(data["rule_set"][0])
+            if "eval_features" in data.files:
+                buffer.eval_batch = (data["eval_features"], data["eval_pi"], data["eval_z"])
+            if "eval_indices" in data.files:
+                buffer.eval_indices = data["eval_indices"]
+        return buffer
