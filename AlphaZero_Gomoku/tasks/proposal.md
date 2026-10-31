@@ -8,9 +8,9 @@
 
 ## 1. Tóm tắt
 
-Dự án xây dựng một bản game Gomoku trên bàn 11x11 chơi được qua giao diện đồ họa, kèm một agent tự quyết định nước đi bằng self-play. Agent dùng mạng ResNet nhỏ làm chính sách và đánh giá vị trí, tìm kiếm cây bằng PUCT với đánh giá theo lô, tự chơi 1000 ván rồi học từ chính dữ liệu đó. Hệ thống hỗ trợ hai bộ luật: Normal (5 quân liền nhau thắng) và Renju (đen bị hạn chế 3-3, 4-4, quá 5 quân).
+Dự án xây dựng một bản game Gomoku trên bàn 11x11 chơi được qua giao diện đồ họa, kèm một bộ tác tử nhiều cấp độ để so sánh công bằng. Ở cấp thấp nhất là tác tử ngẫu nhiên, tác tử luật/heuristic, Minimax có cắt tỉa Alpha-Beta và MCTS thuần. Ở cấp cao nhất là agent tự quyết định nước đi bằng self-play: mạng ResNet nhỏ làm chính sách và đánh giá vị trí, tìm kiếm cây bằng PUCT với đánh giá theo lô, tự chơi 1000 ván rồi học từ chính dữ liệu đó. Hệ thống hỗ trợ hai bộ luật: Normal (5 quân liền nhau thắng) và Renju (đen bị hạn chế 3-3, 4-4, quá 5 quân).
 
-Agent không dùng bảng tra cứu nước đi và không hardcode chiến thuật. Mọi quyết định đều đến từ mô hình đã huấn luyện kết hợp tìm kiếm cây.
+Agent `az_v0` không dùng bảng tra cứu nước đi và không hardcode chiến thuật: mọi quyết định của nó đến từ mô hình đã huấn luyện kết hợp tìm kiếm cây. Tác tử heuristic là một tác tử riêng ở cấp 2, không phải thành phần của `az_v0`. Biến thể `az_v1` dùng thêm tri thức chiến thuật và được ghi rõ là biến thể thực nghiệm trong báo cáo.
 
 ## 2. Bối cảnh và động lực
 
@@ -27,15 +27,28 @@ Dự án gồm hai phần: sản phẩm chơi được với agent đủ mạnh,
 | # | Mục tiêu | Tiêu chí nghiệm thu |
 |---|---|---|
 | M1 | Game Gomoku 11x11 chơi được | Người chơi đấu với máy hoặc hai máy đấu nhau qua giao diện đồ họa; hiển thị nước cuối, ván thắng, hòa |
-| M2 | Agent tự ra quyết định | Không bảng tra cứu nước đi, không heuristic hardcode; mọi nước đi đến từ mô hình + tìm kiếm cây |
+| M2 | `az_v0` tự ra quyết định | Không bảng tra cứu nước đi, không heuristic hardcode: mọi nước đi của `az_v0` đến từ mô hình + tìm kiếm cây |
 | M3 | Hai bộ luật Normal và Renju | Một kiến trúc mạng, hai bộ luật, agent chơi được cả hai |
-| M4 | Đo lường được | 1000 ván đánh giá có log đầy đủ, tổng hợp được theo lượt đi trước và nguyên nhân kết thúc ván; ngân sách ván tăng được bằng cấu hình mà không phải sửa mã |
+| M4 | Đo lường được | Round-robin có log đầy đủ, chia đều màu, score kèm khoảng tin cậy Wilson; ngân sách ván tăng được bằng cấu hình mà không phải sửa mã |
+| M5 | Đủ bốn tác tử cổ điển cấp 1–4 | Random, heuristic, Alpha-Beta, MCTS-rollout; tất cả đi qua đúng một interface luật |
+| M6 | Demo chọn được cấp độ | UI chọn tác tử theo tên, chơi người–máy và máy–máy |
+| M7 | Câu hỏi nghiên cứu trả lời được bằng số | So sánh `az_v0` với `az_v1` ở cùng 200 lượt mô phỏng, cộng hai ablation, có khoảng tin cậy |
 
 ### 3.2 Câu hỏi nghiên cứu
 
-> **Với ngân sách 1000 ván tự chơi, agent Gomoku 11x11 đạt được trình độ nào, và win rate tăng thế nào theo từng 100 ván?**
+**Câu hỏi chính:**
 
-Câu hỏi này gắn trực tiếp với mục tiêu sản phẩm và có tiêu chí đo rõ ràng. Ba hướng mở rộng sau khi đạt mục tiêu: so sánh một mô hình dùng chung cho Normal và Renju với hai mô hình riêng; đo mức tăng tốc của self-play khi gom lá từ nhiều ván song song thành một lô suy luận, so với gọi suy luận lẻ từng lá; và mở rộng ngân sách tự chơi lên 1200 hay 1500 ván để quan sát đường cong win rate tiếp tục đi thế nào.
+> **Trong cùng ngân sách 200 lượt mô phỏng mỗi nước, việc bổ sung tri thức chiến thuật Gomoku (bộ nhận diện mẫu, tactical override, threat-space search) có làm tăng score của AlphaZero so với chính nó khi không có các thành phần đó hay không?**
+
+Ba điều kiện để câu hỏi này trả lời được: `az_v1` dùng đúng trọng số của `az_v0`; hai bên chạy cùng số lượt mô phỏng; mỗi mốc cải tiến bật thêm đúng một thành phần. Chi tiết ở `tasks/Lo_trinh_cai_tien_AlphaZero_Gomoku.md`.
+
+**Câu hỏi phụ (trả lời bằng số liệu đã có sẵn):**
+
+> **Với ngân sách 1000 ván tự chơi, `az_v0` đạt trình độ nào so với bốn tác tử cổ điển, và loss trên tập cố định biến đổi ra sao theo từng vòng?**
+
+Số liệu cho câu hỏi phụ đã tồn tại trong `logs/train_20261028-063106.jsonl`; phần còn thiếu là score của `az_v0` trước các tác tử cổ điển, do round-robin cung cấp.
+
+Ba hướng mở rộng sau khi đạt mục tiêu: so sánh một mô hình dùng chung cho Normal và Renju với hai mô hình riêng; mở rộng ngân sách tự chơi lên 1200 hay 1500 ván; và chạy lại `az_v1` với self-play có hướng dẫn heuristic.
 
 ## 4. Phạm vi
 
@@ -43,13 +56,19 @@ Câu hỏi này gắn trực tiếp với mục tiêu sản phẩm và có tiêu
 
 - Bàn 11x11, hai bộ luật Normal và Renju.
 - Lõi game tách riêng khỏi tầng AI, mọi thành phần đi qua một giao diện luật duy nhất.
-- Agent AlphaZero: mạng ResNet, tìm kiếm PUCT, tự chơi, huấn luyện.
-- Giao diện đồ họa cho người chơi.
-- Bộ công cụ đánh giá và nhật kí thí nghiệm.
+- API game thống nhất bảy phương thức: `reset`, `legal_actions`, `step`, `is_terminal`, `result`, `render`, `clone`.
+- Bốn tác tử cổ điển cấp 1–4: random, heuristic, Alpha-Beta, MCTS-rollout.
+- Agent AlphaZero: mạng ResNet, tìm kiếm PUCT, tự chơi, huấn luyện (`az_v0`); fine-tune cho Renju (`az_renju`).
+- Biến thể `az_v1`: `az_v0` cộng tactical override và threat-space search, **dùng chung trọng số**.
+- Giao diện đồ họa cho người chơi, chọn được tác tử theo cấp.
+- Round-robin giữa các tác tử, hai ablation bắt buộc, nhật kí thí nghiệm và báo cáo.
 
 **Ngoài phạm vi**
 
 - Bản 9x9, bản 13x13 hoặc bàn không vuông.
+- Tác tử cấp 5 (học có giám sát từ chuyên gia): cấp 6 đã thoả yêu cầu "cấp 5 hoặc 6".
+- PPO, A2C, DQN, prioritized replay, curriculum learning.
+- Hạ tầng chạy self-play phân tán: Colab, shard, gộp shard, đồng bộ Drive. Ngân sách hiện tại chạy xong trong ~1 giờ trên một GPU nên không cần.
 - Xử lý ảnh, nhận dạng nét viết.
 - Bản phân phối cho người dùng cuối, đăng ký người chơi, cơ sở dữ liệu người chơi.
 - Huấn luyện mô hình ngôn ngữ hay đa phương tiện.
@@ -59,6 +78,8 @@ Câu hỏi này gắn trực tiếp với mục tiêu sản phẩm và có tiêu
 ### 5.1 Biểu diễn trạng thái
 
 Mỗi vị trí là tensor 4 kênh kích thước 11x11: quân của bên đang đi, quân đối phương, mask nước bị cấm theo luật, và màu quân của bên đang đi. Số kênh cố định ở cả hai bộ luật nên một kiến trúc mạng dùng chung, không cần sửa lại mô hình khi đổi luật.
+
+Mô hình Renju (`az_renju`) được **fine-tune từ checkpoint của Normal**, không train từ đầu: `AGENTS.md` rule 7 cho phép đường này, và fine-tune giữ được tri thức hình học bàn cờ mà chỉ cần ~1,5 giờ GPU. Buffer vẫn tách riêng theo bộ luật.
 
 ### 5.2 Mô hình
 
@@ -94,7 +115,7 @@ Ngân sách mặc định: 20 vòng, mỗi vòng 50 ván, tổng 1000 ván cho m
 | Huấn luyện | dung lượng buffer (trước tăng cường) | 50000 |
 | Ngân sách | số vòng × số ván mỗi vòng | 20 × 50 = 1000 ván mỗi bộ luật |
 | Đánh giá | ngưỡng thay thế mô hình tốt nhất | tỉ lệ thắng ≥ 55% |
-| Đánh giá | số ván đánh giá | 1000, xen kẽ lượt đầu |
+| Đánh giá | số ván mỗi cặp trong round-robin | 100, xen kẽ lượt đầu |
 
 ### 5.6 Nhật kí và đánh giá
 
@@ -102,19 +123,24 @@ Mọi ván đều ghi vào tệp JSONL, mỗi ván một dòng, gồm: mã ván,
 
 Bộ đánh giá chạy 1000 ván giữa agent và đối thủ (ngẫu nhiên, MCTS thuần, hoặc mô hình cũ), xen kẽ lượt đầu: ván chẵn bên A đi trước, ván lẻ bên B đi trước, cho đúng 500 ván mỗi bên. Tổng hợp lưu thành summary.json: tỉ lệ thắng khi đi trước, tỉ lệ thắng khi đi sau, tổng thắng/hòa/thua, phân bố nguyên nhân kết thúc ván. Số ván đánh giá là tham số cấu hình, mặc định 1000.
 
+Với đồ án cuối kỳ, phần so sánh nhiều tác tử dùng `scripts/tournament.py` (T31) chạy round-robin một lần cho cả ma trận, thay vì gọi script đấu từng cặp nhiều lần; cách chia đều lượt đi và định dạng log giữ nguyên.
+
 ## 6. Thiết kế thí nghiệm
 
 | Nhóm thí nghiệm | Nội dung | Số ván | Đầu ra |
 |---|---|---|---|
-| E1 | Agent đấu ngẫu nhiên | 100 | win rate, kiểm tra sàn chất lượng |
-| E2 | Agent đấu MCTS thuần, cùng số lượt mô phỏng 200 mỗi nước để so sánh công bằng | 200 | so sánh với tìm kiếm không có mạng |
-| E3 | Sau mỗi 100 ván tự chơi, mô hình mới đấu mô hình trước đó, xen kẽ lượt đầu | 100 ván cho mỗi mốc, tổng 1000 | đường cong win rate theo từng 100 ván, tách theo đi trước/đi sau |
-| E4 | Phân tích nguyên nhân thua | theo E3 | phân bố nguyên nhân kết thúc ván |
-| E5 | Normal so với Renju | 1000 mỗi bộ | tác động của luật hạn chế lên trình độ |
+| E1 | Round-robin 6 tác tử Normal (`random`, `heuristic`, `alphabeta`, `mcts_pure`, `az_v0`, `az_v1`), ngân sách cố định 200 sims / depth 4 | 1.500 (100/cặp) | ma trận score + Wilson CI, tách theo màu |
+| E2 | Chế độ ngân sách thời gian 1 s/nước cho `az_v0`, `az_v1`, `alphabeta` | 300 | score trong ngân sách thời gian thật |
+| E3 | Đường cong học của `az_v0` qua 20 vòng (lấy từ log đã có) | 1.000 (đã chạy) | `loss_eval_on_fixed_batch` theo vòng; đối chiếu score cuối |
+| E4 | Thí nghiệm chính của câu hỏi nghiên cứu: `az_v0` vs `az_v1` (cùng trọng số, cùng sims) | 100 mỗi mốc | score + khoảng tin cậy, số lần tactical override |
+| E5 | Ablation: Alpha-Beta bật/tắt cắt tỉa; quét sims `mcts_pure` 50/200/800 | theo cấu hình | bảng node/thời gian/score |
+| E6 | Renju: round-robin `random`, `heuristic`, `alphabeta`, `az_renju` | 600 (100/cặp) | score, phân bố `forbidden_move` |
 
-Số ván của mỗi nhóm thí nghiệm là tham số cấu hình, nên có thể tăng gấp đôi để giảm sai số thống kê mà không sửa mã.
+E4 và E5 là hai phần bắt buộc của đề bài: ít nhất hai ablation/độ nhạy có ý nghĩa. E6 là bằng chứng tính tổng quát (điểm cộng), không phải nơi trả lời câu hỏi nghiên cứu.
 
-Chỉ số theo dõi: tỉ lệ thắng, tỉ lệ thắng theo lượt đi trước, tỉ lệ thắng theo màu quân, phân bố nguyên nhân kết thúc ván, giá trị mất mát trong huấn luyện, số lượt gọi mạng mỗi ván.
+Số ván của mỗi nhóm là tham số cấu hình, nên có thể tăng gấp đôi để giảm sai số thống kê mà không sửa mã.
+
+Chỉ số theo dõi: score = (thắng + 0,5 × hoà)/tổng, khoảng tin cậy Wilson, score tách theo màu quân, phân bố `end_reason`, thời gian trung bình/nước, độ trễ p95, số node và số lượt gọi mạng mỗi ván, `loss_eval_on_fixed_batch` trong huấn luyện.
 
 Về lợi thế lượt đầu: trong Gomoku, người đi trước thường thắng nhiều hơn. Báo cáo cần nêu điều này trước khi trình bày số liệu, để tỉ lệ thắng cao khi đi trước không bị hiểu nhầm là agent mạnh hơn đối thủ.
 
@@ -122,66 +148,60 @@ Về lợi thế lượt đầu: trong Gomoku, người đi trước thường t
 
 ### 7.1 Các giai đoạn
 
-| Giai đoạn | Nội dung | Phụ trách |
-|---|---|---|
-| 0 | Khung dự án, dependency, cấu hình, kiểm thử tự động | C |
-| 1 | Lõi game: bàn cờ, luật Normal, đặc trưng, người chơi, chạy ván | A |
-| 2 | MCTS thuần làm đối thủ tham chiếu | A |
-| 3 | AlphaZero: mạng, tìm kiếm, buffer, tự chơi, huấn luyện | B |
-| 4 | Bộ đánh giá và cổng nâng cấp mô hình | C |
-| 5 | Hạ tầng chạy dài, resume, chạy song song | C |
-| 6 | Nhật kí thí nghiệm | B |
-| 7 | Huấn luyện 11x11 đầy đủ 1000 ván | B |
-| 8 | Đánh giá 1000 ván và tài liệu nguồn | C (A, B cấp dòng nguồn module mình) |
-| 9 | Giao diện đồ họa | A |
-| 10 | Luật Renju và tích hợp | A dẫn dắt; B sửa mask, C đổi cấu hình |
-| 11 | Báo cáo tổng kết: phương pháp, kết quả thực nghiệm, phân tích nguyên nhân thua | C |
+Ba tuần, ba người. Mỗi tuần có một cổng chặn: không qua cổng thì cắt phạm vi, không dời hạn.
 
-Các giai đoạn được gán mốc thời gian sau khi chốt hạn nộp với giảng viên.
+| Tuần | Nội dung | Task | Cổng cuối tuần |
+|---|---|---|---|
+| 1 | Tác tử cấp 1–4, bộ nhận diện mẫu, API game, arena | T27, T6, T7, T28, T33, T36, T13 | Bốn tác tử cổ điển chơi được cả Normal và Renju; `heuristic` thắng `random` ≥ 90%; arena in được score của `az_v0` |
+| 2 | Tactical override, threat-space, Renju, UI, thống kê giải đấu | T29, T30, T24, T25, T23, T31, T32 | `az_v1` chạy được với cùng trọng số `az_v0`; luật Renju qua test 3-3/4-4/overline; `az_renju` fine-tune xong; round-robin chạy được |
+| 3 | Chạy giải đấu, ablation, đóng gói | T35, T22, T26, T34 | 2.400 ván xong và số liệu đóng băng; báo cáo, slide, poster, ZIP đủ bộ |
 
 ### 7.2 Phân chia công việc
 
 Ba người, mỗi người một nhánh code, sở hữu file của nhánh mình: **A = Khang, B = Huy, C = Hường.**
+Bảng task đầy đủ nằm ở `tasks/todo.md`.
 
-**A (Khang) — Lõi game, luật, người chơi, giao diện.** 8 task (T3–T7, T23–T25), cộng phần dòng nguồn cho module của mình trong giai đoạn 8.
+**A (Khang) — Lõi game, luật, tác tử cổ điển, giao diện.** 11 task (T3–T7, T23, T24, T27, T28, T33, T36); T3–T5 đã xong, còn 8 task, ước ~9 ngày công.
 
-- **Mục tiêu:** bàn cờ và luật chơi đúng, người chơi cắm được vào bộ chạy ván, game chơi được bằng chuột.
-- **Task và file sở hữu:** T3 `gomoku/board.py`; T4 `gomoku/rules/base.py` + `normal.py`; T5 `gomoku/features.py`; T6 `players/base.py|random.py|human.py` + `gomoku/runner.py` + `scripts/play.py`; T7 `players/mcts_pure.py`; T23 `ui/pygame_app.py`; T24 `gomoku/rules/renju.py`; T25 phần luật và `gomoku/features.py`.
-- **Sản phẩm bàn giao:** `pytest` pass toàn bộ test luật, gồm 3-3, 4-4, quá 5 quân và ngoại lệ đúng 5 quân; `python scripts/play.py` chơi hết một ván với người chơi ngẫu nhiên; MCTS thuần thắng người chơi ngẫu nhiên trên 60%; bấm chuột đánh được và ván kết thúc hiện kết quả.
-- **Bàn giao cho:** B nhận giao diện luật và đặc trưng ở T4–T5; C nhận bộ chạy ván và các người chơi để dựng bộ đánh giá.
-- **Không đụng:** `az/`, `scripts/train.py`, `scripts/simulate.py`, `configs/`.
+- **Mục tiêu:** bàn cờ và luật chơi đúng, bốn tác tử cổ điển cắm được vào bộ đánh giá, game chơi được bằng chuột.
+- **Task và file sở hữu:** T3 `gomoku/board.py`; T4 `gomoku/rules/base.py` + `normal.py`; T5 `gomoku/features.py`; T6 `players/base.py|random.py|human.py` + `gomoku/runner.py` + `scripts/play.py`; T7 `players/mcts_pure.py`; T27 `gomoku/patterns.py`; T28 `players/heuristic.py`; T33 `players/alphabeta.py`; T36 `gomoku/game.py`; T23 `ui/pygame_app.py`; T24 `gomoku/rules/renju.py`.
+- **Sản phẩm bàn giao:** `pytest` pass toàn bộ test luật, gồm 3-3, 4-4, quá 5 quân và ngoại lệ đúng 5 quân; `gomoku/game.py` có đủ bảy phương thức theo đề; `heuristic` thắng `random` ≥ 90%; `mcts_pure` thắng `random` > 60%; Alpha-Beta có cờ bật/tắt cắt tỉa cho cùng nước đi; bấm chuột đánh được và ván kết thúc hiện kết quả.
+- **Bàn giao cho:** B nhận giao diện luật, đặc trưng và `gomoku/patterns.py`; C nhận các tác tử để dựng round-robin.
+- **Không đụng:** `az/`, `scripts/train.py`, `scripts/tournament.py`, `configs/`.
 
-**B (Huy) — Tầng AlphaZero.** 7 task (T8–T12, T19, T20), cộng phần dòng nguồn cho module của mình trong giai đoạn 8.
+**B (Huy) — Tầng AlphaZero và các cải tiến.** 11 task (T8–T12, T19, T20, T25, T29, T30, T35); T8–T12, T19, T20 đã xong, còn 4 task, ước ~7 ngày công cộng ~6 giờ máy.
 
-- **Mục tiêu:** agent tự học từ dữ liệu tự chơi, không heuristic hardcode.
-- **Task và file sở hữu:** T8 `az/model.py`; T9 `az/mcts.py`; T10 `az/replay_buffer.py`; T11 `az/selfplay.py`; T12 `az/trainer.py`; T19 `az/game_log.py`; T20 chạy train theo cấu hình (`checkpoints/`, `logs/`); T25 sửa `az/mcts.py` + `az/selfplay.py` theo mask nước cấm.
-- **Sản phẩm bàn giao:** loss giảm qua 2 vòng chạy thử; 20 vòng × 50 ván chạy xong, có checkpoint và log JSONL đầy đủ; agent thắng người chơi ngẫu nhiên; test dấu giá trị trong truyền ngược pass.
-- **Bàn giao cho:** C nhận checkpoint và log để chạy đánh giá 1000 ván và viết báo cáo; A nhận schema `az/game_log.py` để gắn vào `gomoku/runner.py`.
-- **Không đụng:** `gomoku/rules/`, `ui/`, `scripts/arena.py`, `scripts/simulate.py`.
+- **Mục tiêu:** agent tự học từ dữ liệu tự chơi, không heuristic hardcode; biến thể chiến thuật dùng chung trọng số.
+- **Task và file sở hữu:** T8 `az/model.py`; T9 `az/mcts.py`; T10 `az/replay_buffer.py`; T11 `az/selfplay.py`; T12 `az/trainer.py`; T19 `az/game_log.py`; T20 chạy train; T25 tích hợp Renju + fine-tune `az_renju`; T29 `az/player_tactical.py`; T30 `az/threat_space.py`; T35 chạy 2.400 ván.
+- **Sản phẩm bàn giao:** `az_v0` có checkpoint và log đầy đủ (đã xong); `az_v1` với cờ `tactical.enabled=false` cho kết quả trùng `az_v0` cùng seed; `az_renju` fine-tune từ `last.pt`; log giải đấu đầy đủ.
+- **Bàn giao cho:** C nhận checkpoint, log và số liệu thô để viết Chương 4.
+- **Không đụng:** `gomoku/rules/`, `ui/`, `scripts/tournament.py`.
 
-**C (Hường) — Hạ tầng, đánh giá, tài liệu.** 11 task (T1, T2, T13–T18, T21, T22, T26).
+**C (Hường) — Hạ tầng, đánh giá, tài liệu.** 8 task (T1, T2, T13, T22, T26, T31, T32, T34), ước ~8 ngày công.
 
-- **Mục tiêu:** ba nhánh chạy trên cùng một khung, và mọi con số cuối cùng đo được, tra được.
-- **Task và file sở hữu:** T1 khung dự án; T2 `config.py` + `configs/`; T13 `az/evaluator.py` + `scripts/arena.py`; T14 `scripts/train.py` (thiết bị, ngân sách thời gian, resume); T15 `colab/`; T16 `scripts/sync_drive.py`; T17 `scripts/selfplay_shard.py`; T18 `scripts/merge_shards.py`; T21 `scripts/simulate.py`; T22 ráp `docs/provenance.md` và viết `docs/README.md`; T26 `docs/report.md`.
-- **Sản phẩm bàn giao:** `pytest` chạy và CUDA available ngay từ T1; cổng nâng cấp mô hình đúng ngưỡng 55%; `train.py --resume` nối tiếp được sau khi phiên chạy bị ngắt; 1000 ván đánh giá đúng 500 ván mỗi bên đi trước kèm `summary.json`; báo cáo có đủ số, mọi số tra được từ log.
-- **Bàn giao cho:** A và B nhận khung repo, cấu hình và bộ đánh giá; giảng viên nhận báo cáo.
+- **Mục tiêu:** mọi con số cuối cùng đo được, tra được, và tái lập được trên máy khác.
+- **Task và file sở hữu:** T1 khung dự án; T2 `config.py` + `configs/`; T13 `az/evaluator.py` + `scripts/arena.py`; T31 `scripts/tournament.py` (round-robin, Wilson CI, p95); T32 `scripts/ablation.py`; T22 `docs/provenance.md` + `docs/README.md`; T26 `docs/report.md`; T34 poster, slide, ZIP.
+- **Sản phẩm bàn giao:** round-robin chạy đủ ma trận với chia đều màu; hai ablation có bảng và hình; báo cáo có đủ số, mọi số tra được từ log; ZIP đúng quy cách tên.
+- **Bàn giao cho:** giảng viên nhận báo cáo, slide, poster, ZIP.
 - **Không đụng:** `az/model.py`, `az/mcts.py`, `az/trainer.py`, `gomoku/rules/`, `ui/`.
 
-**Khối lượng:** Khang (A) 8 task, Huy (B) 7 task, Hường (C) 11 task. Trong đó T20 và T21 là thời gian máy chạy, không phải thời gian viết code. T22 chia: A và B viết dòng nguồn cho module của mình, C ráp thành tệp và viết hướng dẫn cài đặt.
+**Đã cắt khỏi phạm vi:** T14–T18 (Colab, `sync_drive`, selfplay shard, merge shard) và `scripts/simulate.py` (T21, gộp vào T31). Lý do: 1000 ván tự chơi chạy xong trong ~1 giờ trên một GPU tại chỗ, fine-tune Renju ~1,5 giờ, nên hạ tầng chạy phân tán không cần cho bất kỳ thí nghiệm nào trong kế hoạch.
 
 **Mốc chặn giữa các nhánh**
 
 | Mốc | Xong khi | Mở khoá cho |
 |---|---|---|
-| M1 | C xong T1–T2: `pytest` chạy, cấu hình nạp được | A và B bắt đầu song song |
-| M2 | A xong T4–T5: giao diện luật và đặc trưng có test | B bắt đầu T8–T9 |
-| M3 | B xong T19: schema nhật kí ván chốt | A gắn vào `gomoku/runner.py`, C gắn vào `az/evaluator.py` |
-| M4 | A xong T24: `gomoku/rules/renju.py` qua test | B sửa mask nước cấm trong tìm kiếm và tự chơi |
+| M1 | A xong T27: `gomoku/patterns.py` qua test | T24 (luật Renju) và T29, T30 |
+| M2 | A xong T36 + T6: API game và bộ chạy ván | C dựng round-robin trên interface thống nhất |
+| M3 | A xong T24: `renju.py` qua test | B tích hợp và fine-tune `az_renju` |
+| M4 | C xong T31: round-robin chạy được | B chạy T35 |
+| M5 | B xong T29 + T30 | C chạy ablation và đóng băng số liệu |
 
 Quy ước phối hợp:
 
 - Mỗi người sở hữu các file của nhánh mình. Task đụng nhiều file do người sở hữu file dẫn dắt, người khác gửi yêu cầu thay đổi.
-- A và B đóng góp số liệu và log ván cho C viết báo cáo.
+- A và B đóng góp số liệu và log ván cho C viết báo cáo. C phụ trách Chương 4 (số liệu), B phụ trách Chương 2–3 (lý thuyết, phương pháp), A phụ trách Chương 3 phần engine và luật.
+- Không ai sửa test hoặc cấu hình sau mốc đóng băng số liệu (Checkpoint N) để đổi kết quả.
 
 ## 8. Tài nguyên và rủi ro
 
@@ -198,6 +218,10 @@ Quy ước phối hợp:
 | Lợi thế lượt đầu làm sai lệch đánh giá | Trung bình | Đánh giá luôn xen kẽ lượt đầu, báo cáo tách riêng hai chỉ số |
 | Buffer quá lớn khiến dữ liệu cũ chi phối | Thấp | Giới hạn 50000 mẫu trước khi tăng cường |
 | Máy cá nhân không chạy đủ lâu | Thấp | Lưu checkpoint sau mỗi vòng, nối tiếp được từ checkpoint |
+| `az_v0` thua Alpha-Beta độ sâu 4 và thua heuristic | Cao | Đã lường trước: 1000 ván là ngân sách rất nhỏ so với AlphaZero gốc. Báo cáo nêu rõ cấp không tương ứng sức mạnh; không đổi luật hay giấu kết quả |
+| Tactical override che lấp điểm yếu của mạng | Trung bình | Log tỉ lệ nước bị ghi đè; nếu > 30% số nước thì ghi rõ sức mạnh đến từ luật tay chứ không từ mạng |
+| Bộ nhận diện mẫu sai làm hỏng cả luật Renju | Cao | T27 phải qua test trước T24 và T29; test cả hai màu và cả bốn hướng |
+| Kết luận từ quá ít ván | Trung bình | Không kết luận dưới 100 ván/cặp; luôn báo khoảng tin cậy Wilson |
 
 ## 9. Tài liệu tham khảo
 
@@ -232,7 +256,8 @@ Dự án lập bảng truy xuất cho từng module: đường dẫn, nguồn g�
 | Sản phẩm | Mô tả |
 |---|---|
 | Mã nguồn | Kho Git, có kiểm thử tự động, tài liệu hướng dẫn cài đặt và chạy |
-| Mô hình đã huấn luyện | Checkpoint Normal và Renju, kèm log huấn luyện |
-| Bộ công cụ đánh giá | Script đánh giá 1000 ván, tệp log ván, bảng tổng hợp |
-| Giao diện đồ họa | Chơi được với agent, xem lại ván đã lưu |
-| Báo cáo | Mô tả phương pháp, kết quả thực nghiệm, phân tích nguyên nhân thua |
+| Mô hình đã huấn luyện | Checkpoint Normal (`az_v0`) và Renju (`az_renju`), kèm log huấn luyện |
+| Bộ công cụ đánh giá | `scripts/tournament.py` round-robin có ma trận score và khoảng tin cậy; `scripts/ablation.py` cho hai ablation; log ván thô |
+| Giao diện đồ họa | Chơi được với tác tử, chọn được cấp độ, chạy máy–máy để quay demo |
+| Báo cáo | Mô tả phương pháp, kết quả thực nghiệm, hai ablation, phân tích nguyên nhân thua |
+| Slide, poster, ZIP | Slide thuyết trình, poster tóm tắt, ZIP đúng quy cách `NhomXX_Gomoku_TTNTNC_<HoTen>_<MaSV>.zip`, kèm bảng phân công và tỉ lệ đóng góp |

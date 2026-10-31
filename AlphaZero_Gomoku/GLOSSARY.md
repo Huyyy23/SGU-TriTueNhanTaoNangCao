@@ -93,3 +93,43 @@ _Avoid_: win rate tổng thể không phân loại
 **Agent AlphaZero**:
 Người chơi đóng gói cây tìm kiếm cùng mạng đã huấn luyện, chỉ lộ ra một phương thức chọn nước cho bộ chạy ván.
 _Avoid_: AI player, bot, engine
+
+### So sánh phiên bản
+
+**Baseline**:
+Tác tử `random`, mốc thấp nhất mà mọi tác tử khác phải vượt. Không dùng từ này cho `az_v0`.
+_Avoid_: baseline ngầm hiểu là AlphaZero
+
+**az_v0**:
+AlphaZero gốc: `checkpoints/last.pt` sau 20 vòng × 50 ván trên luật Normal, không có thành phần chiến thuật nào. Là mốc cố định, không sửa, không train đè.
+_Avoid_: model cũ, bản gốc, alpha zero
+
+**az_v1**:
+AlphaZero cộng thành phần chiến thuật, dùng **đúng trọng số của az_v0** và chỉ khác ở tầng tìm kiếm. Nhờ vậy phép so sánh az_v0 với az_v1 cô lập đúng một biến.
+_Avoid_: model mới, bản cải tiến, v2
+
+**az_renju**:
+Mô hình Renju tạo bằng cách fine-tune từ az_v0, có Buffer riêng. Không phải một phiên bản cải tiến, không nhân bản chuỗi az_v1 sang Renju.
+_Avoid_: az_v1 renju, model renju từ đầu
+
+**Ablation**:
+Thí nghiệm tắt rồi bật đúng một thành phần trong khi mọi yếu tố khác giữ nguyên. Khác với phép so sánh az_v0 / az_v1, vốn là thí nghiệm chính của câu hỏi nghiên cứu.
+_Avoid_: so sánh phiên bản, test
+
+**Score**:
+Điểm đối kháng của một tác tử: (số thắng + 0,5 × số hoà) chia tổng số ván. Là chỉ số xếp hạng, khác win rate thuần.
+_Avoid_: win rate (khi ý nói score)
+
+### Chiến thuật
+
+**Bộ nhận diện mẫu**:
+Module `gomoku/patterns.py` nhận diện hình dạng quân trên bàn (tam mở, tứ mở, tứ bị chặn, overline) cho một màu tại một ô. Một bản duy nhất dùng chung cho luật Renju, tác tử heuristic và tầng tìm kiếm chiến thuật.
+_Avoid_: heuristic module, pattern matcher riêng cho từng nơi
+
+**Tactical override**:
+Bước ghi đè chạy sau tìm kiếm: nếu có nước thắng ngay thì đánh, nếu đối thủ có nước thắng ngay thì chặn. Chỉ bật trong az_v1, tắt trong az_v0.
+_Avoid_: hardcode chiến thuật, rule injection
+
+**Threat-space search**:
+Tìm kiếm chỉ trên chuỗi nước đe dọa và nước đáp trả bắt buộc, bỏ qua các nhánh không tạo đe dọa. Không phải Minimax tổng quát và không chạy trên toàn bộ cây MCTS.
+_Avoid_: alpha-beta, tactical search (dùng lẫn)

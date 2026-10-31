@@ -10,6 +10,22 @@ Code phải chạy được giống nhau ở local (RTX 4060) và trên Google C
 
 Chi tiết từng task (acceptance criteria + verification) nằm ở `todo.md` cùng thư mục. Task list index ở mục "Task List" bên dưới.
 
+## Cập nhật phạm vi (đồ án cuối kỳ, 3 tuần)
+
+Kế hoạch gốc 26 task được viết trước khi có đề bài cuối kỳ. Các thay đổi đã chốt, ghi đè mọi mô tả
+cũ trong tệp này:
+
+- **Cắt T14–T18** (Colab, `sync_drive`, selfplay shard, merge shard): 1000 ván tự chơi chạy xong
+  trong ~1 giờ trên RTX 4060 tại chỗ, nên hạ tầng chạy phân tán không cần.
+- **`scripts/simulate.py` (T21) gộp vào `scripts/tournament.py` (T31)**: đề bài cần round-robin
+  giữa nhiều tác tử, không phải đấu từng cặp.
+- **Thêm T27–T36**: bộ nhận diện mẫu, tác tử heuristic (cấp 2), Alpha-Beta (cấp 3), API game
+  thống nhất, `az_v1` tactical override, threat-space search, round-robin, ablation, poster/slide/ZIP.
+- **Renju fine-tune từ Normal**, không train từ đầu (xem mục "Quyết định" — mục 1 và mục 5 bên dưới
+  đã được sửa theo).
+- Danh sách task và phân công hiện hành: `todo.md`. Câu hỏi nghiên cứu và thiết kế thí nghiệm hiện
+  hành: `proposal.md` mục 3.2 và 6. Phần cải tiến: `Lo_trinh_cai_tien_AlphaZero_Gomoku.md`.
+
 ## Environment (đã kiểm tra)
 
 | Mục | Kết quả |
@@ -40,7 +56,7 @@ Tổng lưu lượng vẫn kém máy local, nhưng chạy song song và không t
 1. **Bàn 11x11 cố định.** `gomoku/board.py` đặt hằng số `SIZE = 11` làm nguồn sự thật duy nhất; features `(4, 11, 11)`, policy head 121, không tham số hóa kích thước xuyên suốt các module. Lý do: bạn chọn 11x11, code ít hơn, ít chỗ sai hơn. Đánh đổi: mất mốc kiểm chứng pipeline trên bàn nhỏ — bù lại bằng smoke test 2 iteration trước khi chạy full (xem Checkpoint D).
 2. **State lưu trong numpy int8 1D phẳng** (121 phần tử cho 11x11), index `(r, c)` → `r * size + c`. `legal_moves` đọc bằng `np.flatnonzero(grid == 0)`; `is_win` dùng so sánh 4 hướng trên mảng đã shift. Không loop Python trên 121 ô (hard rule 6). Không dùng numba: numpy đủ nhanh cho bàn 11x11, numba thêm dependency + compile time.
 3. **Rules là interface duy nhất** (`gomoku/rules/base.py`): `legal_moves`, `is_win`, `is_terminal`, `forbidden_moves` (mặc định rỗng). MCTS, players, UI chỉ gọi qua interface này (hard rule 1).
-4. **Features cố định 4 plane cho cả Normal lẫn Renju**: `[my_stones, opp_stones, forbidden, color_to_move]`. Plane `forbidden` bằng 0 trong Normal. Lý do: một kiến trúc mạng duy nhất cho cả hai rule set, không phải sửa lại model khi đổi rule set. (Quyết định đã chốt: Renju **train từ đầu**, không fine-tune từ Normal — nên không cần chia sẻ trọng số, nhưng vẫn giữ 4 plane để code và checkpoint đồng nhất.)
+4. **Features cố định 4 plane cho cả Normal lẫn Renju**: `[my_stones, opp_stones, forbidden, color_to_move]`. Plane `forbidden` bằng 0 trong Normal. Lý do: một kiến trúc mạng duy nhất cho cả hai rule set, không phải sửa lại model khi đổi rule set. (Quyết định đã chốt: Renju **fine-tune từ checkpoint Normal**, không train từ đầu — `AGENTS.md` rule 7 cho phép đường này, tiết kiệm ~1 giờ GPU, và vẫn giữ 4 plane để code và checkpoint đồng nhất. Buffer Renju vẫn tách riêng.)
 5. **Đánh giá vị trí đúng theo AlphaZero** (đã sửa theo góp ý): mỗi lượt mô phỏng đi tới một lá, lá được đánh giá bằng đúng **một** lượt suy luận; lượt suy luận đó trả về xác suất cho cả 121 ô (làm tiên đoán cho mọi nước đi từ lá) và giá trị của lá. Không gom các nước con của một node để suy luận riêng cho từng con: cách đó tốn gấp nhiều lần tính toán mạng và không phải cách làm chuẩn.
 5b. **Gom lô ở cấp chương trình, không phải cấp cây.** Lô thật là gom nhiều lá đang chờ đánh giá, đến từ nhiều ván self-play chạy song song, rồi gửi một lệnh suy luận. Đây là cách dùng GPU: mỗi lá vẫn tốn đúng một lượt suy luận, nhưng nhiều lá dùng chung một lệnh.
 6. **Torch CUDA cu124** cho sm_89. CPU fallback vẫn chạy được để test nhanh.
@@ -175,7 +191,7 @@ Thứ tự implement đi ngược lên graph: board → rules → features → m
 
 ### Phase 10 — Renju
 - [ ] T24: `gomoku/rules/renju.py` — 3-3, 4-4, overline, ngoại lệ đúng 5
-- [ ] T25: Tích hợp Renju (features, MCTS mask, buffer riêng) + train từ đầu
+- [ ] T25: Tích hợp Renju (features, MCTS mask, buffer riêng) + fine-tune `az_renju` từ `last.pt`
 
 ### Checkpoint J — Hoàn tất
 - [ ] Hai rule set đều train được, buffer tách biệt, mọi test pass
@@ -211,7 +227,7 @@ Thứ tự implement đi ngược lên graph: board → rules → features → m
 
 ## Decisions Confirmed
 
-1. Renju **train từ đầu**, không fine-tune từ model Normal (T24).
+1. Renju **fine-tune từ checkpoint Normal** (`last.pt`), buffer riêng, không train từ đầu (T25).
 2. Đánh giá vị trí theo cách làm chuẩn của AlphaZero: **một lượt suy luận cho mỗi lá**, xác suất 121 ô làm tiên đoán cho cả nhánh con (T9). Gom lô ở cấp chương trình giữa nhiều ván song song, không gom lô ở cấp cây.
 3. UI pygame **làm sau** mốc 11x11 (T23 sau T20).
 4. Bàn **11x11 cố định**, bỏ phase validate 7x7/9x9. Đánh đổi: mất mốc an toàn nhất của pipeline, bù bằng smoke test 2 iteration ở Checkpoint D.

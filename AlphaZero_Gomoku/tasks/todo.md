@@ -9,23 +9,33 @@ Plan đầy đủ: `plan.md` (cùng thư mục). Quy ước: mỗi task là lát
 | Người | Task | Giai đoạn | Sở hữu file |
 |---|---|---|---|
 | C | T1, T2 | 0 | `requirements.txt`, `config.py`, `configs/` |
-| A | T3, T4, T5, T6 | 1 | `gomoku/`, `players/`, `scripts/play.py` |
-| A | T7 | 2 | `players/mcts_pure.py` |
+| A | T3, T4, T5, T6, T36 | 1 | `gomoku/`, `players/`, `scripts/play.py` |
+| A | T7, T27, T28, T33 | 2 | `gomoku/patterns.py`, `players/` |
 | B | T8, T9, T10, T11, T12, T20 | 3, 7 | `az/` (trừ `az/evaluator.py`), `logs/`, `checkpoints/` |
-| C | T13 | 4 | `az/evaluator.py`, `scripts/arena.py` |
-| C | T14, T15, T16, T17, T18 | 5 | `scripts/`, `colab/` |
+| C | T13, T31 | 4 | `az/evaluator.py`, `scripts/arena.py`, `scripts/tournament.py` |
 | B | T19 | 6 | `az/game_log.py` |
-| C | T21, T22, T26 | 8, 11 | `scripts/simulate.py`, `docs/` |
+| C | T21 (gộp vào T31), T22, T26, T32, T34 | 8, 11 | `scripts/`, `docs/` |
 | A | T23 | 9 | `ui/` |
-| A | T24, T25 | 10 | `gomoku/rules/renju.py` |
+| A | T24 | 10 | `gomoku/rules/renju.py` |
+| B | T25, T29, T30 | 10, 12 | `az/` |
+| B | T35 | 13 | `logs/tournament/` |
+
+**Đã cắt khỏi phạm vi đồ án cuối kỳ:** T14 (`--device`, `--workers`, `--time-budget-hours`,
+`--ckpt-every`), T15 (Colab), T16 (`sync_drive`), T17 (selfplay shard), T18 (merge shards).
+Lý do: 1000 ván tự chơi chạy xong trong ~1 giờ trên RTX 4060 tại chỗ, và fine-tune Renju chỉ
+~1,5 giờ, nên hạ tầng chạy song song không cần cho bất kỳ thí nghiệm nào trong kế hoạch.
+`scripts/train.py` hiện đã có `--config`, `--iterations`, `--resume`, `--out-dir`, `--log-dir`,
+`--seed`, `--games`, `--simulations`; đủ dùng. Các task đã cắt giữ lại làm hướng phát triển.
 
 Quy ước phối hợp:
 
 - C làm T1+T2 trước, để ba nhánh code song song từ cùng đường giao diện luật.
 - Mỗi người sở hữu file của nhánh mình. Task đụng nhiều file do người sở hữu file dẫn dắt, người khác gửi yêu cầu thay đổi.
 - T19: B định nghĩa schema `az/game_log.py`, A gắn vào `gomoku/runner.py`, C gắn vào `az/evaluator.py`.
-- T25: A dẫn dắt phần luật (`gomoku/rules/renju.py`, `gomoku/features.py`), B sửa `az/mcts.py` + `az/selfplay.py` theo mask nước cấm, C đổi `configs/renju.yaml`.
-- T12 và T14 cùng đụng `scripts/train.py`: C sở hữu file này, B viết `az/trainer.py` và giao diện gọi.
+- T25: B dẫn dắt phần tích hợp và fine-tune `checkpoints/renju_last.pt`; A cung cấp `gomoku/rules/renju.py` + `gomoku/features.py`; C đổi `configs/renju.yaml`.
+- T29 và T30 do B sở hữu (`az/player_tactical.py`, `az/threat_space.py`), nhưng phụ thuộc `gomoku/patterns.py` của A: nếu T27 chưa qua test thì hai task này chưa được bắt đầu.
+- T31 và T32 do C sở hữu; A và B chỉ cung cấp tác tử, không sửa script đánh giá.
+- T12 và `scripts/train.py`: C sở hữu file CLI này, B viết `az/trainer.py` và giao diện gọi.
 - T20 do B chạy, vì B sở hữu `az/trainer.py`; C không còn giữ task này.
 - T22 chia: A và B viết dòng nguồn cho module của mình, C ráp `docs/provenance.md` và viết `docs/README.md`.
 
@@ -592,21 +602,23 @@ Quy ước phối hợp:
 
 ---
 
-## Task 25: Tích hợp Renju + train
+## Task 25: Tích hợp Renju + fine-tune
 
-**Description:** Features dùng plane `forbidden` thật, MCTS loại nước cấm, buffer tách riêng theo rule set, train model Renju từ đầu (không fine-tune từ Normal).
+**Description:** Features dùng plane `forbidden` thật, MCTS loại nước cấm, buffer tách riêng theo rule set, **fine-tune model Renju từ `checkpoints/last.pt` của Normal** (không train từ đầu). AGENTS.md rule 7 cho phép fine-tune Normal → Renju; fine-tune giữ được tri thức hình học bàn cờ và tiết kiệm ~1 giờ GPU.
 
 **Acceptance criteria:**
 - [ ] `features` của Renju có plane `forbidden` khác 0 tại đúng các ô bị cấm
 - [ ] MCTS không mở rộng nước cấm, self-play không chọn nước cấm
 - [ ] Buffer Renju không lẫn mẫu Normal
-- [ ] Train Renju từ đầu trên 11x11: 10 iteration chạy xong, loss giảm
+- [ ] Fine-tune khởi tạo từ `checkpoints/last.pt`, buffer Renju rỗng lúc bắt đầu, ghi rõ checkpoint gốc trong log
+- [ ] Fine-tune 10 vòng × 50 ván chạy xong, `loss_eval_on_fixed_batch` không tăng sau vòng 5
+- [ ] Checkpoint kết quả lưu thành `checkpoints/renju_last.pt`, không ghi đè `last.pt` của Normal
 
 **Verification:**
 - [ ] Test: `tests/test_renju_integration.py` — plane forbidden đúng; nước cấm không xuất hiện trong self-play
 - [ ] Test: `pytest -q` → toàn bộ pass
-- [ ] Build: `python scripts/train.py --config configs/renju.yaml --iterations 10` → exit 0
-- [ ] Manual: đọc log loss giảm
+- [ ] Build: `python scripts/train.py --config configs/renju.yaml --iterations 10 --resume` → exit 0
+- [ ] Manual: đọc log, so `loss_eval_on_fixed_batch` với giá trị của model Normal gốc
 
 **Dependencies:** T24, T12, T10
 **Files likely touched:** `gomoku/features.py`, `az/mcts.py`, `az/selfplay.py`, `configs/renju.yaml`, `tests/test_renju_integration.py`
@@ -634,6 +646,230 @@ Quy ước phối hợp:
 **Dependencies:** T21, T22, T25
 **Files likely touched:** `docs/report.md`, `tests/test_report.py`
 **Estimated scope:** M (viết báo cáo, không viết code mới nhiều)
+
+---
+
+## Task 27: `gomoku/patterns.py` — bộ nhận diện mẫu
+
+**Description:** Nhận diện hình dạng quân cho một màu tại một ô theo 4 hướng: năm liền, overline, tứ mở, tứ bị chặn một đầu, tam mở, tam bị chặn, tam gãy. Module dùng chung cho luật Renju (T24), tác tử heuristic (T28) và tầng chiến thuật của `az_v1` (T29, T30). Thuần numpy, không import torch.
+
+**Acceptance criteria:**
+- [ ] API: `pattern_at(board, r, c, player) -> set[str]` và `threat_count(board, player) -> int`
+- [ ] Nhận diện đúng cả 4 hướng ngang, dọc, chéo `\`, chéo `/`, cho cả Đen và Trắng
+- [ ] Tứ mở phân biệt được với tứ bị chặn một đầu (điều kiện quyết định của threat-space)
+- [ ] Xử lý biên bàn: mẫu nằm sát cạnh không bị tính là mở
+- [ ] Không import torch; không định nghĩa lại logic thắng/thua (vẫn dùng `rules.is_win`)
+- [ ] Vector hóa theo hướng, không có vòng lặp Python trên 121 ô mỗi lần gọi
+
+**Verification:**
+- [ ] Test: `tests/test_patterns.py` — mỗi mẫu một case, cả 2 màu, cả 4 hướng, case biên
+- [ ] Test: `pytest -q tests/test_patterns.py` → pass
+- [ ] Manual: in mẫu nhận được cho một thế cờ tay, đối chiếu hình vẽ
+
+**Dependencies:** T4
+**Files likely touched:** `gomoku/patterns.py`, `tests/test_patterns.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 28: `players/heuristic.py` — tác tử cấp 2
+
+**Description:** Tác tử luật/heuristic: ưu tiên thắng ngay, chặn thắng ngay của đối thủ, kiểm soát vị trí trung tâm, ưu tiên nước tạo mẫu mạnh. Dùng `gomoku/patterns.py`, chỉ gọi interface luật, không hardcode luật Renju.
+
+**Acceptance criteria:**
+- [ ] Thứ tự ưu tiên bằng văn bản trong docstring: thắng ngay > chặn thắng ngay > tạo tứ mở > chặn tứ mở > tạo tam mở > điểm vị trí
+- [ ] Xung đột luật nêu rõ: nếu nhiều nước cùng hạng ưu tiên, chọn nước có điểm vị trí cao hơn; hòa điểm thì theo thứ tự ô
+- [ ] Chỉ chọn trong `rules.legal_moves`, không bao giờ chọn nước cấm của Renju
+- [ ] Thắng `random` ≥ 90% trong 20 ván 11x11, cả hai màu
+- [ ] Không import torch
+
+**Verification:**
+- [ ] Test: `tests/test_heuristic.py` — win-in-1, block-in-1, không chọn nước cấm, thứ tự ưu tiên
+- [ ] Test: `pytest -q tests/test_heuristic.py` → pass
+- [ ] Manual: script đấu 20 ván với `random`, in tỉ lệ thắng
+
+**Dependencies:** T4, T6, T27
+**Files likely touched:** `players/heuristic.py`, `tests/test_heuristic.py`
+**Estimated scope:** S (1-2 files)
+
+---
+
+## Task 33: `players/alphabeta.py` — tác tử cấp 3
+
+**Description:** Minimax với cắt tỉa Alpha-Beta, giới hạn độ sâu, hàm lượng giá dùng `gomoku/patterns.py`. Cắt tỉa bật/tắt được bằng cờ để phục vụ ablation bắt buộc (T32).
+
+**Acceptance criteria:**
+- [ ] `AlphaBetaPlayer(rules, depth=4, pruning=True)`; `pruning=False` chạy minimax đầy đủ cùng độ sâu
+- [ ] Hàm lượng giá cộng điểm mẫu của hai bên, có trọng số rõ ràng trong một bảng hằng số
+- [ ] Move ordering theo điểm lượng giá để cắt tỉa hiệu quả
+- [ ] Đếm được `nodes_visited` và trả về trong kết quả chọn nước (dùng cho ablation)
+- [ ] Bật và tắt cắt tỉa ở cùng độ sâu phải cho **cùng một nước đi** (kiểm tra tính đúng đắn của cắt tỉa)
+- [ ] Depth 4 trên 11x11 không quá 2 s/nước trên CPU
+
+**Verification:**
+- [ ] Test: `tests/test_alphabeta.py` — win-in-1; pruning bật/tắt cùng kết quả; `nodes_visited` giảm khi bật tỉa; không chọn nước cấm
+- [ ] Test: `pytest -q tests/test_alphabeta.py` → pass
+- [ ] Manual: đo `nodes_visited` và thời gian ở depth 2/3/4, cả bật và tắt tỉa
+
+**Dependencies:** T4, T27
+**Files likely touched:** `players/alphabeta.py`, `tests/test_alphabeta.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 36: `gomoku/game.py` — API game thống nhất theo đề bài
+
+**Description:** Lớp mỏng bọc `Board` + `Rules`, lộ đúng bảy phương thức mà đề bài yêu cầu: `reset()`, `legal_actions()`, `step(action)`, `is_terminal()`, `result()`, `render()`, `clone()`. Không thêm logic luật; chỉ chuyển tiếp.
+
+**Acceptance criteria:**
+- [ ] `reset()` đưa về bàn trống, Đen đi trước, `history` rỗng
+- [ ] `legal_actions()` trả chỉ số ô phẳng, đã loại nước cấm
+- [ ] `step(action)` từ chối nước không hợp lệ bằng exception có thông điệp rõ ràng
+- [ ] `result()` trả `(winner_view, end_reason)` theo `az/game_log.py`; `None` khi chưa kết thúc
+- [ ] `clone()` tạo bản độc lập: sửa bản clone không ảnh hưởng bản gốc
+- [ ] `render()` trả chuỗi ASCII, không cần thư viện đồ họa (UI dùng đường riêng)
+- [ ] Không import torch
+
+**Verification:**
+- [ ] Test: `tests/test_game.py` — reset, clone độc lập, step bất hợp lệ raise, result đúng ở ván thắng/hoà, render không lỗi ở bàn trống
+- [ ] Test: `pytest -q tests/test_game.py` → pass
+
+**Dependencies:** T3, T4
+**Files likely touched:** `gomoku/game.py`, `tests/test_game.py`
+**Estimated scope:** S (1-2 files)
+
+---
+
+## Task 29: `az_v1` — tactical override dùng chung trọng số `az_v0`
+
+**Description:** Bọc tầng chọn nước của agent: kiểm tra nước thắng ngay và nước chặn bắt buộc trước khi trả kết quả của PUCT. Dùng cờ cấu hình `tactical.enabled`, mặc định tắt. Không train lại, không sửa trọng số.
+
+**Acceptance criteria:**
+- [ ] `tactical.enabled: false` cho kết quả **giống hệt** `az_v0` với cùng seed
+- [ ] `tactical.enabled: true` đánh nước thắng ngay nếu có; nếu không, chặn nước thắng ngay của đối thủ
+- [ ] Không ghi đè lên nước cấm của Renju
+- [ ] Log được `override_applied` (bool) và `override_reason` cho mỗi nước
+- [ ] Cùng `last.pt`, cùng `n_simulations`, cùng seed → chỉ khác cờ `tactical.enabled`
+
+**Verification:**
+- [ ] Test: `tests/test_tactical.py` — win-in-1 chọn đúng; block-in-1 chọn đúng; cờ tắt cho kết quả giống `az_v0`; không chọn nước cấm
+- [ ] Test: `pytest -q tests/test_tactical.py` → pass
+- [ ] Manual: 20 ván `az_v0` vs `az_v1` với seed cố định, đếm số lần ghi đè
+
+**Dependencies:** T9, T12, T27
+**Files likely touched:** `az/player_tactical.py`, `configs/normal.yaml`, `tests/test_tactical.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 30: Threat-space search
+
+**Description:** Tìm kiếm chọn lọc chỉ trên chuỗi đe dọa bắt buộc, kích hoạt khi bộ nhận diện mẫu báo có tứ mở. Không chạy Alpha-Beta trên toàn bộ cây MCTS.
+
+**Acceptance criteria:**
+- [ ] Chỉ kích hoạt khi có tứ mở hoặc chuỗi đe dọa bắt buộc; ngoài điều kiện đó `az_v1` dùng PUCT như cũ
+- [ ] Giới hạn cứng 5000 node hoặc 150 ms mỗi nước, cái nào tới trước; ghi lại số lần kích hoạt
+- [ ] Giá trị trả về theo góc nhìn người đang đi, khớp quy ước của PUCT
+- [ ] Có case test "đối thủ có hai đe dọa cùng lúc" → phải báo thua, không được báo thắng
+- [ ] Tắt được bằng cờ cấu hình `threat_space.enabled`, mặc định tắt
+
+**Verification:**
+- [ ] Test: `tests/test_threat_space.py` — chuỗi thắng 3 nước tìm ra; hai đe dọa song song báo thua; giới hạn node được tôn trọng
+- [ ] Test: `pytest -q tests/test_threat_space.py` → pass
+- [ ] Manual: đo thời gian/nước trước và sau khi bật trên 10 ván
+
+**Dependencies:** T27, T29
+**Files likely touched:** `az/threat_space.py`, `configs/normal.yaml`, `tests/test_threat_space.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 31: `scripts/tournament.py` — round-robin + thống kê
+
+**Description:** Chạy round-robin giữa N tác tử, chia đều màu, xuất ma trận đối đầu và các chỉ số đề bài yêu cầu. Thay cho `scripts/simulate.py` (T21) vì T21 chỉ đấu từng cặp.
+
+**Acceptance criteria:**
+- [ ] `python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1 --games 100 --budget sims:200` chạy hết mọi cặp
+- [ ] Chia đều màu: mỗi cặp đúng 50 ván mỗi bên đi trước với `--games 100`
+- [ ] Xuất `logs/tournament/<run_id>/matrix.csv` + `summary.json`: score, thắng/hoà/thua, thời gian trung bình/nước, p95 độ trễ, số node/sims, seed từng cặp
+- [ ] Khoảng tin cậy Wilson cho score từng cặp
+- [ ] Hỗ trợ hai chế độ ngân sách: `sims:N` (cố định số mô phỏng/độ sâu) và `time:S` (giây mỗi nước)
+- [ ] Không hardcode danh sách tác tử; đọc từ tham số
+
+**Verification:**
+- [ ] Test: `tests/test_tournament.py` — 2 tác tử giả, 20 ván, assert 10/10 chia lượt, matrix đủ ô, Wilson CI trong [0,1]
+- [ ] Test: `pytest -q tests/test_tournament.py` → pass
+- [ ] Manual: chạy 3 tác tử × 20 ván, đọc `summary.json`
+
+**Dependencies:** T6, T7, T13, T7
+**Files likely touched:** `scripts/tournament.py`, `az/evaluator.py`, `tests/test_tournament.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 32: `scripts/ablation.py` — hai ablation bắt buộc
+
+**Description:** Chạy hai thí nghiệm độ nhạy mà đề bài yêu cầu: (1) Alpha-Beta bật/tắt cắt tỉa — đo số node và thời gian; (2) quét số mô phỏng của `mcts_pure` ở 50/200/800 — đo score và thời gian.
+
+**Acceptance criteria:**
+- [ ] Ablation 1: cùng depth, `pruning=True` và `False` cho cùng nước đi, khác `nodes_visited` và thời gian; xuất bảng
+- [ ] Ablation 2: `mcts_pure` với 50/200/800 mô phỏng, mỗi mức đấu 100 ván với `heuristic`; xuất score + thời gian trung bình
+- [ ] Kết quả ghi `logs/ablation/<run_id>.json`, có seed và cấu hình
+- [ ] Sinh được hình PNG từ JSON mà không sửa mã (notebook hoặc script riêng)
+
+**Verification:**
+- [ ] Test: `tests/test_ablation.py` — chạy 2 ván mỗi cấu hình, assert file JSON có đủ trường
+- [ ] Test: `pytest -q tests/test_ablation.py` → pass
+- [ ] Manual: chạy ablation 1 thật, đối chiếu số node
+
+**Dependencies:** T7, T33
+**Files likely touched:** `scripts/ablation.py`, `tests/test_ablation.py`
+**Estimated scope:** M (3-5 files)
+
+---
+
+## Task 34: Poster, slide, ZIP nộp bài
+
+**Description:** Đóng gói sản phẩm nộp: poster tóm tắt kết quả, slide thuyết trình, ZIP đúng quy cách tên, README hướng dẫn cài đặt/train/evaluate/demo.
+
+**Acceptance criteria:**
+- [ ] ZIP tên `NhomXX_Gomoku_TTNTNC_<HoTen>_<MaSV>.zip`, chứa mã nguồn, configs, tests, `docs/`, log đấu thô, và checkpoint nếu dung lượng cho phép
+- [ ] ZIP **không** chứa `checkpoints/` quá lớn, `.venv/`, `__pycache__/`; nếu checkpoint quá nặng thì ghi link ngoài
+- [ ] Slide có: câu hỏi nghiên cứu, kiến trúc, ma trận đối đầu, ablation, hạn chế
+- [ ] Poster A3 đọc được ở khoảng cách 1 m: một hình chính là ma trận đối đầu
+- [ ] `docs/README.md` có đủ 4 lệnh: cài đặt, train, evaluate, demo
+- [ ] Bảng phân công và tỉ lệ đóng góp từng thành viên
+
+**Verification:**
+- [ ] Manual: giải nén ZIP ở thư mục mới, làm theo `docs/README.md`, chạy được `pytest` và mở được demo
+- [ ] Manual: đối chiếu mọi số trên slide/poster với `logs/`
+
+**Dependencies:** T26, T31, T35
+**Files likely touched:** `docs/`, `poster/`, `slides/`
+**Estimated scope:** M (không viết code mới)
+
+---
+
+## Task 35: Chạy giải đấu và đóng băng số liệu
+
+**Description:** Chạy toàn bộ ma trận đã chốt, đóng băng số liệu trước khi viết báo cáo.
+
+**Acceptance criteria:**
+- [ ] Normal chế độ A: 6 tác tử round-robin, 100 ván/cặp = 1.500 ván
+- [ ] Normal chế độ B (1 s/nước): `az_v0`, `az_v1`, `alphabeta` = 300 ván
+- [ ] Renju: `random`, `heuristic`, `alphabeta`, `az_renju` round-robin, 100 ván/cặp = 600 ván
+- [ ] Tổng 2.400 ván, toàn bộ log ván nằm trong `logs/tournament/`, không xoá
+- [ ] Số liệu đóng băng: sau mốc này không chạy lại để "làm đẹp" kết quả; nếu phải chạy lại thì ghi rõ lý do
+- [ ] Không dùng ván của giải đấu để chọn siêu tham số
+
+**Verification:**
+- [ ] Build: chạy 3 lệnh tournament/ablation, exit 0
+- [ ] Manual: mọi số trong `summary.json` khớp số ván trong log ván
+- [ ] Manual: đối chiếu tổng ván = 2.400 ± sai số do ván bị hủy
+
+**Dependencies:** T31, T32, T25
+**Files likely touched:** `logs/tournament/`, `configs/`
+**Estimated scope:** M (chạy máy, không viết code mới)
 
 ---
 
@@ -686,3 +922,18 @@ Quy ước phối hợp:
 **Checkpoint K — Sau T26**
 - [ ] Báo cáo đủ mục, mọi con số tra được trong log
 - [ ] `docs/README.md` cho người mới cài và chạy được không cần hỏi thêm
+
+**Checkpoint L — Sau T7/T28/T33 (đủ tác tử cấp 1–4)**
+- [ ] `random`, `heuristic`, `alphabeta`, `mcts_pure` chọn được nước trên cả Normal và Renju
+- [ ] `heuristic` thắng `random` ≥ 90%; `mcts_pure` thắng `random` > 60%
+- [ ] `gomoku/game.py` (T36) có đủ 7 phương thức theo đề bài
+
+**Checkpoint M — Sau T31 + T29 (đo được sức mạnh, có `az_v1`)**
+- [ ] Có score của `az_v0` trước ít nhất 3 tác tử cổ điển, chia đều màu
+- [ ] Cờ `tactical.enabled=false` cho kết quả trùng `az_v0` với cùng seed
+- [ ] Ma trận round-robin chạy được với 6 tác tử
+
+**Checkpoint N — Sau T35 (số liệu đóng băng)**
+- [ ] 2.400 ván chạy xong, log đầy đủ trong `logs/tournament/`
+- [ ] Hai ablation có kết quả
+- [ ] Không ai sửa test hoặc cấu hình sau mốc này để đổi kết quả
