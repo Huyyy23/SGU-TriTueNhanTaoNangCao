@@ -23,11 +23,8 @@ env/
 Thumbs.db
 
 # OpenCode: local skills, subagent và hướng dẫn agent, không commit
-.opencode/skills/
-.opencode/agents/
-.opencode/notes/
+.opencode/
 AGENTS.md
-docs/agents/
 
 # AlphaZero
 AlphaZero_Gomoku/docs/agents/

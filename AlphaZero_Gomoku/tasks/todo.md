@@ -46,12 +46,12 @@ Quy ước phối hợp:
 **Description:** Tạo cấu trúc thư mục rỗng theo kiến trúc AGENTS.md, file dependency, cấu hình pytest, `.gitignore`, `git init`. Chưa viết logic game.
 
 **Acceptance criteria:**
-- [ ] `requirements.txt` liệt kê: torch (cu124), numpy, pyyaml, pytest, pygame
-- [ ] `pip install -r requirements.txt` chạy được, `torch.cuda.is_available()` trả True
-- [ ] `pytest` chạy trong repo, exit code 0 khi chưa có test
-- [ ] `.gitignore` loại `checkpoints/`, `logs/`, `__pycache__/`, `*.pt`, `.venv/`
-- [ ] `git init` xong, commit đầu tiên tạo được, `git status` không thấy file rác
-- [ ] Chưa cần remote: user tạo repo GitHub và push sau, làm theo `colab/README.md` (T15)
+- [x] `requirements.txt` liệt kê: torch (cu124), numpy, pyyaml, pytest, pygame
+- [x] `pip install -r requirements.txt` chạy được, `torch.cuda.is_available()` trả True
+- [x] `pytest` chạy trong repo, exit code 0 khi chưa có test
+- [x] `.gitignore` loại `checkpoints/`, `logs/`, `__pycache__/`, `*.pt`, `.venv/`
+- [x] `git init` xong, commit đầu tiên tạo được, `git status` không thấy file rác
+- [x] Chưa cần remote: user tạo repo GitHub và push sau, làm theo `colab/README.md` (T15)
 
 **Verification:**
 - [ ] Test: `python -c "import torch; print(torch.cuda.is_available())"` → True
@@ -69,12 +69,12 @@ Quy ước phối hợp:
 **Description:** `config.py` đọc YAML, trả dict có key mặc định. `configs/normal.yaml` và `configs/renju.yaml` chứa hyperparameter theo AGENTS.md.
 
 **Acceptance criteria:**
-- [ ] `load_config(path)` trả dict, thiếu key dùng giá trị mặc định từ `DEFAULT_CONFIG`
-- [ ] `configs/normal.yaml` có: `n_iter`, `games_per_iter`, `n_simulations`, `c_puct`, `dirichlet_alpha`, `dirichlet_eps`, `temp_moves`, `buffer_size`, `train_steps_per_iter`, `batch_size`, `arena_win_threshold`, `learning_rate`, `optimizer`, `weight_decay`, `value_loss_weight`, `policy_loss_weight`, `lr_schedule`
-- [ ] `configs/renju.yaml` kế thừa giá trị normal, đổi `rule_set: renju`
-- [ ] Giá trị mặc định khớp khối "Default hyperparameters" trong AGENTS.md, cộng thêm: `learning_rate: 1e-3`, `optimizer: adam`, `weight_decay: 1e-4`, `value_loss_weight: 1.0`, `policy_loss_weight: 1.0`, `lr_schedule: cosine`
-- [ ] Ngân sách ván suy ra từ cấu hình: `n_iter × games_per_iter` (mặc định 20 × 50 = 1000). Đổi sang 24 × 50 = 1200, 30 × 50 = 1500 hay 100 × 50 = 5000 chỉ cần sửa file cấu hình
-- [ ] Không con số 1000 nào hardcode trong mã; mọi nơi đọc ngân sách từ cấu hình
+- [x] `load_config(path)` trả dict, thiếu key dùng giá trị mặc định từ `DEFAULT_CONFIG`
+- [x] `configs/normal.yaml` có: `n_iter`, `games_per_iter`, `n_simulations`, `c_puct`, `dirichlet_alpha`, `dirichlet_eps`, `temp_moves`, `buffer_size`, `train_steps_per_iter`, `batch_size`, `arena_win_threshold`, `learning_rate`, `optimizer`, `weight_decay`, `value_loss_weight`, `policy_loss_weight`, `lr_schedule`
+- [x] `configs/renju.yaml` kế thừa giá trị normal, đổi `rule_set: renju`
+- [x] Giá trị mặc định khớp khối "Default hyperparameters" trong AGENTS.md, cộng thêm: `learning_rate: 1e-3`, `optimizer: adam`, `weight_decay: 1e-4`, `value_loss_weight: 1.0`, `policy_loss_weight: 1.0`, `lr_schedule: cosine`
+- [x] Ngân sách ván suy ra từ cấu hình: `n_iter × games_per_iter` (mặc định 20 × 50 = 1000). Đổi sang 24 × 50 = 1200, 30 × 50 = 1500 hay 100 × 50 = 5000 chỉ cần sửa file cấu hình
+- [x] Không con số 1000 nào hardcode trong mã; mọi nơi đọc ngân sách từ cấu hình
 
 **Verification:**
 - [ ] Test: `tests/test_config.py` — load file thật, assert key và giá trị
@@ -92,11 +92,11 @@ Quy ước phối hợp:
 **Description:** Lớp `Board` giữ state dạng numpy int8 phẳng, có `play`, `undo`, `history`, `current_player`. Không chứa luật chơi.
 
 **Acceptance criteria:**
-- [ ] Bàn **11x11 cố định**: hằng số `SIZE = 11` trong `gomoku/board.py` là nguồn duy nhất; không có tham số kích thước
-- [ ] `play(r, c)` đặt đá của người đang đi, tăng `history`, đổi lượt; ngoài bàn hoặc ô đã có đá thì raise
-- [ ] `undo()` trả về nước vừa nhập và khôi phục state trước đó
-- [ ] `grid` là numpy int8 1D, index phẳng `r * SIZE + c`; `EMPTY=0, BLACK=1, WHITE=2`
-- [ ] `gomoku/` không import torch
+- [x] Bàn **11x11 cố định**: hằng số `SIZE = 11` trong `gomoku/board.py` là nguồn duy nhất; không có tham số kích thước
+- [x] `play(r, c)` đặt đá của người đang đi, tăng `history`, đổi lượt; ngoài bàn hoặc ô đã có đá thì raise
+- [x] `undo()` trả về nước vừa nhập và khôi phục state trước đó
+- [x] `grid` là numpy int8 1D, index phẳng `r * SIZE + c`; `EMPTY=0, BLACK=1, WHITE=2`
+- [x] `gomoku/` không import torch
 
 **Verification:**
 - [ ] Test: `tests/test_board.py` — play/undo/history, lỗi out-of-range, lỗi ô bận, đổi lượt
@@ -114,11 +114,11 @@ Quy ước phối hợp:
 **Description:** Interface `Rules` với `legal_moves`, `is_win`, `is_terminal`, `forbidden_moves` (mặc định rỗng). `NormalRules` kiểm tra 5+ liền nhau (ngang, dọc, 2 đường chéo), 6+ cũng thắng.
 
 **Acceptance criteria:**
-- [ ] `legal_moves(board)` trả list ô trống, không có ô đã có đá
-- [ ] `is_win(board)` True khi có 5 liền hoặc nhiều hơn theo 4 hướng
-- [ ] `is_terminal(board)` True khi thắng hoặc bàn đầy
-- [ ] Vector hóa: không có vòng lặp Python quét 121 ô cho mỗi lần gọi
-- [ ] `forbidden_moves(board)` trả list rỗng cho Normal
+- [x] `legal_moves(board)` trả list ô trống, không có ô đã có đá
+- [x] `is_win(board)` True khi có 5 liền hoặc nhiều hơn theo 4 hướng
+- [x] `is_terminal(board)` True khi thắng hoặc bàn đầy
+- [x] Vector hóa: không có vòng lặp Python quét 121 ô cho mỗi lần gọi
+- [x] `forbidden_moves(board)` trả list rỗng cho Normal
 
 **Verification:**
 - [ ] Test: `tests/test_rules_normal.py` — thắng ngang, dọc, chéo `\`, chéo `/`, thắng 6 quân, hoà khi bàn đầy, legal_moves loại ô bận
@@ -136,11 +136,11 @@ Quy ước phối hợp:
 **Description:** `board_to_planes(board, rules, player)` trả tensor numpy shape `(4, 11, 11)`. Hàm transform cho 8 phép đối xứng, áp dụng đồng thời lên features và policy.
 
 **Acceptance criteria:**
-- [ ] 4 plane cố định: `my_stones`, `opp_stones`, `forbidden`, `color_to_move`
-- [ ] Plane `forbidden` bằng 0 khi rule set không cấm nước nào
-- [ ] `symmetry_transform(array, k)` trả 8 biến thể; phép tự nghịch áp 2 lần ra identity, rot90 và rot270 nghịch nhau; một hàm dùng chung cho cả features và policy
-- [ ] Policy one-hot tại `(r,c)` biến đổi ra đúng ô ảnh, khớp với phép biến đổi áp lên plane (cùng `symmetry_transform`)
-- [ ] Không import torch (trả numpy; torch chuyển đổi ở tầng az/)
+- [x] 4 plane cố định: `my_stones`, `opp_stones`, `forbidden`, `color_to_move`
+- [x] Plane `forbidden` bằng 0 khi rule set không cấm nước nào
+- [x] `symmetry_transform(array, k)` trả 8 biến thể; phép tự nghịch áp 2 lần ra identity, rot90 và rot270 nghịch nhau; một hàm dùng chung cho cả features và policy
+- [x] Policy one-hot tại `(r,c)` biến đổi ra đúng ô ảnh, khớp với phép biến đổi áp lên plane (cùng `symmetry_transform`)
+- [x] Không import torch (trả numpy; torch chuyển đổi ở tầng az/)
 
 **Verification:**
 - [ ] Test: `tests/test_features.py` — shape, giá trị plane, 8 biến thể khác nhau, transform∘transform = identity, policy transform khớp feature transform
@@ -158,8 +158,8 @@ Quy ước phối hợp:
 **Description:** `players/base.py` định nghĩa `select_move(board) -> (r, c)`. `RandomPlayer`, `HumanPlayer`. `gomoku/runner.py` chạy ván tới khi kết thúc, trả kết quả. `scripts/play.py` CLI cho human-vs-AI và AI-vs-AI.
 
 **Acceptance criteria:**
-- [ ] `Player.select_move(board)` là interface duy nhất mà runner gọi
-- [ ] `RandomPlayer` chọn ngẫu nhiên trong `rules.legal_moves`
+- [x] `Player.select_move(board)` là interface duy nhất mà runner gọi
+- [x] `RandomPlayer` chọn ngẫu nhiên trong `rules.legal_moves`
 - [ ] `HumanPlayer` nhận tọa độ từ callback, từ chối nước không hợp lệ
 - [ ] `Runner.play()` trả `GameResult` (winner, moves, reason: win/draw)
 - [ ] `scripts/play.py --mode human-vs-random` chơi được hết ván qua CLI, in bàn cờ mỗi nước
@@ -203,11 +203,11 @@ Quy ước phối hợp:
 **Description:** ResNet nhỏ (5-6 block, 64 filter) theo AGENTS.md, policy head phát ra 121 logits, value head 1 giá trị. API suy luận batch. Save/load checkpoint.
 
 **Acceptance criteria:**
-- [ ] Input shape `(B, 4, 11, 11)` — số plane cố định 4 cho mọi rule set
-- [ ] Policy head ra `(B, 121)`, value head ra `(B, 1)`
-- [ ] `predict(batch)` chạy ở `torch.no_grad()`, trả numpy, ổn định giữa 2 lần gọi ở eval mode
-- [ ] Tự chọn device: cuda nếu có, không thì cpu
-- [ ] `save/load_checkpoint` round-trip giữ nguyên trọng số, load được trên máy khác (state_dict + config)
+- [x] Input shape `(B, 4, 11, 11)` — số plane cố định 4 cho mọi rule set
+- [x] Policy head ra `(B, 121)`, value head ra `(B, 1)`
+- [x] `predict(batch)` chạy ở `torch.no_grad()`, trả numpy, ổn định giữa 2 lần gọi ở eval mode
+- [x] Tự chọn device: cuda nếu có, không thì cpu
+- [x] `save/load_checkpoint` round-trip giữ nguyên trọng số, load được trên máy khác (state_dict + config)
 
 **Verification:**
 - [ ] Test: `tests/test_model.py` — shape output, round-trip save/load, batch >1 cho ra kết quả giống batch=1 (tính cùng input)
@@ -225,13 +225,13 @@ Quy ước phối hợp:
 **Description:** Cây tìm kiếu PUCT: Dirichlet noise ở root, temperature theo số nước đã đi. Đánh giá vị trí đúng theo AlphaZero: mỗi lượt mô phỏng đi tới một lá, lá được đánh giá bằng đúng một lượt suy luận; lượt suy luận đó trả về xác suất cho cả 121 ô (làm tiên đoán cho mọi nước đi từ lá) và giá trị của lá. Backup giá trị đúng dấu.
 
 **Acceptance criteria:**
-- [ ] Root có Dirichlet noise (alpha/eps theo config), chỉ ở root
-- [ ] Nhiệt độ: `temp_moves` nước đầu dùng temp=1, sau đó giảm dần về 0 (chọn argmax)
-- [ ] Mỗi lá được đánh giá bằng đúng 1 lượt suy luận; xác suất của cả 121 ô được gán làm tiên đoán cho các nước đi từ lá, không suy luận riêng cho từng nước con
-- [ ] Backup: giá trị của node con là góc nhìn đối thủ → phủ định khi backup (hard rule 2)
-- [ ] Nước bị cấm (Renju) không bao giờ được mở rộng (hard rule 4)
-- [ ] Vị trí thắng trong 1 nước → trả về nước thắng
-- [ ] `n_simulations` đọc từ config (mặc định 200); số lượt mô phỏng quyết định cả độ mạnh lẫn thời gian chạy nên phải cấu hình được
+- [x] Root có Dirichlet noise (alpha/eps theo config), chỉ ở root
+- [x] Nhiệt độ: `temp_moves` nước đầu dùng temp=1, sau đó giảm dần về 0 (chọn argmax)
+- [x] Mỗi lá được đánh giá bằng đúng 1 lượt suy luận; xác suất của cả 121 ô được gán làm tiên đoán cho các nước đi từ lá, không suy luận riêng cho từng nước con
+- [x] Backup: giá trị của node con là góc nhìn đối thủ → phủ định khi backup (hard rule 2)
+- [x] Nước bị cấm (Renju) không bao giờ được mở rộng (hard rule 4)
+- [x] Vị trí thắng trong 1 nước → trả về nước thắng
+- [x] `n_simulations` đọc từ config (mặc định 200); số lượt mô phỏng quyết định cả độ mạnh lẫn thời gian chạy nên phải cấu hình được
 
 **Verification:**
 - [ ] Test: `tests/test_mcts.py` — win-in-1; test dấu value backup (giá trị con âm ở góc nhìn cha); test nước cấm bị loại khỏi cây
@@ -250,11 +250,11 @@ Quy ước phối hợp:
 **Description:** Buffer chứa (features, policy mục tiêu, value z) kèm nhãn rule set. Augmentation 8-fold lúc lấy batch.
 
 **Acceptance criteria:**
-- [ ] `add_sample(features, pi, z, rule_set)` lưu đủ metadata
-- [ ] `sample_batch(batch_size)` trả batch numpy/torch đã augment 8-fold ngẫu nhiên
-- [ ] Augmentation dùng đúng hàm transform của `gomoku/features.py`, policy target đi kèm feature
-- [ ] Truy vấn theo rule set: không lẫn mẫu Normal và Renju (hard rule 7)
-- [ ] `__len__` trả số mẫu trước augmentation; giới hạn `buffer_size`
+- [x] `add_sample(features, pi, z, rule_set)` lưu đủ metadata
+- [x] `sample_batch(batch_size)` trả batch numpy/torch đã augment 8-fold ngẫu nhiên
+- [x] Augmentation dùng đúng hàm transform của `gomoku/features.py`, policy target đi kèm feature
+- [x] Truy vấn theo rule set: không lẫn mẫu Normal và Renju (hard rule 7)
+- [x] `__len__` trả số mẫu trước augmentation; giới hạn `buffer_size`
 
 **Verification:**
 - [ ] Test: `tests/test_replay_buffer.py` — số mẫu, len đúng, lấy batch đúng shape, filter theo rule set, augment cho 8 biến thể khác nhau
@@ -272,13 +272,13 @@ Quy ước phối hợp:
 **Description:** Sinh ván bằng agent MCTS với nhiệt độ và noise, lưu mẫu vào buffer với z tính sau khi ván kết thúc. Chế độ multiprocessing cho self-play.
 
 **Acceptance criteria:**
-- [ ] Số mẫu lưu mỗi ván = số nước đã đi
-- [ ] z lấy theo góc nhìn người đang đi tại mỗi thếp: thắng = +1 cho người thắng, thua = -1, hoà = 0; dấu xen kẽ đúng
-- [ ] Chế độ 1 tiến trình dùng để test; chế độ multiprocessing sinh đúng số ván yêu cầu
-- [ ] Worker set `torch.set_num_threads(1)`, có guard `if __name__ == "__main__"` (Windows spawn)
-- [ ] Mỗi ván lưu rule set hiện tại vào buffer
-- [ ] Gom lô ở cấp chương trình: lá đang chờ đánh giá từ nhiều ván song song được gửi trong cùng một lệnh suy luận; mỗi lá vẫn tốn đúng một lượt suy luận
-- [ ] Số ván sinh mỗi vòng đọc từ cấu hình (`games_per_iter`), không hardcode
+- [x] Số mẫu lưu mỗi ván = số nước đã đi
+- [x] z lấy theo góc nhìn người đang đi tại mỗi thếp: thắng = +1 cho người thắng, thua = -1, hoà = 0; dấu xen kẽ đúng
+- [x] Chế độ 1 tiến trình dùng để test; chế độ multiprocessing sinh đúng số ván yêu cầu
+- [x] Worker set `torch.set_num_threads(1)`, có guard `if __name__ == "__main__"` (Windows spawn)
+- [x] Mỗi ván lưu rule set hiện tại vào buffer
+- [x] Gom lô ở cấp chương trình: lá đang chờ đánh giá từ nhiều ván song song được gửi trong cùng một lệnh suy luận; mỗi lá vẫn tốn đúng một lượt suy luận
+- [x] Số ván sinh mỗi vòng đọc từ cấu hình (`games_per_iter`), không hardcode
 
 **Verification:**
 - [ ] Test: `tests/test_selfplay.py` — số mẫu = số nước; dấu z xen kẽ trong ván quyết định; multiprocess (2 worker) sinh đủ số ván
@@ -296,11 +296,11 @@ Quy ước phối hợp:
 **Description:** Vòng lặp train: self-play → thêm vào buffer → train N step → lưu checkpoint. Loss = policy CE + value MSE + L2.
 
 **Acceptance criteria:**
-- [ ] Loss = `policy_CE * c_pi + value_MSE * c_v + L2`, trọng số đọc từ config
-- [ ] Overfit một batch cố định: loss giảm rõ rệt sau N step (sanity)
-- [ ] `scripts/train.py --config configs/normal.yaml --iterations 2` chạy xong, ghi checkpoint vào `checkpoints/`, log vào `logs/`
-- [ ] Có `--resume` để nối tiếp từ checkpoint
-- [ ] Checkpoint lưu optimizer state + config để train tiếp được
+- [x] Loss = `policy_CE * c_pi + value_MSE * c_v + L2`, trọng số đọc từ config
+- [x] Overfit một batch cố định: loss giảm rõ rệt sau N step (sanity)
+- [x] `scripts/train.py --config configs/normal.yaml --iterations 2` chạy xong, ghi checkpoint vào `checkpoints/`, log vào `logs/`
+- [x] Có `--resume` để nối tiếp từ checkpoint
+- [x] Checkpoint lưu optimizer state + config để train tiếp được
 
 **Verification:**
 - [ ] Test: `tests/test_trainer.py` — overfit batch giảm loss; checkpoint load cho train tiếp
@@ -321,11 +321,11 @@ Quy ước phối hợp:
 **Description:** Arena đấu model mới với model tốt nhất (và với MCTSPure). Chỉ thay model tốt nhất khi tỉ lệ thắng vượt ngưỡng.
 
 **Acceptance criteria:**
-- [ ] `evaluate(model_a, model_b, n_games, rules)` trả tỉ lệ thắng của A, đổi lượt đầu xen kẽ
-- [ ] `scripts/arena.py --new <ckpt> --best <ckpt> --games 100` in tỉ lệ thắng
-- [ ] Cổng promote: model mới thành best chỉ khi win rate ≥ `arena_win_threshold` (0.55); ngược lại giữ best cũ
-- [ ] Test bằng model giả để kiểm tra logic promote, không cần model thật
-- [ ] Kết quả ghi vào `logs/arena_*.json`
+- [x] `evaluate(model_a, model_b, n_games, rules)` trả tỉ lệ thắng của A, đổi lượt đầu xen kẽ
+- [x] `scripts/arena.py --new <ckpt> --best <ckpt> --games 100` in tỉ lệ thắng
+- [x] Cổng promote: model mới thành best chỉ khi win rate ≥ `arena_win_threshold` (0.55); ngược lại giữ best cũ
+- [x] Test bằng model giả để kiểm tra logic promote, không cần model thật
+- [x] Kết quả ghi vào `logs/arena_*.json`
 
 **Verification:**
 - [ ] Test: `tests/test_evaluator.py` — logic promote đúng với tỉ lệ giả lập; arena trả tổng số ván đúng
@@ -464,12 +464,12 @@ Quy ước phối hợp:
 **Description:** Mọi ván đều phải để lại dấu vết để trả lời "thua vì sao" và "ai đi trước thắng hay thua". Ghi log dạng JSONL: mỗi ván 1 dòng, kèm schema nước đi tùy chọn. Runner, self-play và script đánh giá dùng chung một bộ ghi log.
 
 **Acceptance criteria:**
-- [ ] Schema ván (JSONL, 1 dòng/ván): `game_id`, `rule_set`, `model_iter`, `config`, `first_player`, `second_player`, `winner` (`black`/`white`/`draw`/`none`), `end_reason` (`five_in_row`/`forbidden_move`/`board_full`/`timeout`), `moves_count`, `duration_sec`, `nn_calls`
-- [ ] Schema nước đi (tùy chọn, `--log-moves`): `move_index`, `player`, `row`, `col`, `value_before`, `policy_top_k` (k giá trị + chỉ số), `simulations`
-- [ ] `end_reason` phân biệt thua vì bị cấm nước (Renju) với thua vì không tạo được 5 — hai nguyên nhân thua khác nhau
-- [ ] Log ghi vào `logs/games/<ngày>-<run_id>.jsonl`, một dòng = một ván, flush ngay khi ván kết thúc
-- [ ] Runner, self-play, đánh giá dùng chung đúng một bộ ghi log, không copy logic
-- [ ] `--log-moves` tắt mặc định: ghi từng nước làm chậm self-play, chỉ bật khi chạy thí nghiệm
+- [x] Schema ván (JSONL, 1 dòng/ván): `game_id`, `rule_set`, `model_iter`, `config`, `first_player`, `second_player`, `winner` (`black`/`white`/`draw`/`none`), `end_reason` (`five_in_row`/`forbidden_move`/`board_full`/`timeout`), `moves_count`, `duration_sec`, `nn_calls`
+- [x] Schema nước đi (tùy chọn, `--log-moves`): `move_index`, `player`, `row`, `col`, `value_before`, `policy_top_k` (k giá trị + chỉ số), `simulations`
+- [x] `end_reason` phân biệt thua vì bị cấm nước (Renju) với thua vì không tạo được 5 — hai nguyên nhân thua khác nhau
+- [x] Log ghi vào `logs/games/<ngày>-<run_id>.jsonl`, một dòng = một ván, flush ngay khi ván kết thúc
+- [x] Runner, self-play, đánh giá dùng chung đúng một bộ ghi log, không copy logic
+- [x] `--log-moves` tắt mặc định: ghi từng nước làm chậm self-play, chỉ bật khi chạy thí nghiệm
 
 **Verification:**
 - [ ] Test: `tests/test_logging.py` — chơi 1 ván giả lập, đọc JSONL, assert đủ field và `end_reason` đúng khi thắng/hoà/cấm nước
@@ -487,14 +487,14 @@ Quy ước phối hợp:
 **Description:** Chạy pipeline đầy đủ trên bàn 11x11: 20 iteration × 50 ván, 200 lượt mô phỏng mỗi nước. Đo win rate qua từng iteration. Lần đầu chạy local trên RTX 4060; các vòng sau có thể chuyển sang Colab hoặc chia self-play cho nhiều instance.
 
 **Acceptance criteria:**
-- [ ] Mỗi iteration lưu checkpoint và ghi log loss + arena win rate
-- [ ] Từ iteration nào đó arena win rate vượt 0.55 so với model iteration 0
-- [ ] Agent 11x11 thắng random và thắng MCTSPure ở tỉ lệ đáng kể (đặt ngưỡng cụ thể ở log)
-- [ ] Log trong `logs/`, checkpoint trong `checkpoints/`, không commit
-- [ ] Cùng một lệnh train chạy được ở local lẫn Colab; log đủ để so sánh tốc độ hai nơi
-- [ ] Lần chạy đầu: local, đủ 20 iteration × 50 ván, không lỗi giữa chừng
-- [ ] Mở rộng ngân sách được bằng cách tăng `n_iter` trong cấu hình (24 × 50 = 1200, 30 × 50 = 1500, 100 × 50 = 5000 trong `configs/normal_5000.yaml`): chạy tiếp từ checkpoint, giữ nguyên buffer, không chạy lại từ vòng 0
-- [ ] Ngân sách và số vòng đọc từ cấu hình, không có con số 1000 hardcode trong mã
+- [x] Mỗi iteration lưu checkpoint và ghi log loss + arena win rate
+- [x] Từ iteration nào đó arena win rate vượt 0.55 so với model iteration 0
+- [x] Agent 11x11 thắng random và thắng MCTSPure ở tỉ lệ đáng kể (đặt ngưỡng cụ thể ở log)
+- [x] Log trong `logs/`, checkpoint trong `checkpoints/`, không commit
+- [x] Cùng một lệnh train chạy được ở local lẫn Colab; log đủ để so sánh tốc độ hai nơi
+- [x] Lần chạy đầu: local, đủ 20 iteration × 50 ván, không lỗi giữa chừng
+- [x] Mở rộng ngân sách được bằng cách tăng `n_iter` trong cấu hình (24 × 50 = 1200, 30 × 50 = 1500, 100 × 50 = 5000 trong `configs/normal_5000.yaml`): chạy tiếp từ checkpoint, giữ nguyên buffer, không chạy lại từ vòng 0
+- [x] Ngân sách và số vòng đọc từ cấu hình, không có con số 1000 hardcode trong mã
 
 **Verification:**
 - [ ] Manual: đọc `logs/` dựng được đường cong win rate tăng dần
