@@ -48,7 +48,7 @@ Ba điều kiện để câu hỏi này trả lời được: `az_v1` dùng đú
 
 Số liệu cho câu hỏi phụ đã tồn tại trong `logs/train_20261028-063106.jsonl`; phần còn thiếu là score của `az_v0` trước các tác tử cổ điển, do round-robin cung cấp.
 
-Ba hướng mở rộng sau khi đạt mục tiêu: so sánh một mô hình dùng chung cho Normal và Renju với hai mô hình riêng; mở rộng ngân sách tự chơi lên 1200 hay 1500 ván; và chạy lại `az_v1` với self-play có hướng dẫn heuristic.
+Ba hướng mở rộng sau khi đạt mục tiêu: so sánh một mô hình dùng chung cho Normal và Renju với hai mô hình riêng; mở rộng ngân sách tự chơi lên 1200, 1500 hay 5000 ván; và chạy lại `az_v1` với self-play có hướng dẫn heuristic.
 
 ## 4. Phạm vi
 
@@ -95,7 +95,7 @@ Về hiệu năng: để tận dụng GPU, các lượt suy luận được gom 
 
 ### 5.4 Tự chơi và huấn luyện
 
-Ngân sách mặc định: 20 vòng, mỗi vòng 50 ván, tổng 1000 ván cho mỗi bộ luật. Ngân sách nằm trong tệp cấu hình (số vòng × số ván mỗi vòng) nên tăng lên 1200 hay 1500 ván chỉ cần đổi cấu hình, không cần sửa mã. Mỗi vòng dùng 200 bước huấn luyện với batch 128 mẫu, lấy mẫu ngẫu nhiên từ buffer tối đa 50000 mẫu. Mỗi nước đi lưu lại trạng thái, phân phối xác suất mục tiêu từ cây tìm kiếm, và giá trị z tính sau khi ván kết thúc theo góc nhìn người đang đi. Dữ liệu được tăng cường bằng 8 phép đối xứng của bàn cờ, áp dụng đồng thời lên trạng thái và chính sách. Buffer tách riêng cho từng bộ luật, không trộn dữ liệu Normal với Renju. Sau mỗi vòng, mô hình mới được đấu với mô hình tốt nhất đang có, và chỉ thay thế mô hình tốt nhất khi tỉ lệ thắng đạt từ 55% trở lên.
+Ngân sách mặc định: 20 vòng, mỗi vòng 50 ván, tổng 1000 ván cho mỗi bộ luật. Ngân sách nằm trong tệp cấu hình (số vòng × số ván mỗi vòng) nên tăng lên 1200, 1500 hay 5000 ván chỉ cần đổi cấu hình, không cần sửa mã. Mỗi vòng dùng 200 bước huấn luyện với batch 128 mẫu, lấy mẫu ngẫu nhiên từ buffer tối đa 50000 mẫu. Mỗi nước đi lưu lại trạng thái, phân phối xác suất mục tiêu từ cây tìm kiếm, và giá trị z tính sau khi ván kết thúc theo góc nhìn người đang đi. Dữ liệu được tăng cường bằng 8 phép đối xứng của bàn cờ, áp dụng đồng thời lên trạng thái và chính sách. Buffer tách riêng cho từng bộ luật, không trộn dữ liệu Normal với Renju. Sau mỗi vòng, mô hình mới được đấu với mô hình tốt nhất đang có, và chỉ thay thế mô hình tốt nhất khi tỉ lệ thắng đạt từ 55% trở lên.
 
 ### 5.5 Siêu tham số
 

@@ -108,6 +108,10 @@ _Avoid_: model cũ, bản gốc, alpha zero
 AlphaZero cộng thành phần chiến thuật, dùng **đúng trọng số của az_v0** và chỉ khác ở tầng tìm kiếm. Nhờ vậy phép so sánh az_v0 với az_v1 cô lập đúng một biến.
 _Avoid_: model mới, bản cải tiến, v2
 
+**az_v0b**:
+az_v0 huấn luyện tiếp với ngân sách lớn hơn (5000 ván), khởi động từ trọng số và buffer của az_v0 nhưng ghi ra thư mục checkpoint riêng. Là thí nghiệm "thêm ván thì mạnh lên bao nhiêu", tách khỏi câu hỏi az_v0 / az_v1 và không thay thế az_v0 làm mốc cố định.
+_Avoid_: az_v0 mới, az_v2, train lại từ đầu
+
 **az_renju**:
 Mô hình Renju tạo bằng cách fine-tune từ az_v0, có Buffer riêng. Không phải một phiên bản cải tiến, không nhân bản chuỗi az_v1 sang Renju.
 _Avoid_: az_v1 renju, model renju từ đầu

@@ -70,10 +70,11 @@ Bốn quy tắc kiến trúc giữ xuyên suốt: luật chơi nằm sau một i
 | Huấn luyện | số bước mỗi vòng / batch size | 200 / 128 |
 | Huấn luyện | dung lượng buffer (trước tăng cường) | 50000 |
 | Ngân sách | số vòng × số ván mỗi vòng | 20 × 50 = 1000 ván mỗi bộ luật |
+| Ngân sách mở rộng | lần chạy `az_v0b`, `configs/normal_5000.yaml` | 100 × 50 = 5000 ván, 1000 bước huấn luyện mỗi vòng |
 | Đánh giá | ngưỡng thay thế mô hình tốt nhất | tỉ lệ thắng ≥ 0.55 |
 | Đánh giá | số ván đánh giá | 1000, xen kẽ lượt đầu |
 
-Ngân sách ván nằm trong `configs/*.yaml`, tăng lên 1200 hay 1500 ván chỉ cần sửa YAML rồi chạy tiếp từ checkpoint.
+Ngân sách ván nằm trong `configs/*.yaml`, tăng lên 1200, 1500 hay 5000 ván chỉ cần sửa YAML rồi chạy tiếp từ checkpoint. Lý do chọn mốc 5000 và điều kiện lên 10000: `docs/adr/0005-budget-5000-games-for-az-v0b.md`.
 
 ## Môi trường
 

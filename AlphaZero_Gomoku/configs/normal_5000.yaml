@@ -1,0 +1,5 @@
+# az_v0b: tiếp tục từ az_v0 tới 5000 ván (docs/adr/0005). Không sửa normal.yaml để az_v0 còn tái lập được.
+base: normal.yaml
+
+n_iter: 100
+train_steps_per_iter: 1000

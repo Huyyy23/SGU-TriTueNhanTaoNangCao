@@ -73,7 +73,7 @@ Quy ước phối hợp:
 - [ ] `configs/normal.yaml` có: `n_iter`, `games_per_iter`, `n_simulations`, `c_puct`, `dirichlet_alpha`, `dirichlet_eps`, `temp_moves`, `buffer_size`, `train_steps_per_iter`, `batch_size`, `arena_win_threshold`, `learning_rate`, `optimizer`, `weight_decay`, `value_loss_weight`, `policy_loss_weight`, `lr_schedule`
 - [ ] `configs/renju.yaml` kế thừa giá trị normal, đổi `rule_set: renju`
 - [ ] Giá trị mặc định khớp khối "Default hyperparameters" trong AGENTS.md, cộng thêm: `learning_rate: 1e-3`, `optimizer: adam`, `weight_decay: 1e-4`, `value_loss_weight: 1.0`, `policy_loss_weight: 1.0`, `lr_schedule: cosine`
-- [ ] Ngân sách ván suy ra từ cấu hình: `n_iter × games_per_iter` (mặc định 20 × 50 = 1000). Đổi sang 24 × 50 = 1200 hay 30 × 50 = 1500 chỉ cần sửa file cấu hình
+- [ ] Ngân sách ván suy ra từ cấu hình: `n_iter × games_per_iter` (mặc định 20 × 50 = 1000). Đổi sang 24 × 50 = 1200, 30 × 50 = 1500 hay 100 × 50 = 5000 chỉ cần sửa file cấu hình
 - [ ] Không con số 1000 nào hardcode trong mã; mọi nơi đọc ngân sách từ cấu hình
 
 **Verification:**
@@ -493,7 +493,7 @@ Quy ước phối hợp:
 - [ ] Log trong `logs/`, checkpoint trong `checkpoints/`, không commit
 - [ ] Cùng một lệnh train chạy được ở local lẫn Colab; log đủ để so sánh tốc độ hai nơi
 - [ ] Lần chạy đầu: local, đủ 20 iteration × 50 ván, không lỗi giữa chừng
-- [ ] Mở rộng ngân sách được bằng cách tăng `n_iter` trong cấu hình (24 × 50 = 1200, 30 × 50 = 1500): chạy tiếp từ checkpoint, giữ nguyên buffer, không chạy lại từ vòng 0
+- [ ] Mở rộng ngân sách được bằng cách tăng `n_iter` trong cấu hình (24 × 50 = 1200, 30 × 50 = 1500, 100 × 50 = 5000 trong `configs/normal_5000.yaml`): chạy tiếp từ checkpoint, giữ nguyên buffer, không chạy lại từ vòng 0
 - [ ] Ngân sách và số vòng đọc từ cấu hình, không có con số 1000 hardcode trong mã
 
 **Verification:**

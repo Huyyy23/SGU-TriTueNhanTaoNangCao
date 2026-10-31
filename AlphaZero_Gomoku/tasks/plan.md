@@ -71,7 +71,7 @@ Tổng lưu lượng vẫn kém máy local, nhưng chạy song song và không t
 15. **Đánh giá luôn xen kẽ lượt đầu** (T21). Ván chẵn A đi trước, ván lẻ B đi trước. Gomoku cho lợi thế lớn cho người đi trước, nên đánh giá chỉ có nghĩa nếu cân bằng.
 16. **Self-play chia shard theo checkpoint.** Instance CPU-only sinh `shard_<model_iter>_<id>.npz`; gộp theo `model_iter` tăng dần để không trộn policy của hai thế hệ. Features lưu uint8 để shard nhỏ (~30 KB mỗi ván).
 17. **Lần train đầu chạy local.** Ngân sách chốt 20 iteration × 50 ván. Colab dùng cho vòng chạy dài sau đó.
-18. **Ngân sách ván nằm trong cấu hình, không hardcode.** `n_iter × games_per_iter` = 1000 mặc định; nâng lên 1200 (24 × 50) hay 1500 (30 × 50) chỉ cần sửa YAML, và phải nối tiếp được từ checkpoint cũ chứ không chạy lại từ đầu (T20).
+18. **Ngân sách ván nằm trong cấu hình, không hardcode.** `n_iter × games_per_iter` = 1000 mặc định; nâng lên 1200 (24 × 50), 1500 (30 × 50) hay 5000 (100 × 50, `configs/normal_5000.yaml`) chỉ cần sửa YAML, và phải nối tiếp được từ checkpoint cũ chứ không chạy lại từ đầu (T20). Ngân sách 5000 ván là quyết định riêng cho `az_v0b`: xem `docs/adr/0005-budget-5000-games-for-az-v0b.md`.
 19. **Siêu tham số đủ để tái lập thí nghiệm.** AGENTS.md thiếu learning rate, optimizer, weight decay, trọng số mất mát và lịch giảm learning rate; bổ sung vào `DEFAULT_CONFIG` (T2). `n_simulations` quyết định cả độ mạnh lẫn thời gian chạy nên phải cấu hình được, không hardcode.
 20. **MCTS thuần dùng cùng ngân sách mô phỏng với agent** khi so sánh (E2): 200 lượt mỗi nước, để phép so sánh công bằng.
 
@@ -233,7 +233,7 @@ Thứ tự implement đi ngược lên graph: board → rules → features → m
 4. Bàn **11x11 cố định**, bỏ phase validate 7x7/9x9. Đánh đổi: mất mốc an toàn nhất của pipeline, bù bằng smoke test 2 iteration ở Checkpoint D.
 5. **Dùng Colab để train dài**, nhưng code chính không phụ thuộc Colab (T14, T15). Không cam kết Colab nhanh hơn local: nó chạy lâu hơn và không tốn laptop.
 6. **Lần train đầu chạy local** (RTX 4060). Colab dùng cho vòng chạy dài sau đó.
-7. **Ngân sách 11x11 mặc định 20 iteration × 50 ván = 1000 ván mỗi bộ luật**, nằm trong cấu hình. Tăng lên 1200 hay 1500 ván chỉ cần đổi YAML, không sửa mã.
+7. **Ngân sách 11x11 mặc định 20 iteration × 50 ván = 1000 ván mỗi bộ luật**, nằm trong cấu hình. Tăng lên 1200, 1500 hay 5000 ván chỉ cần đổi YAML, không sửa mã. Mốc 5000 ván dùng cho `az_v0b` (`configs/normal_5000.yaml`), chốt trong ADR 0005.
 8. **Code lên Colab qua GitHub** (`git clone $REPO_URL`), token đọc từ Colab Secret khi repo private. `scripts/sync_drive.py` (T16) giữ làm đường dự phòng, không phải đường chính.
 9. **Chạy song song theo hình hài 1 GPU + 1 CPU-only.** Instance CPU-only chỉ sinh shard npz; instance GPU gộp rồi train. Không cần nhiều tài khoản Google.
 10. **Số instance CPU-only: 1.** An toàn trong giới hạn tài khoản free, đủ để tách phần tốn CPU khỏi instance GPU.
