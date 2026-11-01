@@ -187,11 +187,13 @@ class MCTS:
         self.nn_calls += 1
 
         # Backup: value is from perspective of player at leaf `node`
+        value = float(value)
+        assert np.isfinite(value) and -1.0 <= value <= 1.0, f"leaf value out of range: {value}"
         node.visit_count += 1
-        node.value_sum += float(value)
+        node.value_sum += value
 
         # Walk up path, alternating perspective
-        v = float(value)
+        v = value
         if self.pending_path:
             for parent, _, child in reversed(self.pending_path):
                 v = -v
