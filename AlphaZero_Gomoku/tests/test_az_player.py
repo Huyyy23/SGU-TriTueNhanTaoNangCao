@@ -87,19 +87,19 @@ def test_twenty_games_against_random_are_valid_and_logged(tmp_path):
                 game_id=game_id,
                 timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 rule_set=rules.name,
-                black_player="az" if az_is_black else "random",
-                white_player="random" if az_is_black else "az",
+                first_player="az" if az_is_black else "random",
+                second_player="random" if az_is_black else "az",
                 winner="draw" if winner is None else ("black" if winner == BLACK else "white"),
                 first_player_won=winner == BLACK,
                 end_reason="five_in_row" if winner is not None else "board_full",
-                num_moves=len(board.history),
+                moves_count=len(board.history),
                 duration_sec=0.0,
             )
         )
 
     records = GameLogger.read_records(tmp_path / "games.jsonl")
     assert len(records) == 20
-    assert all(record["num_moves"] > 0 for record in records)
+    assert all(record["moves_count"] > 0 for record in records)
 
 
 @pytest.mark.skipif(not RUN_SLOW, reason="GD5 gate check; set RUN_SLOW=1 to run 20 games")

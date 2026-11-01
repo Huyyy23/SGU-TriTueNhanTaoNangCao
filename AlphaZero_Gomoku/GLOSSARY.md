@@ -15,7 +15,7 @@ Một lần gọi mạng nơ-ron. Là đơn vị đếm chi phí của cả hệ
 _Avoid_: lần forward, batch inference, lượt đánh giá
 
 **Lô cấp chương trình**:
-Tập hợp các lá đang chờ đánh giá, gom từ nhiều ván chạy song song, và được gửi trong đúng một lượt suy luận. Không phải tập nước đi con của một node.
+Tập hợp các lá đang chờ đánh giá, gom từ nhiều ván chạy song song, và được gửi trong đúng một lượt suy luận. Không phải tập nước đi con của một node. Khi self-play chạy nhiều tiến trình, mỗi tiến trình gom lô riêng, nên `mean_batch` trong log là lô của một tiến trình chứ không phải của cả vòng.
 _Avoid_: batch cấp cây, node batch
 
 **Nhiệt độ (τ)**:
@@ -86,6 +86,10 @@ _Avoid_: validation loss, eval loss ngẫu nhiên
 Nguyên nhân kết thúc ván cờ được chuẩn hoá trong log: five_in_row, board_full, forbidden_move, timeout. Dùng để phân loại ván đấu và giải trình nguyên nhân thua cuộc.
 _Avoid_: game result string, termination type
 
+**Kết quả ván (winner)**:
+Bên thắng ván, ghi bằng nhãn `black`, `white`, `draw` hoặc `none`. `draw` chỉ dùng khi bàn đầy mà không ai tạo được năm quân; `none` dùng khi ván bị bỏ dở (hết giờ, dừng giữa chừng). Hai nhãn này không thay thế nhau.
+_Avoid_: dùng `draw` cho ván bỏ dở, null, -1
+
 **Lợi thế đi trước**:
 Hiện tượng bên cầm Đen có tỉ lệ thắng áp đảo trong luật Gomoku tiêu chuẩn. Báo cáo bắt buộc bóc tách tỉ lệ thắng khi cầm Đen và khi cầm Trắng riêng biệt.
 _Avoid_: win rate tổng thể không phân loại
@@ -125,6 +129,10 @@ _Avoid_: so sánh phiên bản, test
 _Avoid_: win rate (khi ý nói score)
 
 ### Chiến thuật
+
+**Chiến thuật**:
+Kiến thức về nước đi bắt buộc trong một thế cờ cục bộ: thắng ngay, chặn thắng ngay, chuỗi đe dọa bắt buộc. Là một lớp nằm bên trong một tác tử, không phải một tác tử. Không dùng từ này cho các tác tử cổ điển (`random`, `heuristic`, `alphabeta`, `mcts_pure`) — chúng là đối thủ, dù `heuristic` và `alphabeta` có nhúng kiến thức chiến thuật vào hàm lượng giá.
+_Avoid_: gọi tác tử là chiến thuật, dùng "chiến thuật" cho thuật toán tìm kiếm
 
 **Bộ nhận diện mẫu**:
 Module `gomoku/patterns.py` nhận diện hình dạng quân trên bàn (tam mở, tứ mở, tứ bị chặn, overline) cho một màu tại một ô. Một bản duy nhất dùng chung cho luật Renju, tác tử heuristic và tầng tìm kiếm chiến thuật.

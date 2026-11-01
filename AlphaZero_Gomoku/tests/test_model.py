@@ -105,11 +105,12 @@ def test_checkpoint_roundtrip(tmp_path):
     np.testing.assert_allclose(v_orig, v_load, atol=1e-5)
 
 
-def test_predict_restores_training_mode():
+def test_predict_leaves_model_in_eval():
+    """predict() switches to eval and stays there; train_on_batch() restores train mode itself."""
     model = AZNet(n_blocks=1, n_filters=16)
     model.train()
     model.predict(np.zeros((1, 4, 11, 11), dtype=np.uint8))
-    assert model.training
+    assert not model.training
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")

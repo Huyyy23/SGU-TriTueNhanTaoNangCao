@@ -1,8 +1,10 @@
 import numpy as np
 import pytest
+from concurrent.futures import ProcessPoolExecutor
 
+from az.model import AZNet
 from az.replay_buffer import RULE_SET_IDS, ReplayBuffer
-from az.selfplay import run_games
+from az.selfplay import run_games, run_games_parallel, split_games
 from config import DEFAULT_CONFIG
 from gomoku.features import N_ACTIONS
 from gomoku.rules.normal import NormalRules
@@ -29,7 +31,7 @@ def test_one_game_sample_count_matches_moves():
     record = records[0]
 
     assert record.validate() is None
-    assert record.num_moves == len(buffer) > 0
+    assert record.moves_count == len(buffer) > 0
     assert record.nn_calls > 0
     assert record.mean_batch == 1.0
     assert set(buffer.rule_set[: len(buffer)].tolist()) == {RULE_SET_IDS["normal"]}
@@ -61,7 +63,7 @@ def test_same_seed_gives_same_game():
     cfg = small_cfg()
     first = list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=11))[0]
     second = list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=11))[0]
-    assert (first.winner, first.num_moves, first.nn_calls) == (second.winner, second.num_moves, second.nn_calls)
+    assert (first.winner, first.moves_count, first.nn_calls) == (second.winner, second.moves_count, second.nn_calls)
 
 
 def test_n_games_yields_n_records_and_ids_are_sequential():
@@ -78,10 +80,10 @@ def test_rule_set_mismatch_raises():
 def test_twenty_moves_under_five_seconds():
     cfg = small_cfg(n_simulations=200)
     record = list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=0))[0]
-    seconds_per_20_moves = record.duration_sec / record.num_moves * 20
+    seconds_per_20_moves = record.duration_sec / record.moves_count * 20
     assert seconds_per_20_moves < 5.0, (
         f"{seconds_per_20_moves:.2f}s per 20 moves "
-        f"({record.duration_sec:.2f}s for {record.num_moves} moves, {cfg['n_simulations']} sims)"
+        f"({record.duration_sec:.2f}s for {record.moves_count} moves, {cfg['n_simulations']} sims)"
     )
 
 
@@ -92,8 +94,8 @@ def test_parallel_games_batches_leaves_and_keeps_search_budget_per_move():
     assert all(record.mean_batch == 1.0 for record in single)
     assert all(record.mean_batch > 1.0 for record in batched)
 
-    ratio_single = sum(r.nn_calls / r.num_moves for r in single) / len(single)
-    ratio_batched = sum(r.nn_calls / r.num_moves for r in batched) / len(batched)
+    ratio_single = sum(r.nn_calls / r.moves_count for r in single) / len(single)
+    ratio_batched = sum(r.nn_calls / r.moves_count for r in batched) / len(batched)
     assert 6.5 <= ratio_batched <= 8.0
     assert abs(ratio_batched - ratio_single) < 0.1
 
@@ -110,4 +112,31 @@ def test_records_carry_model_iter_and_config():
     record = list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=1, model_iter=4))[0]
     assert record.model_iter == 4
     assert record.config["n_simulations"] == 3
+
+
+def test_split_games_is_even_and_covers_every_game():
+    assert split_games(50, 4) == [13, 13, 12, 12]
+    assert sum(split_games(50, 4)) == 50
+    assert split_games(3, 8) == [1, 1, 1]  # never more chunks than games
+    assert split_games(0, 4) == []
+
+
+def test_parallel_selfplay_stores_every_move_once():
+    cfg = small_cfg(n_simulations=2, n_blocks=1, n_filters=8)
+    buffer = ReplayBuffer(capacity=1000)
+    model = AZNet(n_blocks=1, n_filters=8)
+
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        records = run_games_parallel(pool, model, NormalRules(), cfg, 3, seed=4, buffer=buffer, workers=2)
+
+    assert len(records) == 3
+    assert sorted(r.game_id for r in records) == [0, 1, 2]
+    assert len(buffer) == sum(r.moves_count for r in records) > 0
+
+    # A lost sample and a duplicated sample cancel out on the count, so key on content too.
+    keys = {
+        buffer.features[i].tobytes() + buffer.pi[i].tobytes() + buffer.z[i : i + 1].tobytes()
+        for i in range(len(buffer))
+    }
+    assert len(keys) == len(buffer)
 

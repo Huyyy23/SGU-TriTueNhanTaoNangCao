@@ -40,12 +40,12 @@ def play_game(black, white, rules, game_id: int, rule_set: str | None = None) ->
         game_id=game_id,
         timestamp=datetime.now(timezone.utc).isoformat(),
         rule_set=rule_set or rules.name,
-        black_player=getattr(black, "name", "player"),
-        white_player=getattr(white, "name", "player"),
+        first_player=getattr(black, "name", "player"),
+        second_player=getattr(white, "name", "player"),
         winner=winner,
         first_player_won=winner == "black",
         end_reason=end_reason,
-        num_moves=len(board.history),
+        moves_count=len(board.history),
         duration_sec=round(time.perf_counter() - started, 4),
     )
 
@@ -65,6 +65,6 @@ def evaluate(a, b, rules, n_games: int, logger: GameLogger | None = None) -> lis
 def summarise(records: list[GameRecord], agent_a: str, agent_b: str) -> dict:
     """Aggregate records, adding the Wilson interval for agent_a's overall win rate."""
     summary = GameLogger.generate_summary([asdict(r) for r in records], agent_a=agent_a, agent_b=agent_b)
-    wins = sum(1 for r in records if r.winner == ("black" if r.black_player == agent_a else "white"))
+    wins = sum(1 for r in records if r.winner == ("black" if r.first_player == agent_a else "white"))
     summary["wilson_95_a"] = wilson_interval(wins, len(records))
     return summary

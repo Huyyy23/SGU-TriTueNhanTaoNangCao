@@ -37,7 +37,7 @@ def _play(payload: tuple[dict, int, int, str]) -> dict:
         "games": len(records),
         "wall_sec": round(wall_sec, 2),
         "mean_batch": round(sum(r.mean_batch for r in records) / len(records), 3),
-        "nn_calls_per_move": round(sum(r.nn_calls for r in records) / sum(r.num_moves for r in records), 2),
+        "nn_calls_per_move": round(sum(r.nn_calls for r in records) / sum(r.moves_count for r in records), 2),
     }
 
 
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
         "games": len(records),
         "wall_sec": round(baseline_sec, 2),
         "mean_batch": round(sum(r.mean_batch for r in records) / len(records), 3),
-        "nn_calls_per_move": round(sum(r.nn_calls for r in records) / sum(r.num_moves for r in records), 2),
+        "nn_calls_per_move": round(sum(r.nn_calls for r in records) / sum(r.moves_count for r in records), 2),
     }
 
     payloads = [

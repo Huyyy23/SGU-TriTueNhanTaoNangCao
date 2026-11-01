@@ -34,12 +34,15 @@ def run_games(
     seed: int = 0,
     buffer: ReplayBuffer | None = None,
     model_iter: int = 0,
+    samples_out: list | None = None,
 ) -> Iterator[GameRecord]:
     """Play `n_games` self-play games, interleaving `cfg["parallel_games"]` of them.
 
     Each tick advances every unfinished game by exactly one simulation, then evaluates
     all pending leaves with a single `model.predict` call. Games are sampled into
-    `buffer` when they end, once z is known. `model` needs `predict(features)`.
+    `buffer` when they end, once z is known; `samples_out` collects the same
+    `(planes, pi, z)` tuples for a caller that stores them elsewhere (see
+    `run_games_parallel`). `model` needs `predict(features)`.
 
     `parallel_games: 1` runs the same code path as a single game, in order.
     """
@@ -79,7 +82,7 @@ def run_games(
                 game.mcts.receive(policy, float(value))
 
         for game in searched:
-            record = _advance(game, rules, cfg, buffer, model_iter)
+            record = _advance(game, rules, cfg, buffer, model_iter, samples_out)
             if record is not None:
                 active.remove(game)
                 yield record
@@ -106,6 +109,7 @@ def _advance(
     cfg: dict,
     buffer: ReplayBuffer | None,
     model_iter: int,
+    samples_out: list | None = None,
 ) -> GameRecord | None:
     """Pick a move for one finished search. Return a record when the game is over."""
     counts = game.mcts.visit_counts()
@@ -123,7 +127,7 @@ def _advance(
         game.mcts.reset(game.board)
         return None
 
-    return _finish_game(game, rules, cfg, buffer, model_iter)
+    return _finish_game(game, rules, cfg, buffer, model_iter, samples_out)
 
 
 def _finish_game(
@@ -132,28 +136,105 @@ def _finish_game(
     cfg: dict,
     buffer: ReplayBuffer | None,
     model_iter: int,
+    samples_out: list | None = None,
 ) -> GameRecord:
     won = rules.is_win(game.board)
     winner = int(game.board.grid[game.board.history[-1]]) if won else None
 
-    if buffer is not None:
-        for planes, pi, player in game.positions:
-            z = 0.0 if winner is None else (1.0 if player == winner else -1.0)
+    for planes, pi, player in game.positions:
+        z = 0.0 if winner is None else (1.0 if player == winner else -1.0)
+        if buffer is not None:
             buffer.add(planes, pi, z, rules.name)
+        if samples_out is not None:
+            samples_out.append((planes, pi, z))
 
     return GameRecord(
         game_id=game.game_id,
         timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         rule_set=rules.name,
-        black_player="selfplay",
-        white_player="selfplay",
+        first_player="selfplay",
+        second_player="selfplay",
         winner="draw" if winner is None else ("black" if winner == BLACK else "white"),
         first_player_won=winner == BLACK,
         end_reason="five_in_row" if won else "board_full",
-        num_moves=len(game.positions),
+        moves_count=len(game.positions),
         duration_sec=time.perf_counter() - game.started,
         nn_calls=game.mcts.nn_calls,
         mean_batch=game.mean_batch,
         model_iter=model_iter,
         config=dict(cfg),
     )
+
+
+def split_games(n_games: int, workers: int) -> list[int]:
+    """Split `n_games` into `workers` near-equal chunks, biggest first. Never more chunks than games."""
+    if n_games <= 0:
+        return []
+    workers = max(1, min(int(workers), int(n_games)))
+    base, extra = divmod(int(n_games), workers)
+    return [base + 1] * extra + [base] * (workers - extra)
+
+
+def run_games_parallel(
+    pool,
+    model,
+    rules,
+    cfg: dict,
+    n_games: int,
+    seed: int = 0,
+    buffer: ReplayBuffer | None = None,
+    model_iter: int = 0,
+    workers: int = 1,
+) -> list[GameRecord]:
+    """Play `n_games` in `workers` processes, then store every sample in `buffer` here.
+
+    Only the parent writes to `buffer`, so a sample can neither be stored twice nor lost.
+    `pool` is a `ProcessPoolExecutor` owned by the caller and reused across iterations;
+    weights reach the workers as a pickled CPU `state_dict`, so nothing touches disk.
+    """
+    if cfg["rule_set"] != rules.name:
+        raise ValueError(f"config rule_set '{cfg['rule_set']}' does not match rules '{rules.name}'.")
+
+    state_dict = {name: tensor.detach().cpu() for name, tensor in model.state_dict().items()}
+    payloads = [
+        (state_dict, rules.name, {**cfg, "parallel_games": chunk}, chunk, seed * 1000 + index, model_iter)
+        for index, chunk in enumerate(split_games(n_games, workers))
+    ]
+
+    records: list[GameRecord] = []
+    samples: list[tuple] = []
+    for chunk_records, chunk_samples in pool.map(_play_chunk, payloads):
+        records.extend(chunk_records)
+        samples.extend(chunk_samples)
+
+    # Every worker numbers its games from 0; renumber so log ids stay unique.
+    for game_id, record in enumerate(records):
+        record.game_id = game_id
+
+    if buffer is not None:
+        for planes, pi, z in samples:
+            buffer.add(planes, pi, z, rules.name)
+    return records
+
+
+def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
+    """Worker entry point. Must stay module-level so spawn can pickle it."""
+    state_dict, rule_set, cfg, n_games, seed, model_iter = payload
+
+    import torch
+
+    torch.set_num_threads(1)
+
+    from az.model import AZNet
+    from gomoku.rules.normal import NormalRules
+
+    if rule_set != "normal":
+        raise ValueError(f"rule_set '{rule_set}' has no rules implementation yet (T24).")
+
+    model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"])
+    model.load_state_dict(state_dict)
+    model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+
+    samples: list[tuple] = []
+    records = list(run_games(model, NormalRules(), cfg, n_games, seed=seed, samples_out=samples, model_iter=model_iter))
+    return records, samples

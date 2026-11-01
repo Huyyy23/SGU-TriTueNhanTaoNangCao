@@ -257,6 +257,44 @@ def test_request_returns_none_when_budget_exhausted():
     assert mcts.request() is None
 
 
+# Gate Test 6: Dirichlet noise perturbs the root priors only
+def test_dirichlet_noise_only_at_root():
+    board = MockBoard()
+    rules = MockRules()
+    mcts = MCTS(rules=rules, n_simulations=2, c_puct=1.5, root_noise=True, rng=np.random.default_rng(0))
+    mcts.reset(board)
+
+    uniform_policy = np.ones(121, dtype=np.float32) / 121.0
+    req1 = mcts.request()
+    assert req1 is not None and req1.node is mcts.root
+    mcts.receive(uniform_policy, 0.0)
+
+    root_priors = np.array([child.prior for child in mcts.root.children.values()])
+    assert root_priors.std() > 0.0, "root priors should be perturbed by Dirichlet noise"
+
+    # Second simulation expands a child; it must use the raw policy, with no noise.
+    req2 = mcts.request()
+    assert req2 is not None
+    mcts.receive(uniform_policy, 0.0)
+    child_priors = np.array([child.prior for child in req2.node.children.values()])
+    assert np.allclose(child_priors, 1.0 / len(child_priors)), "only the root node may receive Dirichlet noise"
+
+
+# Gate Test 7: temperature 0 always takes the most visited move
+def test_select_move_temperature_zero_takes_argmax():
+    board = MockBoard()
+    rules = MockRules()
+    mcts = MCTS(rules=rules, n_simulations=150, c_puct=1.5, root_noise=False)
+    mcts.search(board, evaluator=StubEvaluator(value=0.0))
+
+    counts = mcts.visit_counts()
+    most_visited = int(counts.max())
+    assert most_visited > 0
+    # Ties are broken at random, so assert on the visit count, not on a specific cell.
+    for _ in range(5):
+        assert counts[mcts.select_move(temperature=0.0)] == most_visited
+
+
 # CPU Benchmark: 200 simulations with stub evaluator
 def test_benchmark_200_sims():
     board = MockBoard()

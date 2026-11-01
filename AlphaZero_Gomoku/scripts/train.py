@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 import time
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,7 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from az.game_log import GameLogger
 from az.model import AZNet
 from az.replay_buffer import ReplayBuffer
-from az.selfplay import run_games
+from az.selfplay import run_games, run_games_parallel
 from az.trainer import Trainer
 from config import load_config
 from gomoku.rules.normal import NormalRules
@@ -38,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--games", type=int, default=None, help="Games per iteration (overrides cfg games_per_iter).")
     parser.add_argument("--simulations", type=int, default=None, help="MCTS simulations per move (overrides cfg).")
+    parser.add_argument("--workers", type=int, default=1, help="Self-play processes; 1 keeps the single-process path.")
     return parser
 
 
@@ -81,12 +83,24 @@ def main(argv: list[str] | None = None) -> int:
     device_name = torch.cuda.get_device_name(0) if trainer.device.type == "cuda" else "cpu"
     print(f"device: {trainer.device.type} ({device_name})")
 
+    # shortcut: no explicit shutdown; concurrent.futures' atexit hook stops the workers.
+    executor = ProcessPoolExecutor(max_workers=args.workers) if args.workers > 1 else None
+    if executor is not None:
+        print(f"self-play workers: {args.workers}")
+
     for iteration in range(trainer.n_iter, cfg["n_iter"]):
         selfplay_started = time.perf_counter()
-        records = list(run_games(
-            trainer.model, rules, cfg, cfg["games_per_iter"],
-            seed=args.seed + iteration, buffer=buffer, model_iter=iteration,
-        ))
+        if executor is None:
+            records = list(run_games(
+                trainer.model, rules, cfg, cfg["games_per_iter"],
+                seed=args.seed + iteration, buffer=buffer, model_iter=iteration,
+            ))
+        else:
+            records = run_games_parallel(
+                executor, trainer.model, rules, cfg, cfg["games_per_iter"],
+                seed=args.seed + iteration, buffer=buffer, model_iter=iteration,
+                workers=args.workers,
+            )
         selfplay_sec = time.perf_counter() - selfplay_started
 
         # One JSONL line per game, so every game of the run leaves a trace (T19 schema).
@@ -117,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
             "policy_loss": round(stats["policy_loss"], 5),
             "value_loss": round(stats["value_loss"], 5),
             "loss_eval_on_fixed_batch": round(eval_loss, 5),
-            "mean_moves_per_game": round(sum(r.num_moves for r in records) / games, 2),
+            "mean_moves_per_game": round(sum(r.moves_count for r in records) / games, 2),
             "nn_calls_per_game": round(sum(r.nn_calls for r in records) / games, 1),
             "mean_batch": round(sum(r.mean_batch for r in records) / games, 3),
             "global_step": trainer.global_step,

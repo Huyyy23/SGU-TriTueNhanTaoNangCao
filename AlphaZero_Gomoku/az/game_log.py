@@ -9,7 +9,9 @@ from typing import Any
 
 
 VALID_END_REASONS = {"five_in_row", "board_full", "forbidden_move", "timeout"}
-VALID_WINNERS = {"black", "white", "draw"}
+VALID_WINNERS = {"black", "white", "draw", "none"}
+# "none" is an abandoned or unfinished game; "draw" is a game that ended on a full board.
+LEGACY_KEYS = {"black_player": "first_player", "white_player": "second_player", "num_moves": "moves_count"}
 
 
 @dataclass
@@ -30,12 +32,12 @@ class GameRecord:
     game_id: int
     timestamp: str
     rule_set: str
-    black_player: str
-    white_player: str
-    winner: str             # "black" | "white" | "draw"
+    first_player: str       # Black, who always moves first in Gomoku
+    second_player: str      # White
+    winner: str             # "black" | "white" | "draw" | "none"
     first_player_won: bool
     end_reason: str         # "five_in_row" | "board_full" | "forbidden_move" | "timeout"
-    num_moves: int
+    moves_count: int
     duration_sec: float
     nn_calls: int = 0
     mean_batch: float = 1.0
@@ -76,7 +78,7 @@ class GameLogger:
 
     @classmethod
     def read_records(cls, log_path: str | Path) -> list[dict[str, Any]]:
-        """Read all game records from a JSONL log file."""
+        """Read all game records from a JSONL log file, mapping pre-rename keys to the current schema."""
         path = Path(log_path)
         if not path.is_file():
             return []
@@ -85,7 +87,11 @@ class GameLogger:
             for line in f:
                 line = line.strip()
                 if line:
-                    records.append(json.loads(line))
+                    record = json.loads(line)
+                    for old, new in LEGACY_KEYS.items():
+                        if old in record:
+                            record[new] = record.pop(old)
+                    records.append(record)
         return records
 
     @classmethod
@@ -101,9 +107,9 @@ class GameLogger:
             return {"total_games": 0}
 
         if agent_a is None:
-            agent_a = records[0]["black_player"]
+            agent_a = records[0]["first_player"]
         if agent_b is None:
-            agent_b = records[0]["white_player"]
+            agent_b = records[0]["second_player"]
 
         wins_a = 0
         draws = 0
@@ -118,10 +124,10 @@ class GameLogger:
 
         for r in records:
             winner = r["winner"]
-            b_player = r["black_player"]
-            w_player = r["white_player"]
+            b_player = r["first_player"]
+            w_player = r["second_player"]
             end_reasons[r["end_reason"]] = end_reasons.get(r["end_reason"], 0) + 1
-            total_moves += r["num_moves"]
+            total_moves += r["moves_count"]
             total_duration += r["duration_sec"]
 
             is_a_black = (b_player == agent_a)

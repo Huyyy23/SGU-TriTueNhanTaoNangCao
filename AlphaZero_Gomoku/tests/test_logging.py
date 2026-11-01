@@ -11,12 +11,12 @@ def test_game_record_validation():
         game_id=1,
         timestamp="2026-10-28T00:00:00Z",
         rule_set="normal",
-        black_player="AZ_new",
-        white_player="AZ_best",
+        first_player="AZ_new",
+        second_player="AZ_best",
         winner="black",
         first_player_won=True,
         end_reason="five_in_row",
-        num_moves=25,
+        moves_count=25,
         duration_sec=3.5,
     )
     rec.validate()
@@ -27,12 +27,12 @@ def test_game_record_validation():
             game_id=2,
             timestamp="2026-10-28T00:00:00Z",
             rule_set="normal",
-            black_player="AZ_new",
-            white_player="AZ_best",
+            first_player="AZ_new",
+            second_player="AZ_best",
             winner="black",
             first_player_won=True,
             end_reason="invalid_reason",
-            num_moves=10,
+            moves_count=10,
             duration_sec=1.0,
         )
         invalid_rec.validate()
@@ -43,12 +43,12 @@ def test_game_record_validation():
             game_id=3,
             timestamp="2026-10-28T00:00:00Z",
             rule_set="normal",
-            black_player="AZ_new",
-            white_player="AZ_best",
+            first_player="AZ_new",
+            second_player="AZ_best",
             winner="someone_else",
             first_player_won=True,
             end_reason="five_in_row",
-            num_moves=10,
+            moves_count=10,
             duration_sec=1.0,
         )
         invalid_rec2.validate()
@@ -64,12 +64,12 @@ def test_game_logger_write_and_summary(tmp_path: Path):
         game_id=1,
         timestamp="2026-10-28T00:01:00Z",
         rule_set="normal",
-        black_player="AZ_new",
-        white_player="AZ_best",
+        first_player="AZ_new",
+        second_player="AZ_best",
         winner="black",
         first_player_won=True,
         end_reason="five_in_row",
-        num_moves=30,
+        moves_count=30,
         duration_sec=4.0,
         nn_calls=6000,
         mean_batch=16.0,
@@ -79,12 +79,12 @@ def test_game_logger_write_and_summary(tmp_path: Path):
         game_id=2,
         timestamp="2026-10-28T00:02:00Z",
         rule_set="normal",
-        black_player="AZ_best",
-        white_player="AZ_new",
+        first_player="AZ_best",
+        second_player="AZ_new",
         winner="black",
         first_player_won=True,
         end_reason="five_in_row",
-        num_moves=26,
+        moves_count=26,
         duration_sec=3.0,
         nn_calls=5200,
         mean_batch=16.0,
@@ -94,12 +94,12 @@ def test_game_logger_write_and_summary(tmp_path: Path):
         game_id=3,
         timestamp="2026-10-28T00:03:00Z",
         rule_set="normal",
-        black_player="AZ_best",
-        white_player="AZ_new",
+        first_player="AZ_best",
+        second_player="AZ_new",
         winner="white",
         first_player_won=False,
         end_reason="board_full",
-        num_moves=121,
+        moves_count=121,
         duration_sec=15.0,
         nn_calls=24200,
         mean_batch=15.5,
@@ -158,12 +158,12 @@ def test_game_logger_with_moves(tmp_path: Path):
         game_id=1,
         timestamp="2026-10-28T00:00:00Z",
         rule_set="normal",
-        black_player="AZ",
-        white_player="Random",
+        first_player="AZ",
+        second_player="Random",
         winner="black",
         first_player_won=True,
         end_reason="five_in_row",
-        num_moves=1,
+        moves_count=1,
         duration_sec=0.2,
         moves=moves,
     )
@@ -174,3 +174,36 @@ def test_game_logger_with_moves(tmp_path: Path):
     assert "moves" in records[0]
     assert len(records[0]["moves"]) == 1
     assert records[0]["moves"][0]["row"] == 5
+
+
+def test_abandoned_game_uses_none_winner(tmp_path: Path):
+    # "none" marks an abandoned game; "draw" stays reserved for a full board.
+    logger = GameLogger(tmp_path / "games.jsonl")
+    logger.log_game(GameRecord(
+        game_id=1,
+        timestamp="2026-11-01T00:00:00Z",
+        rule_set="normal",
+        first_player="AZ",
+        second_player="AZ",
+        winner="none",
+        first_player_won=False,
+        end_reason="timeout",
+        moves_count=12,
+        duration_sec=0.5,
+    ))
+    assert logger.read_records(tmp_path / "games.jsonl")[0]["winner"] == "none"
+
+
+def test_read_records_maps_legacy_keys(tmp_path: Path):
+    # Logs written before the T19 rename must stay readable.
+    log_file = tmp_path / "legacy.jsonl"
+    log_file.write_text(
+        '{"game_id": 1, "rule_set": "normal", "black_player": "A", "white_player": "B",'
+        ' "winner": "black", "end_reason": "five_in_row", "num_moves": 9, "duration_sec": 1.0}\n',
+        encoding="utf-8",
+    )
+    record = GameLogger.read_records(log_file)[0]
+    assert (record["first_player"], record["second_player"], record["moves_count"]) == ("A", "B", 9)
+    summary = GameLogger.generate_summary(GameLogger.read_records(log_file), agent_a="A")
+    assert summary["as_black"]["wins"] == 1
+

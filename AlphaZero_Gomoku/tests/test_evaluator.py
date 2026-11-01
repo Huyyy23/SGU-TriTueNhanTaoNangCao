@@ -43,7 +43,7 @@ def test_win_is_recorded_as_five_in_row() -> None:
     assert record.winner == "black"
     assert record.first_player_won is True
     assert record.end_reason == "five_in_row"
-    assert record.num_moves == 9
+    assert record.moves_count == 9
 
 
 def test_full_board_is_a_draw() -> None:
@@ -58,7 +58,7 @@ def test_full_board_is_a_draw() -> None:
 
     assert record.winner == "draw"
     assert record.end_reason == "board_full"
-    assert record.num_moves == 121
+    assert record.moves_count == 121
 
 
 def test_colours_alternate_and_summary_adds_up() -> None:
@@ -70,7 +70,7 @@ def test_colours_alternate_and_summary_adds_up() -> None:
     records = evaluate(a, b, rules, 10)
 
     assert [r.game_id for r in records] == list(range(10))
-    assert sum(1 for r in records if r.black_player == "random") == 5
+    assert sum(1 for r in records if r.first_player == "random") == 5
     summary = summarise(records, "random", "random_b")
     assert summary["total_games"] == 10
     assert summary["as_black"]["games"] + summary["as_white"]["games"] == 10

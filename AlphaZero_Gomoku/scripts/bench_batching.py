@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         started = time.perf_counter()
         records = list(run_games(model, rules, {**cfg, "parallel_games": parallel}, args.games, seed=0))
         wall_sec = time.perf_counter() - started
-        moves = sum(r.num_moves for r in records)
+        moves = sum(r.moves_count for r in records)
         row = {
             "parallel_games": parallel,
             "games": len(records),

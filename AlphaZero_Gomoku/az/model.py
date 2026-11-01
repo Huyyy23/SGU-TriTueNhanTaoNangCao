@@ -88,19 +88,19 @@ class AZNet(nn.Module):
             raise ValueError(f"features must have shape (B, 4, 11, 11), got {features.shape}")
 
         device = next(self.parameters()).device
-        was_training = self.training
-        self.eval()
-        try:
-            with torch.no_grad():
-                x = torch.from_numpy(features).to(device=device, dtype=torch.float32)
-                logits, values = self.forward(x)
-                probs = F.softmax(logits, dim=1)
-                return (
-                    probs.detach().cpu().numpy().astype(np.float32),
-                    values.squeeze(-1).detach().cpu().numpy().astype(np.float32),
-                )
-        finally:
-            self.train(was_training)
+        # Inference runs on BatchNorm running stats. Train mode is not restored here:
+        # Trainer.train_on_batch calls model.train() itself, and toggling modes on every
+        # call costs ~10% of self-play (11k calls per game).
+        if self.training:
+            self.eval()
+        with torch.no_grad():
+            x = torch.from_numpy(features).to(device=device, dtype=torch.float32)
+            logits, values = self.forward(x)
+            probs = F.softmax(logits, dim=1)
+            return (
+                probs.detach().cpu().numpy().astype(np.float32),
+                values.squeeze(-1).detach().cpu().numpy().astype(np.float32),
+            )
 
 
 def save_checkpoint(
