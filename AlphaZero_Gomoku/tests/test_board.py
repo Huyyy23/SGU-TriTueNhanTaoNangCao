@@ -59,3 +59,26 @@ def test_undo_restores_state():
 def test_undo_empty_raises():
     with pytest.raises(ValueError):
         Board().undo()
+
+
+def test_board_accessors_and_copy_are_independent():
+    board = Board()
+    board.play(2, 7)
+    board.play(4, 1)
+
+    assert board.at(2, 7) == BLACK
+    assert board.as_array().shape == (SIZE, SIZE)
+    assert board.as_array()[4, 1] == WHITE
+
+    copied = board.copy()
+    copied.play(0, 0)
+    assert copied.at(0, 0) == BLACK
+    assert copied.at(4, 1) == WHITE
+    assert board.at(0, 0) == EMPTY
+    assert board.at(4, 1) == WHITE
+    assert board.history == [2 * SIZE + 7, 4 * SIZE + 1]
+
+
+def test_board_at_rejects_out_of_range_coordinates():
+    with pytest.raises(ValueError):
+        Board().at(SIZE, 0)

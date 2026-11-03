@@ -34,3 +34,21 @@ class Board:
         self.grid[idx] = EMPTY
         self.current_player = WHITE if self.current_player == BLACK else BLACK
         return divmod(idx, SIZE)
+
+    def copy(self) -> Board:
+        """Return an independent copy of the board, history, and side to move."""
+        other = Board()
+        other.grid = self.grid.copy()
+        other.current_player = self.current_player
+        other.history = self.history.copy()
+        return other
+
+    def at(self, r: int, c: int) -> int:
+        """Return the stone at (row, column)."""
+        if not (0 <= r < SIZE and 0 <= c < SIZE):
+            raise ValueError(f"Cell ({r}, {c}) is outside the board.")
+        return int(self.grid[r * SIZE + c])
+
+    def as_array(self) -> np.ndarray:
+        """Return a 2D view of the board grid."""
+        return self.grid.reshape(SIZE, SIZE)

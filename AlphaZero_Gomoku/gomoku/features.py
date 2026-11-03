@@ -47,3 +47,11 @@ def symmetry_transform(array: np.ndarray, k: int) -> np.ndarray:
         arr = arr.reshape(*arr.shape[:-1], SIZE, SIZE)
     out = _OPS[k](arr)
     return np.ascontiguousarray(out).reshape(array.shape)
+
+
+def transform_policy(policy: np.ndarray, k: int) -> np.ndarray:
+    """Apply the same spatial symmetry to one or more flat policy vectors."""
+    policy = np.asarray(policy)
+    if policy.ndim == 0 or policy.shape[-1] != N_ACTIONS:
+        raise ValueError(f"policy's last dimension must be {N_ACTIONS}, got {policy.shape}")
+    return symmetry_transform(policy, k)

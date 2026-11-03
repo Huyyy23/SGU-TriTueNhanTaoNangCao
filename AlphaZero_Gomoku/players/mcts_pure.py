@@ -60,10 +60,7 @@ class MCTSPure(Player):
         if not legal or self.rules.is_win(board):
             raise RuntimeError("MCTSPure asked to move on a terminal board")
 
-        work = Board()
-        work.grid[:] = board.grid
-        work.current_player = board.current_player
-        work.history[:] = board.history
+        work = board.copy()
         mover = board.current_player
 
         for move in legal:
@@ -72,6 +69,20 @@ class MCTSPure(Player):
             work.undo()
             if won:
                 return move, [(candidate, self.n_rollouts if candidate == move else 0) for candidate in legal]
+
+        opponent = WHITE if mover == BLACK else BLACK
+        opponent_board = work.copy()
+        opponent_board.current_player = opponent
+        opponent_wins: set[int] = set()
+        for move in self.rules.legal_moves(opponent_board):
+            opponent_board.play(*divmod(move, SIZE))
+            if self.rules.is_win(opponent_board):
+                opponent_wins.add(move)
+            opponent_board.undo()
+        blocking_moves = [move for move in legal if move in opponent_wins]
+        if blocking_moves:
+            move = blocking_moves[0]
+            return move, [(candidate, self.n_rollouts if candidate == move else 0) for candidate in legal]
 
         root = _Node(parent=None, move=-1, player_to_move=mover)
         root_history_len = len(work.history)

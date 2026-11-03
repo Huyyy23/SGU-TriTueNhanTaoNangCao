@@ -2,7 +2,14 @@ import numpy as np
 import pytest
 
 from gomoku.board import BLACK, SIZE, WHITE, Board
-from gomoku.features import N_ACTIONS, N_PLANES, N_SYMMETRIES, board_to_planes, symmetry_transform
+from gomoku.features import (
+    N_ACTIONS,
+    N_PLANES,
+    N_SYMMETRIES,
+    board_to_planes,
+    symmetry_transform,
+    transform_policy,
+)
 from gomoku.rules.normal import NormalRules
 
 
@@ -103,3 +110,16 @@ def test_symmetry_accepts_batches():
     for i in range(3):
         assert np.array_equal(transformed_policies[i], symmetry_transform(policies[i], 3))
         assert np.array_equal(transformed_planes[i], symmetry_transform(planes[i], 3))
+
+
+def test_transform_policy_matches_shared_symmetry_transform():
+    policy = np.arange(N_ACTIONS, dtype=np.float32)
+    assert np.array_equal(transform_policy(policy, 3), symmetry_transform(policy, 3))
+
+    batched = np.stack((policy, policy))
+    assert np.array_equal(transform_policy(batched, 5), symmetry_transform(batched, 5))
+
+
+def test_transform_policy_rejects_invalid_shape():
+    with pytest.raises(ValueError):
+        transform_policy(np.zeros((SIZE, SIZE)), 0)
