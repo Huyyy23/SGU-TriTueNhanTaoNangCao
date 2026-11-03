@@ -4,7 +4,11 @@ Agent Gomoku trên bàn 11x11, tự học bằng self-play theo AlphaZero: mạn
 
 ## Trạng thái
 
-Dự án đang ở giai đoạn lập kế hoạch, chưa có mã nguồn. Các tài liệu đã chốt:
+Dự án đã có lõi game 11x11, agent AlphaZero và pipeline huấn luyện/đánh giá.
+CLI và giao diện Pygame hỗ trợ Normal/Renju, người đấu máy và máy đấu máy.
+Tích hợp huấn luyện riêng cho Renju vẫn đang được phát triển.
+
+Các tài liệu kế hoạch:
 
 | Tài liệu | Nội dung |
 |---|---|
@@ -13,7 +17,7 @@ Dự án đang ở giai đoạn lập kế hoạch, chưa có mã nguồn. Các 
 | [tasks/proposal.md](tasks/proposal.md) | Đề tài trình bày: mục tiêu, phương pháp, thiết kế thí nghiệm E1–E5 |
 | [tasks/proposal-requirements.md](tasks/proposal-requirements.md) | Yêu cầu đề tài theo từng khối |
 
-Việc triển khai bắt đầu từ `tasks/todo.md`, task T1 (skeleton repo + dependency + pytest).
+Đối chiếu tiêu chí và tiến độ theo `tasks/todo.md`.
 
 ## Mục tiêu
 
@@ -94,12 +98,15 @@ Các lệnh dưới đây là hợp đồng với `tasks/todo.md`, sẽ chạy �
 ```bash
 pip install -r requirements.txt
 
-python scripts/play.py --mode human-vs-random     # chơi với agent ở CLI
-python scripts/train.py --config configs/normal.yaml   # huấn luyện
-python scripts/arena.py --new checkpoints/latest.pt --best checkpoints/best.pt --games 100
-python scripts/simulate.py --a checkpoints/best.pt --b random --games 1000
-python -m ui.pygame_app                          # giao diện đồ họa
-pytest -q                                        # toàn bộ test
+python scripts/play.py --mode human-vs-ai --agent mcts-pure --ruleset normal
+python scripts/play.py --mode ai-vs-ai --agent random --ruleset renju
+python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
+python -m ui.pygame_app --mode ai-vs-ai --checkpoint checkpoints/last.pt
+python scripts/train.py --config configs/normal.yaml
+python scripts/arena.py --a random --b checkpoints/last.pt --games 100
+pytest -q
 ```
 
+Không truyền `--checkpoint` thì UI dùng RandomPlayer hoặc MCTSPure theo `--agent`.
+Trong chế độ AI-vs-AI, nhấn Space để tạm dừng/tiếp tục và New game để chơi lại.
 Checkpoint ghi vào `checkpoints/`, log vào `logs/`. Cả hai nằm ngoài git.

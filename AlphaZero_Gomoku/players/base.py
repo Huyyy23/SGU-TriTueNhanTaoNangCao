@@ -8,3 +8,7 @@ class Player:
 
     def select_move(self, board) -> tuple[int, int]:
         raise NotImplementedError
+
+
+class IllegalMoveError(RuntimeError):
+    """Raised when a player returns a move that is illegal for the current state."""

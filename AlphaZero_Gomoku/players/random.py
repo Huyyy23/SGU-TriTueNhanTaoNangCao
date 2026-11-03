@@ -16,4 +16,7 @@ class RandomPlayer(Player):
         self.rng = np.random.default_rng(seed)
 
     def select_move(self, board) -> tuple[int, int]:
-        return divmod(int(self.rng.choice(self.rules.legal_moves(board))), SIZE)
+        legal_moves = self.rules.legal_moves(board)
+        if not legal_moves or self.rules.is_win(board):
+            raise RuntimeError("RandomPlayer asked to move on a terminal board")
+        return divmod(int(self.rng.choice(legal_moves)), SIZE)

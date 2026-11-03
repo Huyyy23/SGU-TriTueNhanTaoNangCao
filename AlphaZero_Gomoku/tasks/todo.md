@@ -160,16 +160,16 @@ Quy ước phối hợp:
 **Acceptance criteria:**
 - [x] `Player.select_move(board)` là interface duy nhất mà runner gọi
 - [x] `RandomPlayer` chọn ngẫu nhiên trong `rules.legal_moves`
-- [ ] `HumanPlayer` nhận tọa độ từ callback, từ chối nước không hợp lệ
-- [ ] `Runner.play()` trả `GameResult` (winner, moves, reason: win/draw)
-- [ ] `scripts/play.py --mode human-vs-random` chơi được hết ván qua CLI, in bàn cờ mỗi nước
-- [ ] `scripts/play.py --mode ai-vs-ai` chạy ván random-vs-random không cần input
-- [ ] `gomoku/runner.py` không import torch
+- [x] `HumanPlayer` nhận tọa độ từ callback, từ chối nước không hợp lệ
+- [x] `Runner.play()` trả `GameResult` (winner, moves, reason: win/draw)
+- [x] `scripts/play.py --mode human-vs-ai` chơi được hết ván qua CLI, in bàn cờ mỗi nước
+- [x] `scripts/play.py --mode ai-vs-ai` chạy ván random-vs-random không cần input
+- [x] `gomoku/runner.py` không import torch
 
 **Verification:**
-- [ ] Test: `tests/test_runner.py` — ván random-vs-random kết thúc hợp lệ, số nước = len(history), người thắng đúng khi có 5 liền
-- [ ] Test: `pytest -q tests/test_runner.py` → pass
-- [ ] Manual: `python scripts/play.py --mode human-vs-random` → nhập tọa độ, chơi tới khi thắng/hoà
+- [x] Test: `tests/test_runner.py` — ván random-vs-random kết thúc hợp lệ, số nước khớp history, người thắng đúng khi có 5 liền
+- [x] Test: `pytest -q tests/test_runner.py` → pass
+- [x] Manual: `python scripts/play.py --mode human-vs-ai` → nhập tọa độ, chơi tới khi thắng/hoà
 
 **Dependencies:** T3, T4
 **Files likely touched:** `players/base.py`, `players/random.py`, `players/human.py`, `players/__init__.py`, `gomoku/runner.py`, `scripts/play.py`, `tests/test_runner.py`
@@ -182,14 +182,14 @@ Quy ước phối hợp:
 **Description:** MCTS thuần dùng luật + heuristic không có mạng. Làm đối thủ thật để đo chất lượng agent. Chỉ gọi interface rules.
 
 **Acceptance criteria:**
-- [ ] `MCTSPure(rules, n_rollouts=...)` chọn nước bằng UCT + rollout ngẫu nhiên
-- [ ] Chỉ dùng `rules.legal_moves` / `rules.is_win` / `rules.is_terminal`, không hardcode luật
-- [ ] Vị trí thắng trong 1 nước → chọn đúng nước thắng
+- [x] `MCTSPure(rules, n_rollouts=...)` chọn nước bằng UCT + rollout ngẫu nhiên
+- [x] Chỉ dùng `rules.legal_moves` / `rules.is_win` / `rules.is_terminal`, không hardcode luật
+- [x] Vị trí thắng trong 1 nước → chọn đúng nước thắng
 - [ ] Thắng random >60% trên 11x11 trong 20 ván (cả hai màu)
 
 **Verification:**
-- [ ] Test: `tests/test_mcts_pure.py` — case win-in-1; case không chọn nước bị cấm
-- [ ] Test: `pytest -q tests/test_mcts_pure.py` → pass
+- [x] Test: `tests/test_mcts_pure.py` — case win-in-1; case không chọn nước bị cấm
+- [x] Test: `pytest -q tests/test_mcts_pure.py` → pass
 - [ ] Manual: script đấu 20 ván 11x11, in tỉ lệ thắng >0.6
 
 **Dependencies:** T4, T6
@@ -562,15 +562,15 @@ Quy ước phối hợp:
 **Description:** UI pygame: vẽ bàn 11x11, click để đánh, đánh dấu nước cuối, tô ô thắng, chế độ human-vs-AI và AI-vs-AI. Gắn vào runner.
 
 **Acceptance criteria:**
-- [ ] Click vào ô trống hợp lệ → đặt đá; click ô bận → phản hồi, không đặt
-- [ ] Agent phản hồi trong thời gian chấp nhận được, hiển thị nước vừa đánh
-- [ ] Ván kết thúc → hiện kết quả (thắng/hoà) và có thể bấm để chơi ván mới
-- [ ] Chế độ AI vs AI tự chạy, có nút tạm dừng
-- [ ] Smoke test chạy được headless với `SDL_VIDEODRIVER=dummy` và sự kiện giả lập
+- [x] Click vào ô trống hợp lệ → đặt đá; click ô bận → phản hồi, không đặt
+- [x] Agent phản hồi trong thời gian chấp nhận được, hiển thị nước vừa đánh
+- [x] Ván kết thúc → hiện kết quả (thắng/hoà) và có thể bấm để chơi ván mới
+- [x] Chế độ AI vs AI tự chạy, có nút tạm dừng
+- [x] Smoke test chạy được headless với `SDL_VIDEODRIVER=dummy` và sự kiện giả lập
 
 **Verification:**
-- [ ] Test: `tests/test_ui.py` — smoke test headless, sự kiện giả lập tạo ra nước đi hợp lệ
-- [ ] Test: `pytest -q tests/test_ui.py` → pass
+- [x] Test: `tests/test_ui.py` — smoke test headless, sự kiện giả lập tạo ra nước đi hợp lệ
+- [x] Test: `pytest -q tests/test_ui.py` → pass
 - [ ] Manual: `python -m ui.pygame_app` → click thấy đá, AI đáp lại
 
 **Dependencies:** T6, T12
@@ -584,16 +584,16 @@ Quy ước phối hợp:
 **Description:** Luật Renju cho đen: cấm 3-3, cấm 4-4, cấm quá 5 (overline). Nước tạo đúng 5 luôn hợp lệ và thắng. Trắng không bị hạn chế.
 
 **Acceptance criteria:**
-- [ ] `forbidden_moves(board)` trả đúng các ô bị cấm cho đen
-- [ ] Nước tạo đúng 5 quân hợp lệ và thắng, kể cả khi kèm 3-3 hay 4-4
-- [ ] 3-3 bị cấm; 4-4 bị cấm; overline (6+) bị cấm
-- [ ] Trắng không bị cấm nước nào
-- [ ] Mask được cache theo position, invalidate khi `play()`
-- [ ] Luật Renju nằm trong `gomoku/rules/`, không rò logic ra nơi khác (hard rule 1)
+- [x] `forbidden_moves(board)` trả đúng các ô bị cấm cho đen
+- [x] Nước tạo đúng 5 quân hợp lệ và thắng, kể cả khi kèm 3-3 hay 4-4
+- [x] 3-3 bị cấm; 4-4 bị cấm; overline (6+) bị cấm
+- [x] Trắng không bị cấm nước nào
+- [x] Mask được cache theo position, cache key thay đổi khi `play()`
+- [x] Luật Renju nằm trong `gomoku/rules/`, không rò logic ra nơi khác (hard rule 1)
 
 **Verification:**
-- [ ] Test: `tests/test_rules_renju.py` — case 3-3, 4-4, overline, ngoại lệ đúng 5, trắng không bị cấm, cache invalidate đúng
-- [ ] Test: `pytest -q tests/test_rules_renju.py` → pass
+- [x] Test: `tests/test_rules_renju.py` — case 3-3, 4-4, overline, ngoại lệ đúng 5, trắng không bị cấm, cache key thay đổi đúng
+- [x] Test: `pytest -q tests/test_rules_renju.py` → pass
 - [ ] Manual: không cần
 
 **Dependencies:** T4
