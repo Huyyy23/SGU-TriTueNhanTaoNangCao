@@ -50,6 +50,10 @@ class GameRecord:
             raise ValueError(f"Invalid end_reason '{self.end_reason}'. Expected one of {VALID_END_REASONS}")
         if self.winner not in VALID_WINNERS:
             raise ValueError(f"Invalid winner '{self.winner}'. Expected one of {VALID_WINNERS}")
+        if self.moves is not None and self.moves_count != len(self.moves):
+            raise ValueError(
+                f"moves_count ({self.moves_count}) does not match len(moves) ({len(self.moves)})"
+            )
 
 
 class GameLogger:

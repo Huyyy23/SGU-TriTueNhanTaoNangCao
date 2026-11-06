@@ -230,6 +230,7 @@ def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
 
     if rule_set != "normal":
         raise ValueError(f"rule_set '{rule_set}' has no rules implementation yet (T24).")
+    # shortcut: only Normal rules supported until T25 (Renju fine-tune) is scheduled
 
     model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"])
     model.load_state_dict(state_dict)

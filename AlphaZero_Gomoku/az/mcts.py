@@ -184,7 +184,7 @@ class MCTS:
         for move in np.flatnonzero(legal_mask):
             node.children[int(move)] = Node(parent=node, move=int(move), prior=float(priors[move]))
         node.is_expanded = True
-        self.nn_calls += 1
+        self.nn_calls += 1  # one leaf evaluation == one NN inference (hard rule: no duplicate)
 
         # Backup: value is from perspective of player at leaf `node`
         value = float(value)
