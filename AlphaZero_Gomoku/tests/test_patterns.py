@@ -49,6 +49,39 @@ def test_distinguishes_blocked_four_and_overline():
     assert pattern.kind == "overline"
 
 
+def test_finds_blocked_three():
+    board = board_with({(5, 3): WHITE, (5, 4): BLACK, (5, 5): BLACK})
+    pattern, = find_patterns(board, 5, 6, BLACK)
+    assert (pattern.kind, pattern.completion_cells) == ("blocked_three", ((5, 7),))
+
+
+def test_finds_broken_three_completion_gap_only():
+    board = board_with({(5, 3): BLACK, (5, 6): BLACK})
+    pattern, = find_patterns(board, 5, 4, BLACK)
+    assert (pattern.kind, pattern.completion_cells) == ("broken_three", ((5, 5),))
+
+
+def test_finds_new_patterns_for_both_players_and_all_directions():
+    cases = [
+        ((0, 1), (5, 6), {(5, 3): WHITE, (5, 4): BLACK, (5, 5): BLACK}, BLACK, "blocked_three"),
+        ((1, 0), (6, 5), {(3, 5): WHITE, (4, 5): BLACK, (5, 5): BLACK}, BLACK, "blocked_three"),
+        ((1, 1), (6, 6), {(3, 3): WHITE, (4, 4): BLACK, (5, 5): BLACK}, BLACK, "blocked_three"),
+        ((1, -1), (6, 4), {(3, 7): WHITE, (4, 6): BLACK, (5, 5): BLACK}, BLACK, "blocked_three"),
+        ((0, 1), (5, 4), {(5, 3): WHITE, (5, 6): WHITE}, WHITE, "broken_three"),
+        ((1, 0), (4, 5), {(3, 5): WHITE, (6, 5): WHITE}, WHITE, "broken_three"),
+        ((1, 1), (4, 4), {(3, 3): WHITE, (6, 6): WHITE}, WHITE, "broken_three"),
+        ((1, -1), (4, 6), {(3, 7): WHITE, (6, 4): WHITE}, WHITE, "broken_three"),
+    ]
+    for direction, candidate, stones, player, kind in cases:
+        board = board_with(stones)
+        patterns = find_patterns(board, *candidate, player)
+        matches = [p for p in patterns if p.kind == kind and p.direction == direction]
+        assert matches
+        if kind == "broken_three":
+            gap = (candidate[0] + direction[0], candidate[1] + direction[1])
+            assert matches[0].completion_cells == (gap,)
+
+
 def test_ignores_disconnected_or_opponent_stones():
     board = board_with({(5, 2): BLACK, (5, 4): BLACK, (5, 5): WHITE})
     assert find_patterns(board, 5, 6, BLACK) == []

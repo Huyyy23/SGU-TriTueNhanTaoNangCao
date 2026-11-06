@@ -15,7 +15,7 @@ class Pattern:
 
 
 def find_patterns(board: Board, r: int, c: int, player: int) -> list[Pattern]:
-    """Classify contiguous patterns formed by hypothetically placing a stone."""
+    """Classify patterns formed by hypothetically placing a stone."""
     if not isinstance(board, Board):
         raise ValueError("board must be a Board")
     if not (0 <= r < SIZE and 0 <= c < SIZE):
@@ -38,8 +38,7 @@ def find_patterns(board: Board, r: int, c: int, player: int) -> list[Pattern]:
         cells.sort(key=lambda cell: cell[0] * dr + cell[1] * dc)
         length = len(cells)
         ends = []
-        for rr, cc in ((cells[0][0] - dr, cells[0][1] - dc),
-                       (cells[-1][0] + dr, cells[-1][1] + dc)):
+        for rr, cc in ((cells[0][0] - dr, cells[0][1] - dc), (cells[-1][0] + dr, cells[-1][1] + dc)):
             if 0 <= rr < SIZE and 0 <= cc < SIZE and int(grid[rr, cc]) == EMPTY:
                 ends.append((rr, cc))
 
@@ -47,6 +46,21 @@ def find_patterns(board: Board, r: int, c: int, player: int) -> list[Pattern]:
             patterns.append(Pattern("overline", (dr, dc), ()))
         elif length == 4:
             patterns.append(Pattern("open_four" if len(ends) == 2 else "blocked_four", (dr, dc), tuple(ends)))
-        elif length == 3 and len(ends) == 2:
-            patterns.append(Pattern("open_three", (dr, dc), tuple(ends)))
+        elif length == 3:
+            patterns.append(Pattern("open_three" if len(ends) == 2 else "blocked_three", (dr, dc), tuple(ends)))
+
+        if length <= 3:
+            gap_cells = set()
+            for start in range(-4, 1):
+                window = [(r + (start + i) * dr, c + (start + i) * dc) for i in range(5)]
+                if any(not (0 <= rr < SIZE and 0 <= cc < SIZE) for rr, cc in window):
+                    continue
+                values = [player if cell == (r, c) else int(grid[cell]) for cell in window]
+                if values.count(player) != 3 or values.count(EMPTY) != 2 or any(v not in (EMPTY, player) for v in values):
+                    continue
+                stones = [i for i, value in enumerate(values) if value == player]
+                if stones[-1] - stones[0] > 2:
+                    gap_cells.update(window[i] for i in range(stones[0] + 1, stones[-1]) if values[i] == EMPTY)
+            if gap_cells:
+                patterns.append(Pattern("broken_three", (dr, dc), tuple(sorted(gap_cells))))
     return patterns
