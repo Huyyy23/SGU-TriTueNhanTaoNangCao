@@ -1,44 +1,59 @@
 from __future__ import annotations
 
-from gomoku.board import SIZE
+from gomoku.board import BLACK, SIZE, WHITE
 
 
 class TacticalAZPlayer:
-    """AZ player with a shallow tactical override (win now, block opponent win)."""
+    """AZ player with a shallow tactical override (win now, block opponent win).
 
-    def __init__(self, base_player) -> None:
+    The base player is untouched; this wrapper only replaces its move when a
+    one-move win or a one-move block exists. Candidates come from
+    `rules.legal_moves`, so Renju forbidden moves are never chosen.
+    """
+
+    def __init__(self, base_player, enabled: bool = False, cfg: dict | None = None) -> None:
         self.base = base_player
+        self.rules = base_player.rules
+        tactical = (cfg or {}).get("tactical") or {}
+        self.enabled = bool(tactical.get("enabled", enabled))
+        self.last_override_applied = False
+        self.last_override_reason: str | None = None
 
     def select_move(self, board) -> tuple[int, int]:
-        rules = self.base.rules
-        legal = set(rules.legal_moves(board))
+        self.last_override_applied = False
+        self.last_override_reason = None
+        if not self.enabled:
+            return self._fallback_move(board)
 
-        # 1. Win immediately if possible.
-        for move in legal:
-            r, c = divmod(move, SIZE)
-            board.play(r, c)
-            is_win = rules.is_win(board)
-            board.undo()
-            if is_win:
-                return (r, c)
+        legal = self.rules.legal_moves(board)
+        player = board.current_player
+        opponent = WHITE if player == BLACK else BLACK
 
-        # 2. Block opponent's immediate win.
-        opponent = 3 - board.current_player
         for move in legal:
-            r, c = divmod(move, SIZE)
-            board.play(r, c)  # temporarily as current player? need opponent perspective
-            board.undo()
-        # Re-evaluate blocking by simulating opponent turn.
+            if self._wins_after(board, move, player):
+                return self._override(move, "win_now")
+
         for move in legal:
-            r, c = divmod(move, SIZE)
-            # place opponent stone
-            saved = board.current_player
-            board.current_player = opponent
-            board.play(r, c)
-            is_win = rules.is_win(board)
+            if self._wins_after(board, move, opponent):
+                return self._override(move, "block_win")
+
+        return self._fallback_move(board)
+
+    def _fallback_move(self, board) -> tuple[int, int]:
+        return self.base.select_move(board)
+
+    def _override(self, move: int, reason: str) -> tuple[int, int]:
+        self.last_override_applied = True
+        self.last_override_reason = reason
+        return divmod(move, SIZE)
+
+    def _wins_after(self, board, move: int, player: int) -> bool:
+        """Play `move` as `player` on a copy-free path, then restore the board."""
+        saved = board.current_player
+        board.current_player = player
+        board.play(*divmod(move, SIZE))
+        try:
+            return self.rules.is_win(board)
+        finally:
             board.undo()
             board.current_player = saved
-            if is_win:
-                return (r, c)
-
-        return self.base.select_move(board)

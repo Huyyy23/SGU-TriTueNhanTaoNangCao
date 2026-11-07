@@ -54,6 +54,28 @@ def test_game_record_validation():
         invalid_rec2.validate()
 
 
+def test_forbidden_move_end_reason_is_logged(tmp_path: Path):
+    record = GameRecord(
+        game_id=4,
+        timestamp="2026-10-28T00:04:00Z",
+        rule_set="renju",
+        first_player="Black",
+        second_player="White",
+        winner="white",
+        first_player_won=False,
+        end_reason="forbidden_move",
+        moves_count=12,
+        duration_sec=1.5,
+    )
+    record.validate()
+
+    logger = GameLogger(tmp_path / "games.jsonl", log_moves=False)
+    logger.log_game(record)
+    summary = logger.save_summary(tmp_path / "summary.json", agent_a="Black", agent_b="White")
+
+    assert summary["by_end_reason"]["forbidden_move"] == 1
+
+
 def test_game_logger_write_and_summary(tmp_path: Path):
     log_file = tmp_path / "games.jsonl"
     summary_file = tmp_path / "summary.json"
