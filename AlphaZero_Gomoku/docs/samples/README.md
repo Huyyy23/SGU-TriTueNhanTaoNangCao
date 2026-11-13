@@ -1,6 +1,6 @@
 # Output mẫu từ smoke test (KHÔNG phải kết quả nghiên cứu)
 
-Các thư mục này là output thật của `scripts/tournament.py`, chạy ngày 14/11/2026 trên máy Linux CPU (Python 3, torch CPU). Chúng chỉ để xem định dạng file và kiểm tra luồng chạy. Số ván rất ít (2–20 ván/cặp), **không dùng làm số liệu báo cáo**.
+Các thư mục này là output thật của `scripts/tournament.py` và `scripts/ablation.py`, chạy ngày 14/11/2026 trên máy Linux CPU (Python 3, torch CPU). Chúng chỉ để xem định dạng file và kiểm tra luồng chạy. Số ván rất ít (2–20 ván/cặp), **không dùng làm số liệu báo cáo**.
 
 | Thư mục | Lệnh (rút gọn) | Mục đích |
 |---|---|---|
@@ -9,6 +9,8 @@ Các thư mục này là output thật của `scripts/tournament.py`, chạy ng�
 | `tournament/smoke_az_normal_g2_sims32_s0/` | `az_v0,az_v1_tactical,az_v1_threat,random`, 2 ván/cặp | load checkpoint, đủ ba mốc AlphaZero, metric override/threat-space |
 | `tournament/smoke_az_renju_g2_sims16_s0/` | ba mốc AlphaZero, `--ruleset renju` | Renju: 0 nước trái luật |
 | `tournament/smoke_time_g2_t0.5_s0/` | `az_v0,mcts_pure,heuristic`, `--budget time:0.5` | chế độ ngân sách thời gian |
+| `ablation/smoke_ab_d12_p2_s0.*` | `alphabeta --depths 1,2 --positions 2` | ablation pruning, JSON + PNG |
+| `ablation/smoke_mcts_50_200_800_g2_s0.*` | `mcts --sims 50,200,800 --games 2` | ablation MCTS, JSON + PNG |
 
 **Checkpoint trong các smoke test AlphaZero là mạng 6x64 khởi tạo ngẫu nhiên, chưa train** (`untrained_init_6x64.pt`, tạo bằng `az.model.save_checkpoint` với `torch.manual_seed(0)`), vì lúc kiểm tra repo và thư mục Drive không có file `.pt` nào. Nó chỉ chứng minh việc load checkpoint, nối wrapper và ghi metric chạy được; thắng thua giữa các mốc AlphaZero ở đây không nói gì về sức mạnh.
 
