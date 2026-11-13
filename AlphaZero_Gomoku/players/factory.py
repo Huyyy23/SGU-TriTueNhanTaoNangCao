@@ -31,8 +31,13 @@ def create_player(
     depth: int = 2,
     pruning: bool = True,
     time_budget_sec: float | None = None,
+    n_simulations: int | None = None,
 ) -> Player:
-    """Create one configured player for the terminal or Pygame interface."""
+    """Create one configured player for the terminal, Pygame or tournament.
+
+    `n_simulations` overrides the AlphaZero search budget from the YAML config
+    (used by scripts/tournament.py for `--budget sims:N`); None keeps the config value.
+    """
     if agent == "random":
         from players.random import RandomPlayer
 
@@ -61,6 +66,10 @@ def create_player(
     if config is None:
         config = Path(__file__).resolve().parents[1] / "configs" / f"{rules.name}.yaml"
     cfg = load_config(config)
+    if n_simulations is not None:
+        if int(n_simulations) <= 0:
+            raise ValueError("n_simulations must be positive")
+        cfg["n_simulations"] = int(n_simulations)
     cfg["tactical"] = {
         **(cfg.get("tactical") or {}),
         "enabled": agent in {"az_v1_tactical", "az_v1_threat"},

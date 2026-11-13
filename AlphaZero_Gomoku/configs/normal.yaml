@@ -33,3 +33,10 @@ arena_win_threshold: 0.55
 # Model
 n_blocks: 6
 n_filters: 64
+
+# az_v1 feature flags (T29/T30). Keep both false here: az_v0 runs with them off.
+# players/factory.py enables them for az_v1_tactical / az_v1_threat only.
+tactical:
+  enabled: false
+threat_space:
+  enabled: false

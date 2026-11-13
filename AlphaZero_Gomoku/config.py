@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 
 import yaml
@@ -37,12 +38,17 @@ DEFAULT_CONFIG: dict = {
     "eval_fixed_batch_size": 512,
     "checkpoint_buffer": True,
     "log_moves": False,
+    # Feature flags for the az_v1 milestones (T29/T30). Both stay off by default so that
+    # az_v0 is reproduced exactly; players/factory.py turns them on per agent name.
+    "tactical": {"enabled": False},
+    "threat_space": {"enabled": False},
 }
 
 
 def load_config(path: str | Path | None = None) -> dict:
     """Load a YAML config over DEFAULT_CONFIG. A `base:` key inherits one level from a sibling file."""
-    config = dict(DEFAULT_CONFIG)
+    # deepcopy: nested sections (tactical, threat_space) must not be shared between callers.
+    config = copy.deepcopy(DEFAULT_CONFIG)
     if path is None:
         return config
     path = Path(path)
