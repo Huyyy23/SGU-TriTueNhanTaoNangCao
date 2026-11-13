@@ -118,3 +118,20 @@ def test_empty_buffer_refuses_to_train():
     trainer = Trainer(AZNet(n_blocks=1, n_filters=8), tiny_cfg(), buffer=ReplayBuffer(capacity=8))
     with pytest.raises(ValueError):
         trainer.train_steps(1)
+
+def test_finetune_loads_weights_with_fresh_optimizer_and_empty_renju_buffer(tmp_path):
+    from az.model import save_checkpoint
+
+    cfg = tiny_cfg(rule_set="renju")
+    source = AZNet(n_blocks=1, n_filters=8)
+    checkpoint = tmp_path / "normal.pt"
+    save_checkpoint(source, checkpoint, meta={"rule_set": "normal"})
+    buffer = ReplayBuffer(capacity=32)
+
+    trainer = Trainer.from_pretrained(checkpoint, cfg, buffer=buffer, seed=4)
+
+    assert all((a.cpu() == b.cpu()).all() for a, b in zip(source.state_dict().values(), trainer.model.state_dict().values()))
+    assert trainer.global_step == 0
+    assert trainer.n_iter == 0
+    assert len(buffer) == 0
+    assert trainer.cfg["rule_set"] == "renju"

@@ -164,6 +164,20 @@ class Trainer:
         self.buffer.save_npz(buffer_path, extra=extra)
 
     @classmethod
+    def from_pretrained(cls, checkpoint_path: str | Path, cfg: dict, buffer: ReplayBuffer, device=None, seed: int = 0) -> Trainer:
+        """Fine-tune weights from another rule set with fresh optimizer and training state."""
+        model, meta = load_checkpoint(checkpoint_path, device=device)
+        if meta.get("rule_set") not in (None, "normal"):
+            raise ValueError("fine-tuning source checkpoint must use Normal rules")
+        if cfg.get("rule_set") != "renju":
+            raise ValueError("fine-tuning target config must use Renju rules")
+        if len(buffer):
+            raise ValueError("fine-tuning requires an empty Renju replay buffer")
+        if (model.n_blocks, model.n_filters) != (int(cfg["n_blocks"]), int(cfg["n_filters"])):
+            raise ValueError("source checkpoint architecture does not match target config")
+        return cls(model, cfg, buffer=buffer, device=device, seed=seed)
+
+    @classmethod
     def load(cls, checkpoint_path: str | Path, cfg: dict, buffer: ReplayBuffer | None = None, device=None, seed: int = 0) -> Trainer:
         """Restore a trainer: weights, optimizer state, global step and iteration counter."""
         model, meta = load_checkpoint(checkpoint_path, device=device)
@@ -178,4 +192,5 @@ class Trainer:
             trainer.eval_batch = buffer.eval_batch
         if buffer is not None and buffer.eval_indices is not None:
             trainer.eval_indices = buffer.eval_indices
+
         return trainer

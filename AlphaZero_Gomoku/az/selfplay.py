@@ -226,16 +226,14 @@ def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
     torch.set_num_threads(1)
 
     from az.model import AZNet
-    from gomoku.rules.normal import NormalRules
+    from gomoku.rules import get_rules
 
-    if rule_set != "normal":
-        raise ValueError(f"rule_set '{rule_set}' has no rules implementation yet (T24).")
-    # shortcut: only Normal rules supported until T25 (Renju fine-tune) is scheduled
+    rules = get_rules(rule_set)
 
     model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"])
     model.load_state_dict(state_dict)
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 
     samples: list[tuple] = []
-    records = list(run_games(model, NormalRules(), cfg, n_games, seed=seed, samples_out=samples, model_iter=model_iter))
+    records = list(run_games(model, rules, cfg, n_games, seed=seed, samples_out=samples, model_iter=model_iter))
     return records, samples
