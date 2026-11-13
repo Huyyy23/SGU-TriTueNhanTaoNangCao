@@ -1,0 +1,77 @@
+{
+  "run_id": "smoke_az_renju_g2_sims16_s0",
+  "created_at": "2026-11-13T20:32:31.313422+00:00",
+  "command": "tournament.py --agents az_v0,az_v1_tactical,az_v1_threat --games 2 --budget sims:16 --ruleset renju --checkpoint smoke_ckpt/untrained_init_6x64.pt --workers 3 --run-id smoke_az_renju_g2_sims16_s0",
+  "agents": [
+    "az_v0",
+    "az_v1_tactical",
+    "az_v1_threat"
+  ],
+  "agent_settings": {
+    "az_v0": {
+      "factory": {
+        "agent": "az_v0",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 16,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "16 PUCT simulations per move"
+    },
+    "az_v1_tactical": {
+      "factory": {
+        "agent": "az_v1_tactical",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 16,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "16 PUCT simulations per move"
+    },
+    "az_v1_threat": {
+      "factory": {
+        "agent": "az_v1_threat",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 16,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "16 PUCT simulations per move"
+    }
+  },
+  "games_per_pair": 2,
+  "pairs": 3,
+  "total_games": 6,
+  "budget": {
+    "mode": "sims",
+    "value": 16,
+    "text": "sims:16"
+  },
+  "ruleset": "renju",
+  "seed": 0,
+  "seed_rule": "crc32(seed|agent_a|agent_b|pair_game//2|A or B or opening); colour-swapped games share seeds",
+  "random_opening_plies": 0,
+  "score_rule": "win = 1, draw = 0.5, loss = 0; Wilson 95% interval on (wins + 0.5 * draws) / games",
+  "illegal_move_rule": "an illegal move loses the game and is counted in illegal_moves_*",
+  "workers": 3,
+  "torch_threads_per_game": 1,
+  "checkpoint_sha256": {
+    "smoke_ckpt/untrained_init_6x64.pt": "888a14644cdf388f79627cafc466f6791d228b51571f1082a049fd835cdfe1c6"
+  },
+  "git": {
+    "commit": "5c907ca7f1001d9584de22ff9e664444c2c32a76",
+    "dirty": false
+  },
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.4",
+    "platform": "Linux-6.12.116-fly-x86_64-with-glibc2.43",
+    "torch": "2.15.0+cpu"
+  }
+}

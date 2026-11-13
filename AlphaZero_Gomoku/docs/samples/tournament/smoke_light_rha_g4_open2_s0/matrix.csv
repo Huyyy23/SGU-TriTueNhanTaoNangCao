@@ -1,0 +1,4 @@
+agent,random,heuristic,alphabeta,overall_score
+random,,0.0000,0.0000,0.0000
+heuristic,1.0000,,1.0000,1.0000
+alphabeta,1.0000,0.0000,,0.5000

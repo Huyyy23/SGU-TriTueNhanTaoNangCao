@@ -1,0 +1,289 @@
+{
+  "run_id": "20261113-203643_normal_sims200_s0",
+  "created_at": "2026-11-13T20:36:43.879739+00:00",
+  "command": "tournament.py --agents random,heuristic,alphabeta --games 20 --budget sims:200",
+  "agents": [
+    "random",
+    "heuristic",
+    "alphabeta"
+  ],
+  "agent_settings": {
+    "random": {
+      "factory": {
+        "agent": "random"
+      },
+      "budget_applies": false,
+      "budget_enforced": false,
+      "budget_note": "no search; the budget does not apply"
+    },
+    "heuristic": {
+      "factory": {
+        "agent": "heuristic"
+      },
+      "budget_applies": false,
+      "budget_enforced": false,
+      "budget_note": "no search; the budget does not apply"
+    },
+    "alphabeta": {
+      "factory": {
+        "agent": "alphabeta",
+        "depth": 1,
+        "pruning": true
+      },
+      "budget_applies": true,
+      "budget_enforced": false,
+      "budget_note": "fixed depth 1 (pruning on); sims:N does not apply"
+    }
+  },
+  "games_per_pair": 20,
+  "pairs": 3,
+  "total_games": 60,
+  "budget": {
+    "mode": "sims",
+    "value": 200,
+    "text": "sims:200"
+  },
+  "ruleset": "normal",
+  "seed": 0,
+  "seed_rule": "crc32(seed|agent_a|agent_b|pair_game//2|A or B or opening); colour-swapped games share seeds",
+  "random_opening_plies": 0,
+  "score_rule": "win = 1, draw = 0.5, loss = 0; Wilson 95% interval on (wins + 0.5 * draws) / games",
+  "illegal_move_rule": "an illegal move loses the game and is counted in illegal_moves_*",
+  "workers": 1,
+  "torch_threads_per_game": 1,
+  "checkpoint_sha256": {},
+  "git": {
+    "commit": "80812311cd0f02cf4d0f942678abc308a2383471",
+    "dirty": false
+  },
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.4",
+    "platform": "Linux-6.12.116-fly-x86_64-with-glibc2.43",
+    "torch": "2.15.0+cpu"
+  },
+  "finished_at": "2026-11-13T20:53:28.256730+00:00",
+  "wall_time_sec": 1004.351,
+  "games_played": 60,
+  "illegal_moves_total": 0,
+  "checkpoint_unchanged": true,
+  "warnings": [
+    "heuristic vs alphabeta: every game with the same colours was identical (both agents deterministic); consider --random-opening"
+  ],
+  "matrix": {
+    "random": {
+      "heuristic": 0.0,
+      "alphabeta": 0.0
+    },
+    "heuristic": {
+      "random": 1.0,
+      "alphabeta": 1.0
+    },
+    "alphabeta": {
+      "random": 1.0,
+      "heuristic": 0.0
+    }
+  },
+  "agents_summary": {
+    "random": {
+      "games": 40,
+      "wins": 0,
+      "draws": 0,
+      "losses": 40,
+      "score": 0.0,
+      "wilson95": [
+        0.0,
+        0.0876
+      ],
+      "games_black": 20,
+      "games_white": 20,
+      "score_black": 0.0,
+      "score_white": 0.0,
+      "moves_timed": 439,
+      "mean_time_per_move_sec": 0.000112,
+      "p95_time_per_move_sec": 0.000139,
+      "max_time_per_move_sec": 0.000224
+    },
+    "heuristic": {
+      "games": 40,
+      "wins": 40,
+      "draws": 0,
+      "losses": 0,
+      "score": 1.0,
+      "wilson95": [
+        0.9124,
+        1.0
+      ],
+      "games_black": 20,
+      "games_white": 20,
+      "score_black": 1.0,
+      "score_white": 1.0,
+      "moves_timed": 212,
+      "mean_time_per_move_sec": 0.017859,
+      "p95_time_per_move_sec": 0.021458,
+      "max_time_per_move_sec": 0.022878
+    },
+    "alphabeta": {
+      "games": 40,
+      "wins": 20,
+      "draws": 0,
+      "losses": 20,
+      "score": 0.5,
+      "wilson95": [
+        0.352,
+        0.648
+      ],
+      "games_black": 20,
+      "games_white": 20,
+      "score_black": 0.5,
+      "score_white": 0.5,
+      "moves_timed": 457,
+      "mean_time_per_move_sec": 2.18903,
+      "p95_time_per_move_sec": 2.754069,
+      "max_time_per_move_sec": 2.916142,
+      "mean_nodes_per_move": 101.945295,
+      "p95_nodes_per_move": 120.0
+    }
+  },
+  "pairs_summary": [
+    {
+      "agent_a": "random",
+      "agent_b": "heuristic",
+      "games": 20,
+      "wins_a": 0,
+      "losses_a": 20,
+      "score_a": 0.0,
+      "wilson95_a": [
+        0.0,
+        0.1611
+      ],
+      "games_a_black": 10,
+      "games_a_white": 10,
+      "score_a_black": 0.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 10,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 92,
+        "mean_time_per_move_sec": 9.8e-05,
+        "p95_time_per_move_sec": 0.000125,
+        "max_time_per_move_sec": 0.000224
+      },
+      "wins_b": 20,
+      "losses_b": 0,
+      "score_b": 1.0,
+      "wilson95_b": [
+        0.8389,
+        1.0
+      ],
+      "games_b_black": 10,
+      "games_b_white": 10,
+      "score_b_black": 1.0,
+      "score_b_white": 1.0,
+      "distinct_games_b_black": 10,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 102,
+        "mean_time_per_move_sec": 0.016991,
+        "p95_time_per_move_sec": 0.021083,
+        "max_time_per_move_sec": 0.022507
+      },
+      "draws": 0,
+      "mean_moves_per_game": 9.7
+    },
+    {
+      "agent_a": "random",
+      "agent_b": "alphabeta",
+      "games": 20,
+      "wins_a": 0,
+      "losses_a": 20,
+      "score_a": 0.0,
+      "wilson95_a": [
+        0.0,
+        0.1611
+      ],
+      "games_a_black": 10,
+      "games_a_white": 10,
+      "score_a_black": 0.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 10,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 347,
+        "mean_time_per_move_sec": 0.000116,
+        "p95_time_per_move_sec": 0.000143,
+        "max_time_per_move_sec": 0.000177
+      },
+      "wins_b": 20,
+      "losses_b": 0,
+      "score_b": 1.0,
+      "wilson95_b": [
+        0.8389,
+        1.0
+      ],
+      "games_b_black": 10,
+      "games_b_white": 10,
+      "score_b_black": 1.0,
+      "score_b_white": 1.0,
+      "distinct_games_b_black": 10,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 357,
+        "mean_time_per_move_sec": 2.141585,
+        "p95_time_per_move_sec": 2.768902,
+        "max_time_per_move_sec": 2.916142,
+        "mean_nodes_per_move": 97.868347,
+        "p95_nodes_per_move": 120.0
+      },
+      "draws": 0,
+      "mean_moves_per_game": 35.2
+    },
+    {
+      "agent_a": "heuristic",
+      "agent_b": "alphabeta",
+      "games": 20,
+      "wins_a": 20,
+      "losses_a": 0,
+      "score_a": 1.0,
+      "wilson95_a": [
+        0.8389,
+        1.0
+      ],
+      "games_a_black": 10,
+      "games_a_white": 10,
+      "score_a_black": 1.0,
+      "score_a_white": 1.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 110,
+        "mean_time_per_move_sec": 0.018664,
+        "p95_time_per_move_sec": 0.021525,
+        "max_time_per_move_sec": 0.022878
+      },
+      "wins_b": 0,
+      "losses_b": 20,
+      "score_b": 0.0,
+      "wilson95_b": [
+        0.0,
+        0.1611
+      ],
+      "games_b_black": 10,
+      "games_b_white": 10,
+      "score_b_black": 0.0,
+      "score_b_white": 0.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 100,
+        "mean_time_per_move_sec": 2.358407,
+        "p95_time_per_move_sec": 2.653584,
+        "max_time_per_move_sec": 2.733727,
+        "mean_nodes_per_move": 116.5,
+        "p95_nodes_per_move": 121.0
+      },
+      "draws": 0,
+      "mean_moves_per_game": 10.5
+    }
+  ]
+}

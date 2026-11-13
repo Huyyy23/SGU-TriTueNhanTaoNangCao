@@ -1,0 +1,65 @@
+{
+  "run_id": "smoke_light_rha_g4_open2_s0",
+  "created_at": "2026-11-13T20:30:13.374119+00:00",
+  "command": "tournament.py --agents random,heuristic,alphabeta --games 4 --budget sims:200 --random-opening 2 --workers 4 --run-id smoke_light_rha_g4_open2_s0",
+  "agents": [
+    "random",
+    "heuristic",
+    "alphabeta"
+  ],
+  "agent_settings": {
+    "random": {
+      "factory": {
+        "agent": "random"
+      },
+      "budget_applies": false,
+      "budget_enforced": false,
+      "budget_note": "no search; the budget does not apply"
+    },
+    "heuristic": {
+      "factory": {
+        "agent": "heuristic"
+      },
+      "budget_applies": false,
+      "budget_enforced": false,
+      "budget_note": "no search; the budget does not apply"
+    },
+    "alphabeta": {
+      "factory": {
+        "agent": "alphabeta",
+        "depth": 1,
+        "pruning": true
+      },
+      "budget_applies": true,
+      "budget_enforced": false,
+      "budget_note": "fixed depth 1 (pruning on); sims:N does not apply"
+    }
+  },
+  "games_per_pair": 4,
+  "pairs": 3,
+  "total_games": 12,
+  "budget": {
+    "mode": "sims",
+    "value": 200,
+    "text": "sims:200"
+  },
+  "ruleset": "normal",
+  "seed": 0,
+  "seed_rule": "crc32(seed|agent_a|agent_b|pair_game//2|A or B or opening); colour-swapped games share seeds",
+  "random_opening_plies": 2,
+  "score_rule": "win = 1, draw = 0.5, loss = 0; Wilson 95% interval on (wins + 0.5 * draws) / games",
+  "illegal_move_rule": "an illegal move loses the game and is counted in illegal_moves_*",
+  "workers": 4,
+  "torch_threads_per_game": 1,
+  "checkpoint_sha256": {},
+  "git": {
+    "commit": "5c907ca7f1001d9584de22ff9e664444c2c32a76",
+    "dirty": false
+  },
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.4",
+    "platform": "Linux-6.12.116-fly-x86_64-with-glibc2.43",
+    "torch": "2.15.0+cpu"
+  }
+}

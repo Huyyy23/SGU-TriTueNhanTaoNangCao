@@ -1,0 +1,4 @@
+agent_a,agent_b,games,wins_a,draws,wins_b,score_a,wilson95_low_a,wilson95_high_a,score_a_black,score_a_white,score_b_black,score_b_white,games_a_black,games_a_white,distinct_games_a_black,distinct_games_b_black,illegal_moves_a,illegal_moves_b,mean_moves_per_game,mean_time_a_sec,p95_time_a_sec,mean_time_b_sec,p95_time_b_sec,mean_nodes_a,mean_nodes_b,nn_calls_per_move_a,nn_calls_per_move_b
+az_v0,az_v1_tactical,2,0,0,2,0.0000,0.0000,0.6576,0.0000,0.0000,1.0000,1.0000,1,1,1,1,0,0,66.5000,0.2665,0.3950,0.2390,0.4138,,,16.0000,13.1340
+az_v0,az_v1_threat,2,0,0,2,0.0000,0.0000,0.6576,0.0000,0.0000,1.0000,1.0000,1,1,1,1,0,0,30.5000,0.3097,0.3814,0.2744,0.4013,,,16.0000,13.4190
+az_v1_tactical,az_v1_threat,2,0,0,2,0.0000,0.0000,0.6576,0.0000,0.0000,1.0000,1.0000,1,1,1,1,0,0,32.5000,0.2614,0.3907,0.2762,0.5225,,,14.0000,13.0910
