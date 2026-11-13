@@ -1,7 +1,10 @@
 import pygame
 
-from gomoku.board import BLACK, SIZE
+from gomoku.board import BLACK, SIZE, WHITE
 from gomoku.rules import get_rules
+from players.alphabeta import AlphaBetaPlayer
+from players.heuristic import HeuristicPlayer
+from ui import pygame_app
 from ui.pygame_app import PygameApp
 
 
@@ -68,3 +71,40 @@ def test_ui_displays_result_and_restart_starts_a_new_game():
 
     assert app.result is None
     assert app.board.history == []
+
+
+def test_ui_cli_selects_distinct_agents_and_human_color(monkeypatch):
+    observed = {}
+
+    class StubApp:
+        def __init__(self, **kwargs):
+            observed.update(kwargs)
+
+        def run(self):
+            pass
+
+    monkeypatch.setattr(pygame_app, "PygameApp", StubApp)
+
+    pygame_app.main(
+        [
+            "--mode", "ai-vs-ai",
+            "--black-agent", "heuristic",
+            "--white-agent", "alphabeta",
+            "--depth", "1",
+        ]
+    )
+
+    assert isinstance(observed["black_player"], HeuristicPlayer)
+    assert isinstance(observed["white_player"], AlphaBetaPlayer)
+    assert observed["black_player"] is not observed["white_player"]
+
+    pygame_app.main(
+        [
+            "--mode", "human-vs-ai",
+            "--human-color", "white",
+            "--agent", "heuristic",
+        ]
+    )
+
+    assert observed["human_color"] == WHITE
+    assert isinstance(observed["ai"], HeuristicPlayer)

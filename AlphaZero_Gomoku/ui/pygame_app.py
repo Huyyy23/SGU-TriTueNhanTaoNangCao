@@ -7,6 +7,7 @@ from numbers import Integral
 from gomoku.board import BLACK, EMPTY, SIZE, WHITE, Board
 from gomoku.rules import get_rules
 from players.base import IllegalMoveError, Player
+from players.factory import AGENT_CHOICES, create_player
 from players.random import RandomPlayer
 
 
@@ -334,35 +335,61 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Play Gomoku with a Pygame UI.")
     parser.add_argument("--mode", choices=("human-vs-ai", "ai-vs-ai"), default="human-vs-ai")
     parser.add_argument("--ruleset", choices=("normal", "renju"), default="normal")
-    parser.add_argument("--agent", choices=("random", "mcts-pure"), default="random")
+    parser.add_argument("--agent", choices=AGENT_CHOICES)
+    parser.add_argument("--black-agent", choices=AGENT_CHOICES)
+    parser.add_argument("--white-agent", choices=AGENT_CHOICES)
+    parser.add_argument("--human-color", choices=("black", "white"), default="black")
     parser.add_argument("--rollouts", type=int, default=50)
+    parser.add_argument("--depth", type=int, default=2)
+    parser.add_argument("--no-pruning", action="store_true")
     parser.add_argument("--checkpoint", help="Optional AlphaZero checkpoint for the AI.")
-    parser.add_argument("--config", help="Training config used with --checkpoint.")
+    parser.add_argument("--black-checkpoint")
+    parser.add_argument("--white-checkpoint")
+    parser.add_argument("--config", help="AlphaZero config; defaults to the ruleset config.")
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--time-budget", type=float, help="AlphaZero move budget in seconds.")
     args = parser.parse_args(argv)
     if args.rollouts <= 0:
         parser.error("--rollouts must be positive")
+    if args.depth <= 0:
+        parser.error("--depth must be positive")
+    if args.time_budget is not None and args.time_budget <= 0:
+        parser.error("--time-budget must be positive")
     rules = get_rules(args.ruleset)
-    agent = None
-    if args.checkpoint:
-        from config import load_config
-        from players.az_player import AZPlayer
+    default_agent = args.agent or ("az" if args.checkpoint else "random")
 
-        config_path = args.config or f"configs/{args.ruleset}.yaml"
-        agent = AZPlayer(args.checkpoint, rules, cfg=load_config(config_path))
-    elif args.agent == "mcts-pure":
-        from players.mcts_pure import MCTSPure
-
-        agent = MCTSPure(rules, n_rollouts=args.rollouts)
+    def make_side_agent(side: str) -> Player:
+        explicit = args.black_agent if side == "black" else args.white_agent
+        side_checkpoint = args.black_checkpoint if side == "black" else args.white_checkpoint
+        agent = explicit or ("az" if side_checkpoint else default_agent)
+        checkpoint = side_checkpoint or args.checkpoint
+        return create_player(
+            agent,
+            rules,
+            checkpoint=checkpoint if agent.startswith("az") else None,
+            config=args.config,
+            seed=args.seed + (1 if side == "white" else 0),
+            rollouts=args.rollouts,
+            depth=args.depth,
+            pruning=not args.no_pruning,
+            time_budget_sec=args.time_budget,
+        )
 
     if args.mode == "ai-vs-ai":
         app = PygameApp(
             rules=rules,
             human_color=None,
-            black_player=agent,
-            white_player=agent,
+            black_player=make_side_agent("black"),
+            white_player=make_side_agent("white"),
         )
     else:
-        app = PygameApp(rules=rules, ai=agent)
+        human_color = BLACK if args.human_color == "black" else WHITE
+        ai_color = WHITE if human_color == BLACK else BLACK
+        app = PygameApp(
+            rules=rules,
+            human_color=human_color,
+            ai=make_side_agent("white" if ai_color == WHITE else "black"),
+        )
     app.run()
 
 

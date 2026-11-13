@@ -100,6 +100,9 @@ pip install -r requirements.txt
 
 python scripts/play.py --mode human-vs-ai --agent mcts-pure --ruleset normal
 python scripts/play.py --mode ai-vs-ai --agent random --ruleset renju
+python scripts/play.py --mode ai-vs-ai --black-agent heuristic --white-agent alphabeta
+python scripts/play.py --mode human-vs-ai --human-color white --agent heuristic
+python scripts/play.py --mode ai-vs-ai --black-agent az_v1_tactical --white-agent mcts-pure --black-checkpoint checkpoints/last.pt
 python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
 python -m ui.pygame_app --mode ai-vs-ai --checkpoint checkpoints/last.pt
 python scripts/train.py --config configs/normal.yaml
@@ -107,6 +110,11 @@ python scripts/arena.py --a random --b checkpoints/last.pt --games 100
 pytest -q
 ```
 
-Không truyền `--checkpoint` thì UI dùng RandomPlayer hoặc MCTSPure theo `--agent`.
+`--agent` đặt cùng một agent cho cả hai phía để giữ tương thích; dùng
+`--black-agent` và `--white-agent` để chọn riêng. `--human-color` đổi màu
+quân của người chơi. Agent hỗ trợ: `random`, `mcts-pure`, `heuristic`,
+`alphabeta`, `az`/`az_v0`, `az_v1_tactical`, và `az_v1_threat`. Các biến thể
+AlphaZero cần checkpoint; có thể truyền checkpoint riêng cho mỗi bên.
+`--depth`/`--no-pruning` cấu hình Alpha-Beta, `--rollouts` cấu hình MCTS Pure.
 Trong chế độ AI-vs-AI, nhấn Space để tạm dừng/tiếp tục và New game để chơi lại.
 Checkpoint ghi vào `checkpoints/`, log vào `logs/`. Cả hai nằm ngoài git.

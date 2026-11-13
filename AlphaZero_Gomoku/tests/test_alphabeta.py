@@ -1,4 +1,4 @@
-from gomoku.board import BLACK, SIZE, Board
+from gomoku.board import BLACK, SIZE, WHITE, Board
 from gomoku.rules import get_rules
 from players.alphabeta import AlphaBetaPlayer
 
@@ -13,8 +13,13 @@ def test_alphabeta_takes_immediate_win():
 
 def test_pruning_and_full_minimax_return_same_move_and_visit_counts():
     board = Board()
-    for r, c, player in ((5, 5, BLACK), (5, 6, 2), (4, 5, BLACK), (6, 6, 2)):
-        board.grid[r * SIZE + c] = player
+    for row in range(SIZE):
+        for col in range(SIZE):
+            board.grid[row * SIZE + col] = (
+                BLACK if (row + 2 * col) % 5 < 2 else WHITE
+            )
+    for row, col in ((2, 2), (2, 8), (5, 5), (5, 6), (8, 2), (8, 8)):
+        board.grid[row * SIZE + col] = 0
     rules = get_rules("normal")
     pruned = AlphaBetaPlayer(rules, depth=2, pruning=True)
     plain = AlphaBetaPlayer(rules, depth=2, pruning=False)
