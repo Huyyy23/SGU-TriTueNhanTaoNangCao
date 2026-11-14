@@ -789,7 +789,7 @@ Quy ước phối hợp:
 **Description:** Chạy round-robin giữa N tác tử, chia đều màu, xuất ma trận đối đầu và các chỉ số đề bài yêu cầu. Thay cho `scripts/simulate.py` (T21) vì T21 chỉ đấu từng cặp.
 
 **Acceptance criteria:**
-- [ ] `python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1 --games 100 --budget sims:200` chạy hết mọi cặp
+- [ ] `python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1_tactical --games 100 --budget sims:200` chạy hết mọi cặp
 - [ ] Chia đều màu: mỗi cặp đúng 50 ván mỗi bên đi trước với `--games 100`
 - [ ] Xuất `logs/tournament/<run_id>/matrix.csv` + `summary.json`: score, thắng/hoà/thua, thời gian trung bình/nước, p95 độ trễ, số node/sims, seed từng cặp
 - [ ] Khoảng tin cậy Wilson cho score từng cặp

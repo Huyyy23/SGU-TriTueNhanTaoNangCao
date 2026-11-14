@@ -576,6 +576,12 @@ def aggregate(records: list[dict], labels: list[str], time_budget: float | None)
             row[f"stats_{side}"] = acc[label].report(time_budget)
         row["draws"] = wdl[a]["D"]
         row["mean_moves_per_game"] = _mean(lengths)
+        # T31 asks for the seed of every pair: keep each game's seeds so one game can be replayed.
+        row["game_seeds"] = [
+            {"pair_game": r["pair_game"], "black_agent": r["first_player"], "white_agent": r["second_player"],
+             "seeds": r.get("seeds")}
+            for r in games
+        ]
         pairs.append(row)
 
     agents = {}
@@ -738,6 +744,15 @@ def run_tournament(
     hashes_before = {path: _sha256(path) for path in checkpoints}
 
     _set_torch_threads(torch_threads)
+
+    # Build every agent once before the first game: a bad checkpoint, or a YAML that does not match
+    # the checkpoint, fails here with a clear message, not hours into the run.
+    preflight_rules = get_rules(ruleset)
+    for label in sorted({task["agent_a"] for task in tasks} | {task["agent_b"] for task in tasks}):
+        try:
+            (builder or default_builder)(entries[label], preflight_rules, seed)
+        except Exception as exc:
+            raise ValueError(f"agent {label!r} could not be created: {type(exc).__name__}: {exc}") from exc
 
     run_dir.mkdir(parents=True, exist_ok=True)
     config = {

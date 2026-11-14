@@ -86,6 +86,28 @@ def test_twenty_games_split_ten_ten_by_colour(tmp_path):
         assert agent["games_black"] == agent["games_white"] == 10
 
 
+def test_pairs_summary_keeps_seed_of_every_game(tmp_path):
+    run_dir, summary = run(tmp_path, games=4, run_id="r_seeds", seed=7)
+    games = [json.loads(line) for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    pair = summary["pairs_summary"][0]
+    assert [s["pair_game"] for s in pair["game_seeds"]] == [0, 1, 2, 3]
+    for entry, game in zip(pair["game_seeds"], sorted(games, key=lambda g: g["pair_game"])):
+        assert entry["black_agent"] == game["first_player"] and entry["white_agent"] == game["second_player"]
+        assert entry["seeds"] == game["seeds"]
+
+
+def test_broken_agent_fails_before_any_game_or_folder(tmp_path):
+    def broken_builder(settings, rules, seed):
+        if settings["factory"]["agent"] == "seeded":
+            raise RuntimeError("size mismatch for conv.weight")
+        return fake_builder(settings, rules, seed)
+
+    with pytest.raises(ValueError, match="seeded"):
+        T.run_tournament(entries("first", "seeded"), games=2, out_root=tmp_path, builder=broken_builder,
+                         log=lambda _msg: None, budget=T.Budget.parse("sims:10"), run_id="broken")
+    assert not (tmp_path / "broken").exists()
+
+
 def test_matrix_is_full_and_wilson_ci_inside_unit_interval(tmp_path):
     names = ("first", "seeded", "cheater")
     run_dir, summary = run(tmp_path, names=names, games=4, run_id="r2")
