@@ -34,7 +34,10 @@ def create_player(
     time_budget_sec: float | None = None,
     n_simulations: int | None = None,
 ) -> Player:
-    """Create one configured player for the terminal or Pygame interface."""
+    """Create one configured player for terminal, Pygame or tournament.
+
+    n_simulations overrides the AlphaZero YAML search budget when supplied.
+    """
     if time_budget_sec is not None and (not math.isfinite(time_budget_sec) or time_budget_sec <= 0):
         raise ValueError("time_budget_sec must be finite and positive")
     if n_simulations is not None and (isinstance(n_simulations, bool) or not isinstance(n_simulations, int) or n_simulations <= 0):

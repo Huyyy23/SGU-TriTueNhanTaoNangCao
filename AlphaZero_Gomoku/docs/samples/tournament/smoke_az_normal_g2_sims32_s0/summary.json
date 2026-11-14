@@ -1,0 +1,583 @@
+{
+  "run_id": "smoke_az_normal_g2_sims32_s0",
+  "created_at": "2026-11-13T20:31:34.611769+00:00",
+  "command": "tournament.py --agents az_v0,az_v1_tactical,az_v1_threat,random --games 2 --budget sims:32 --checkpoint smoke_ckpt/untrained_init_6x64.pt --run-id smoke_az_normal_g2_sims32_s0",
+  "agents": [
+    "az_v0",
+    "az_v1_tactical",
+    "az_v1_threat",
+    "random"
+  ],
+  "agent_settings": {
+    "az_v0": {
+      "factory": {
+        "agent": "az_v0",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 32,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "32 PUCT simulations per move"
+    },
+    "az_v1_tactical": {
+      "factory": {
+        "agent": "az_v1_tactical",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 32,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "32 PUCT simulations per move"
+    },
+    "az_v1_threat": {
+      "factory": {
+        "agent": "az_v1_threat",
+        "checkpoint": "smoke_ckpt/untrained_init_6x64.pt",
+        "config": null,
+        "n_simulations": 32,
+        "time_budget_sec": null
+      },
+      "budget_applies": true,
+      "budget_enforced": true,
+      "budget_note": "32 PUCT simulations per move"
+    },
+    "random": {
+      "factory": {
+        "agent": "random"
+      },
+      "budget_applies": false,
+      "budget_enforced": false,
+      "budget_note": "no search; the budget does not apply"
+    }
+  },
+  "games_per_pair": 2,
+  "pairs": 6,
+  "total_games": 12,
+  "budget": {
+    "mode": "sims",
+    "value": 32,
+    "text": "sims:32"
+  },
+  "ruleset": "normal",
+  "seed": 0,
+  "seed_rule": "crc32(seed|agent_a|agent_b|pair_game//2|A or B or opening); colour-swapped games share seeds",
+  "random_opening_plies": 0,
+  "score_rule": "win = 1, draw = 0.5, loss = 0; Wilson 95% interval on (wins + 0.5 * draws) / games",
+  "illegal_move_rule": "an illegal move loses the game and is counted in illegal_moves_*",
+  "workers": 1,
+  "torch_threads_per_game": 1,
+  "checkpoint_sha256": {
+    "smoke_ckpt/untrained_init_6x64.pt": "888a14644cdf388f79627cafc466f6791d228b51571f1082a049fd835cdfe1c6"
+  },
+  "git": {
+    "commit": "5c907ca7f1001d9584de22ff9e664444c2c32a76",
+    "dirty": false
+  },
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.4",
+    "platform": "Linux-6.12.116-fly-x86_64-with-glibc2.43",
+    "torch": "2.15.0+cpu"
+  },
+  "finished_at": "2026-11-13T20:32:29.190580+00:00",
+  "wall_time_sec": 54.569,
+  "games_played": 12,
+  "illegal_moves_total": 0,
+  "checkpoint_unchanged": true,
+  "warnings": [],
+  "matrix": {
+    "az_v0": {
+      "az_v1_tactical": 0.0,
+      "az_v1_threat": 0.0,
+      "random": 0.5
+    },
+    "az_v1_tactical": {
+      "az_v0": 1.0,
+      "az_v1_threat": 0.5,
+      "random": 1.0
+    },
+    "az_v1_threat": {
+      "az_v0": 1.0,
+      "az_v1_tactical": 0.5,
+      "random": 1.0
+    },
+    "random": {
+      "az_v0": 0.5,
+      "az_v1_tactical": 0.0,
+      "az_v1_threat": 0.0
+    }
+  },
+  "agents_summary": {
+    "az_v0": {
+      "games": 6,
+      "wins": 1,
+      "draws": 0,
+      "losses": 5,
+      "score": 0.1667,
+      "wilson95": [
+        0.0301,
+        0.5635
+      ],
+      "games_black": 3,
+      "games_white": 3,
+      "score_black": 0.3333,
+      "score_white": 0.0,
+      "moves_timed": 146,
+      "mean_time_per_move_sec": 0.135291,
+      "p95_time_per_move_sec": 0.148627,
+      "max_time_per_move_sec": 0.234319,
+      "mean_nn_calls_per_move": 31.842,
+      "mean_nn_calls_per_game": 774.833
+    },
+    "az_v1_tactical": {
+      "games": 6,
+      "wins": 5,
+      "draws": 0,
+      "losses": 1,
+      "score": 0.8333,
+      "wilson95": [
+        0.4365,
+        0.9699
+      ],
+      "games_black": 3,
+      "games_white": 3,
+      "score_black": 1.0,
+      "score_white": 0.6667,
+      "moves_timed": 142,
+      "mean_time_per_move_sec": 0.127613,
+      "p95_time_per_move_sec": 0.152792,
+      "max_time_per_move_sec": 0.243423,
+      "mean_nn_calls_per_move": 29.746,
+      "mean_nn_calls_per_game": 704.0,
+      "override_count": 10,
+      "override_rate": 0.0704,
+      "override_reasons": {
+        "block_win": 5,
+        "win_now": 5
+      },
+      "mean_extra_time_per_move_sec": 0.001414
+    },
+    "az_v1_threat": {
+      "games": 6,
+      "wins": 5,
+      "draws": 0,
+      "losses": 1,
+      "score": 0.8333,
+      "wilson95": [
+        0.4365,
+        0.9699
+      ],
+      "games_black": 3,
+      "games_white": 3,
+      "score_black": 1.0,
+      "score_white": 0.6667,
+      "moves_timed": 130,
+      "mean_time_per_move_sec": 0.125099,
+      "p95_time_per_move_sec": 0.166183,
+      "max_time_per_move_sec": 0.256362,
+      "mean_nn_calls_per_move": 26.338,
+      "mean_nn_calls_per_game": 570.667,
+      "override_count": 23,
+      "override_rate": 0.1769,
+      "override_reasons": {
+        "threat_space": 9,
+        "block_win": 9,
+        "win_now": 5
+      },
+      "mean_extra_time_per_move_sec": 0.011738,
+      "threat_space": {
+        "searches": 116,
+        "activations": 32,
+        "limit_hits": 0,
+        "mean_nodes": 1.327586,
+        "max_nodes": 5,
+        "mean_ms": 11.490776,
+        "p95_ms": 19.2725
+      }
+    },
+    "random": {
+      "games": 6,
+      "wins": 1,
+      "draws": 0,
+      "losses": 5,
+      "score": 0.1667,
+      "wilson95": [
+        0.0301,
+        0.5635
+      ],
+      "games_black": 3,
+      "games_white": 3,
+      "score_black": 0.3333,
+      "score_white": 0.0,
+      "moves_timed": 120,
+      "mean_time_per_move_sec": 5.1e-05,
+      "p95_time_per_move_sec": 8.6e-05,
+      "max_time_per_move_sec": 0.000164
+    }
+  },
+  "pairs_summary": [
+    {
+      "agent_a": "az_v0",
+      "agent_b": "az_v1_tactical",
+      "games": 2,
+      "wins_a": 0,
+      "losses_a": 2,
+      "score_a": 0.0,
+      "wilson95_a": [
+        0.0,
+        0.6576
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 0.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 56,
+        "mean_time_per_move_sec": 0.134697,
+        "p95_time_per_move_sec": 0.144602,
+        "max_time_per_move_sec": 0.234319,
+        "mean_nn_calls_per_move": 32.0,
+        "mean_nn_calls_per_game": 896.0
+      },
+      "wins_b": 2,
+      "losses_b": 0,
+      "score_b": 1.0,
+      "wilson95_b": [
+        0.3424,
+        1.0
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 1.0,
+      "score_b_white": 1.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 57,
+        "mean_time_per_move_sec": 0.120937,
+        "p95_time_per_move_sec": 0.146819,
+        "max_time_per_move_sec": 0.16189,
+        "mean_nn_calls_per_move": 28.632,
+        "mean_nn_calls_per_game": 816.0,
+        "override_count": 6,
+        "override_rate": 0.1053,
+        "override_reasons": {
+          "block_win": 4,
+          "win_now": 2
+        },
+        "mean_extra_time_per_move_sec": 0.001362
+      },
+      "draws": 0,
+      "mean_moves_per_game": 56.5
+    },
+    {
+      "agent_a": "az_v0",
+      "agent_b": "az_v1_threat",
+      "games": 2,
+      "wins_a": 0,
+      "losses_a": 2,
+      "score_a": 0.0,
+      "wilson95_a": [
+        0.0,
+        0.6576
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 0.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 41,
+        "mean_time_per_move_sec": 0.135976,
+        "p95_time_per_move_sec": 0.144873,
+        "max_time_per_move_sec": 0.232967,
+        "mean_nn_calls_per_move": 32.0,
+        "mean_nn_calls_per_game": 656.0
+      },
+      "wins_b": 2,
+      "losses_b": 0,
+      "score_b": 1.0,
+      "wilson95_b": [
+        0.3424,
+        1.0
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 1.0,
+      "score_b_white": 1.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 42,
+        "mean_time_per_move_sec": 0.119017,
+        "p95_time_per_move_sec": 0.163151,
+        "max_time_per_move_sec": 0.256362,
+        "mean_nn_calls_per_move": 25.143,
+        "mean_nn_calls_per_game": 528.0,
+        "override_count": 9,
+        "override_rate": 0.2143,
+        "override_reasons": {
+          "threat_space": 4,
+          "block_win": 3,
+          "win_now": 2
+        },
+        "mean_extra_time_per_move_sec": 0.010423,
+        "threat_space": {
+          "searches": 37,
+          "activations": 8,
+          "limit_hits": 0,
+          "mean_nodes": 1.108108,
+          "max_nodes": 2,
+          "mean_ms": 10.167027,
+          "p95_ms": 18.6472
+        }
+      },
+      "draws": 0,
+      "mean_moves_per_game": 41.5
+    },
+    {
+      "agent_a": "az_v0",
+      "agent_b": "random",
+      "games": 2,
+      "wins_a": 1,
+      "losses_a": 1,
+      "score_a": 0.5,
+      "wilson95_a": [
+        0.0945,
+        0.9055
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 1.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 49,
+        "mean_time_per_move_sec": 0.135398,
+        "p95_time_per_move_sec": 0.149246,
+        "max_time_per_move_sec": 0.155051,
+        "mean_nn_calls_per_move": 31.531,
+        "mean_nn_calls_per_game": 772.5
+      },
+      "wins_b": 1,
+      "losses_b": 1,
+      "score_b": 0.5,
+      "wilson95_b": [
+        0.0945,
+        0.9055
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 1.0,
+      "score_b_white": 0.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 49,
+        "mean_time_per_move_sec": 4.9e-05,
+        "p95_time_per_move_sec": 6.7e-05,
+        "max_time_per_move_sec": 0.00016
+      },
+      "draws": 0,
+      "mean_moves_per_game": 49.0
+    },
+    {
+      "agent_a": "az_v1_tactical",
+      "agent_b": "az_v1_threat",
+      "games": 2,
+      "wins_a": 1,
+      "losses_a": 1,
+      "score_a": 0.5,
+      "wilson95_a": [
+        0.0945,
+        0.9055
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 1.0,
+      "score_a_white": 0.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 50,
+        "mean_time_per_move_sec": 0.133849,
+        "p95_time_per_move_sec": 0.153656,
+        "max_time_per_move_sec": 0.243423,
+        "mean_nn_calls_per_move": 30.72,
+        "mean_nn_calls_per_game": 768.0,
+        "override_count": 2,
+        "override_rate": 0.04,
+        "override_reasons": {
+          "win_now": 1,
+          "block_win": 1
+        },
+        "mean_extra_time_per_move_sec": 0.001403
+      },
+      "wins_b": 1,
+      "losses_b": 1,
+      "score_b": 0.5,
+      "wilson95_b": [
+        0.0945,
+        0.9055
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 1.0,
+      "score_b_white": 0.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 50,
+        "mean_time_per_move_sec": 0.128006,
+        "p95_time_per_move_sec": 0.167894,
+        "max_time_per_move_sec": 0.236524,
+        "mean_nn_calls_per_move": 26.24,
+        "mean_nn_calls_per_game": 656.0,
+        "override_count": 9,
+        "override_rate": 0.18,
+        "override_reasons": {
+          "block_win": 5,
+          "threat_space": 3,
+          "win_now": 1
+        },
+        "mean_extra_time_per_move_sec": 0.013638,
+        "threat_space": {
+          "searches": 44,
+          "activations": 20,
+          "limit_hits": 0,
+          "mean_nodes": 1.727273,
+          "max_nodes": 5,
+          "mean_ms": 13.856659,
+          "p95_ms": 30.44335
+        }
+      },
+      "draws": 0,
+      "mean_moves_per_game": 50.0
+    },
+    {
+      "agent_a": "az_v1_tactical",
+      "agent_b": "random",
+      "games": 2,
+      "wins_a": 2,
+      "losses_a": 0,
+      "score_a": 1.0,
+      "wilson95_a": [
+        0.3424,
+        1.0
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 1.0,
+      "score_a_white": 1.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 35,
+        "mean_time_per_move_sec": 0.129578,
+        "p95_time_per_move_sec": 0.140285,
+        "max_time_per_move_sec": 0.231756,
+        "mean_nn_calls_per_move": 30.171,
+        "mean_nn_calls_per_game": 528.0,
+        "override_count": 2,
+        "override_rate": 0.0571,
+        "override_reasons": {
+          "win_now": 2
+        },
+        "mean_extra_time_per_move_sec": 0.001512
+      },
+      "wins_b": 0,
+      "losses_b": 2,
+      "score_b": 0.0,
+      "wilson95_b": [
+        0.0,
+        0.6576
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 0.0,
+      "score_b_white": 0.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 34,
+        "mean_time_per_move_sec": 4.9e-05,
+        "p95_time_per_move_sec": 7.3e-05,
+        "max_time_per_move_sec": 0.000131
+      },
+      "draws": 0,
+      "mean_moves_per_game": 34.5
+    },
+    {
+      "agent_a": "az_v1_threat",
+      "agent_b": "random",
+      "games": 2,
+      "wins_a": 2,
+      "losses_a": 0,
+      "score_a": 1.0,
+      "wilson95_a": [
+        0.3424,
+        1.0
+      ],
+      "games_a_black": 1,
+      "games_a_white": 1,
+      "score_a_black": 1.0,
+      "score_a_white": 1.0,
+      "distinct_games_a_black": 1,
+      "illegal_moves_a": 0,
+      "stats_a": {
+        "moves_timed": 38,
+        "mean_time_per_move_sec": 0.127997,
+        "p95_time_per_move_sec": 0.158926,
+        "max_time_per_move_sec": 0.173122,
+        "mean_nn_calls_per_move": 27.789,
+        "mean_nn_calls_per_game": 528.0,
+        "override_count": 5,
+        "override_rate": 0.1316,
+        "override_reasons": {
+          "threat_space": 2,
+          "win_now": 2,
+          "block_win": 1
+        },
+        "mean_extra_time_per_move_sec": 0.010691,
+        "threat_space": {
+          "searches": 35,
+          "activations": 4,
+          "limit_hits": 0,
+          "mean_nodes": 1.057143,
+          "max_nodes": 2,
+          "mean_ms": 9.915914,
+          "p95_ms": 13.452
+        }
+      },
+      "wins_b": 0,
+      "losses_b": 2,
+      "score_b": 0.0,
+      "wilson95_b": [
+        0.0,
+        0.6576
+      ],
+      "games_b_black": 1,
+      "games_b_white": 1,
+      "score_b_black": 0.0,
+      "score_b_white": 0.0,
+      "distinct_games_b_black": 1,
+      "illegal_moves_b": 0,
+      "stats_b": {
+        "moves_timed": 37,
+        "mean_time_per_move_sec": 5.5e-05,
+        "p95_time_per_move_sec": 0.000101,
+        "max_time_per_move_sec": 0.000164
+      },
+      "draws": 0,
+      "mean_moves_per_game": 37.5
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+agent,az_v0,az_v1_tactical,az_v1_threat,random,overall_score
+az_v0,,0.0000,0.0000,0.5000,0.1667
+az_v1_tactical,1.0000,,0.5000,1.0000,0.8333
+az_v1_threat,1.0000,0.5000,,1.0000,0.8333
+random,0.5000,0.0000,0.0000,,0.1667

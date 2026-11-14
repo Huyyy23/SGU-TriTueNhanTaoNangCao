@@ -1,0 +1,419 @@
+{
+  "mode": "mcts",
+  "run_id": "smoke_mcts_50_200_800_g2_s0",
+  "created_at": "2026-11-13T20:33:48.755168+00:00",
+  "command": "ablation.py mcts --sims 50,200,800 --games 2 --opponent heuristic --run-id smoke_mcts_50_200_800_g2_s0 --plot",
+  "seed": 0,
+  "ruleset": "normal",
+  "git": {
+    "commit": "5c907ca7f1001d9584de22ff9e664444c2c32a76",
+    "dirty": false
+  },
+  "versions": {
+    "python": "3.13.7",
+    "numpy": "2.5.4",
+    "platform": "Linux-6.12.116-fly-x86_64-with-glibc2.43",
+    "torch": "2.15.0+cpu"
+  },
+  "config": {
+    "sims": [
+      50,
+      200,
+      800
+    ],
+    "games_per_level": 2,
+    "opponent": "heuristic",
+    "score_rule": "score of MCTS Pure: win 1, draw 0.5, loss 0; Wilson 95% interval",
+    "seed_rule": "tournament schedule seeded with crc32(seed|level|sims)"
+  },
+  "results": [
+    {
+      "sims": 50,
+      "games": 2,
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "score": 0.0,
+      "wilson95": [
+        0.0,
+        0.6576
+      ],
+      "games_black": 1,
+      "games_white": 1,
+      "score_black": 0.0,
+      "score_white": 0.0,
+      "illegal_moves": 0,
+      "mean_moves_per_game": 10.5,
+      "mcts": {
+        "moves_timed": 10,
+        "mean_time_per_move_sec": 0.039542,
+        "p95_time_per_move_sec": 0.054671,
+        "max_time_per_move_sec": 0.056445,
+        "rollouts_per_move": 50.0
+      },
+      "opponent": {
+        "moves_timed": 11,
+        "mean_time_per_move_sec": 0.018828,
+        "p95_time_per_move_sec": 0.020696,
+        "max_time_per_move_sec": 0.020768
+      }
+    },
+    {
+      "sims": 200,
+      "games": 2,
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "score": 0.0,
+      "wilson95": [
+        0.0,
+        0.6576
+      ],
+      "games_black": 1,
+      "games_white": 1,
+      "score_black": 0.0,
+      "score_white": 0.0,
+      "illegal_moves": 0,
+      "mean_moves_per_game": 9.5,
+      "mcts": {
+        "moves_timed": 9,
+        "mean_time_per_move_sec": 0.162058,
+        "p95_time_per_move_sec": 0.244256,
+        "max_time_per_move_sec": 0.268524,
+        "rollouts_per_move": 200.0
+      },
+      "opponent": {
+        "moves_timed": 10,
+        "mean_time_per_move_sec": 0.019251,
+        "p95_time_per_move_sec": 0.022185,
+        "max_time_per_move_sec": 0.02219
+      }
+    },
+    {
+      "sims": 800,
+      "games": 2,
+      "wins": 0,
+      "draws": 0,
+      "losses": 2,
+      "score": 0.0,
+      "wilson95": [
+        0.0,
+        0.6576
+      ],
+      "games_black": 1,
+      "games_white": 1,
+      "score_black": 0.0,
+      "score_white": 0.0,
+      "illegal_moves": 0,
+      "mean_moves_per_game": 9.5,
+      "mcts": {
+        "moves_timed": 9,
+        "mean_time_per_move_sec": 0.630147,
+        "p95_time_per_move_sec": 0.882655,
+        "max_time_per_move_sec": 0.903134,
+        "rollouts_per_move": 800.0
+      },
+      "opponent": {
+        "moves_timed": 10,
+        "mean_time_per_move_sec": 0.01903,
+        "p95_time_per_move_sec": 0.020942,
+        "max_time_per_move_sec": 0.021001
+      }
+    }
+  ],
+  "games": [
+    {
+      "sims": 50,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 0,
+      "pair": [
+        "mcts_pure@sims=50",
+        "heuristic"
+      ],
+      "pair_game": 0,
+      "first_player": "mcts_pure@sims=50",
+      "second_player": "heuristic",
+      "rule_set": "normal",
+      "winner": "white",
+      "winner_agent": "heuristic",
+      "first_player_won": false,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 12,
+      "moves": [
+        1,
+        60,
+        4,
+        49,
+        2,
+        3,
+        0,
+        71,
+        6,
+        38,
+        27,
+        82
+      ],
+      "opening_plies": 0,
+      "duration_sec": 0.3614,
+      "seeds": {
+        "black": 847227206,
+        "white": 729217276,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 6,
+          "time_sum": 0.24799492600322992
+        },
+        "white": {
+          "moves": 6,
+          "time_sum": 0.11253154400037602
+        }
+      }
+    },
+    {
+      "sims": 50,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 1,
+      "pair": [
+        "mcts_pure@sims=50",
+        "heuristic"
+      ],
+      "pair_game": 1,
+      "first_player": "heuristic",
+      "second_player": "mcts_pure@sims=50",
+      "rule_set": "normal",
+      "winner": "black",
+      "winner_agent": "heuristic",
+      "first_player_won": true,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 9,
+      "moves": [
+        60,
+        1,
+        49,
+        2,
+        71,
+        4,
+        38,
+        27,
+        82
+      ],
+      "opening_plies": 0,
+      "duration_sec": 0.2426,
+      "seeds": {
+        "black": 729217276,
+        "white": 847227206,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 5,
+          "time_sum": 0.09457984000073338
+        },
+        "white": {
+          "moves": 4,
+          "time_sum": 0.14742791299977398
+        }
+      }
+    },
+    {
+      "sims": 200,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 0,
+      "pair": [
+        "mcts_pure@sims=200",
+        "heuristic"
+      ],
+      "pair_game": 0,
+      "first_player": "mcts_pure@sims=200",
+      "second_player": "heuristic",
+      "rule_set": "normal",
+      "winner": "white",
+      "winner_agent": "heuristic",
+      "first_player_won": false,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 10,
+      "moves": [
+        2,
+        60,
+        6,
+        49,
+        1,
+        71,
+        4,
+        38,
+        27,
+        82
+      ],
+      "opening_plies": 0,
+      "duration_sec": 0.8882,
+      "seeds": {
+        "black": 1223903598,
+        "white": 1375344852,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 5,
+          "time_sum": 0.7920249279977725
+        },
+        "white": {
+          "moves": 5,
+          "time_sum": 0.0955396009994729
+        }
+      }
+    },
+    {
+      "sims": 200,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 1,
+      "pair": [
+        "mcts_pure@sims=200",
+        "heuristic"
+      ],
+      "pair_game": 1,
+      "first_player": "heuristic",
+      "second_player": "mcts_pure@sims=200",
+      "rule_set": "normal",
+      "winner": "black",
+      "winner_agent": "heuristic",
+      "first_player_won": true,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 9,
+      "moves": [
+        60,
+        9,
+        49,
+        2,
+        71,
+        22,
+        38,
+        27,
+        82
+      ],
+      "opening_plies": 0,
+      "duration_sec": 0.7641,
+      "seeds": {
+        "black": 1375344852,
+        "white": 1223903598,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 5,
+          "time_sum": 0.09697306099951675
+        },
+        "white": {
+          "moves": 4,
+          "time_sum": 0.6664954060015589
+        }
+      }
+    },
+    {
+      "sims": 800,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 0,
+      "pair": [
+        "mcts_pure@sims=800",
+        "heuristic"
+      ],
+      "pair_game": 0,
+      "first_player": "mcts_pure@sims=800",
+      "second_player": "heuristic",
+      "rule_set": "normal",
+      "winner": "white",
+      "winner_agent": "heuristic",
+      "first_player_won": false,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 10,
+      "moves": [
+        18,
+        60,
+        51,
+        49,
+        92,
+        71,
+        27,
+        82,
+        38,
+        93
+      ],
+      "opening_plies": 0,
+      "duration_sec": 3.3923,
+      "seeds": {
+        "black": 1027395932,
+        "white": 607486182,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 5,
+          "time_sum": 3.294390683000529
+        },
+        "white": {
+          "moves": 5,
+          "time_sum": 0.09725365099984629
+        }
+      }
+    },
+    {
+      "sims": 800,
+      "run_id": "smoke_mcts_50_200_800_g2_s0",
+      "game_id": 1,
+      "pair": [
+        "mcts_pure@sims=800",
+        "heuristic"
+      ],
+      "pair_game": 1,
+      "first_player": "heuristic",
+      "second_player": "mcts_pure@sims=800",
+      "rule_set": "normal",
+      "winner": "black",
+      "winner_agent": "heuristic",
+      "first_player_won": true,
+      "end_reason": "five_in_row",
+      "illegal_by": null,
+      "error": null,
+      "moves_count": 9,
+      "moves": [
+        60,
+        50,
+        49,
+        25,
+        71,
+        63,
+        38,
+        27,
+        82
+      ],
+      "opening_plies": 0,
+      "duration_sec": 2.4705,
+      "seeds": {
+        "black": 607486182,
+        "white": 1027395932,
+        "opening": null
+      },
+      "stats": {
+        "black": {
+          "moves": 5,
+          "time_sum": 0.09304459699887957
+        },
+        "white": {
+          "moves": 4,
+          "time_sum": 2.376928501002112
+        }
+      }
+    }
+  ]
+}

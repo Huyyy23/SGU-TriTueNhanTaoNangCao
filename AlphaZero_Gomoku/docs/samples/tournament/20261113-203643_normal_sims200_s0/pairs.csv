@@ -1,0 +1,4 @@
+agent_a,agent_b,games,wins_a,draws,wins_b,score_a,wilson95_low_a,wilson95_high_a,score_a_black,score_a_white,score_b_black,score_b_white,games_a_black,games_a_white,distinct_games_a_black,distinct_games_b_black,illegal_moves_a,illegal_moves_b,mean_moves_per_game,mean_time_a_sec,p95_time_a_sec,mean_time_b_sec,p95_time_b_sec,mean_nodes_a,mean_nodes_b,nn_calls_per_move_a,nn_calls_per_move_b
+random,heuristic,20,0,0,20,0.0000,0.0000,0.1611,0.0000,0.0000,1.0000,1.0000,10,10,10,10,0,0,9.7000,0.000098,0.000125,0.0170,0.0211,,,,
+random,alphabeta,20,0,0,20,0.0000,0.0000,0.1611,0.0000,0.0000,1.0000,1.0000,10,10,10,10,0,0,35.2000,0.000116,0.000143,2.1416,2.7689,,97.8683,,
+heuristic,alphabeta,20,20,0,0,1.0000,0.8389,1.0000,1.0000,1.0000,0.0000,0.0000,10,10,1,1,0,0,10.5000,0.0187,0.0215,2.3584,2.6536,,116.5000,,
