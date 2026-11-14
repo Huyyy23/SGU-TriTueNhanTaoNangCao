@@ -69,7 +69,8 @@ class ThreatSpaceSearcher:
             return 1.0, win
 
         opponent = WHITE if player == BLACK else BLACK
-        opponent_wins = [move for move in legal if self._wins_after(move, opponent)]
+        opponent_legal = self._legal_for(opponent)
+        opponent_wins = [move for move in opponent_legal if self._wins_after(move, opponent)]
         if len(opponent_wins) >= 2:
             # Two immediate wins cannot both be blocked: the side to move loses.
             self.triggered = True
@@ -77,6 +78,8 @@ class ThreatSpaceSearcher:
 
         forcing = []
         for move in legal:
+            if time.monotonic() >= self._deadline:
+                raise _Budget
             r, c = divmod(move, SIZE)
             fours = [p for p in find_patterns(self._board, r, c, player) if p.kind in ("open_four", "blocked_four")]
             if fours:
@@ -94,27 +97,32 @@ class ThreatSpaceSearcher:
                 defender_legal = self._legal_for(opponent)
                 if self._first_win(defender_legal, opponent) is not None:
                     continue  # opponent wins before blocking.
-                if any(p.kind == "open_four" for p in fours):
-                    return 1.0, move  # two ways to five; only one can be blocked.
-
-                completions = set()
-                for pattern in fours:
-                    completions.update(pattern.completion_cells)
-                defender_legal = set(defender_legal)
-                playable = [cell for cell in completions if cell[0] * SIZE + cell[1] in defender_legal]
+                # Patterns nominate moves; only legal winning continuations prove threats.
+                candidates = {r * SIZE + c for pattern in fours for r, c in pattern.completion_cells}
+                attacker_legal = set(self._legal_for(player))
+                completions = [cell for cell in candidates if cell in attacker_legal and self._wins_after(cell, player)]
+                if len(completions) >= 2:
+                    return 1.0, move
+                if not completions:
+                    continue
+                playable = [cell for cell in completions if cell in defender_legal]
                 if not playable:
-                    return 1.0, move  # the only block is a forbidden move for the defender.
-                for r, c in playable:
-                    cell = r * SIZE + c
+                    return 1.0, move
+                forced_win = True
+                for cell in playable:
                     saved_block = self._place(cell, opponent)
                     try:
                         if self._rules.is_win(self._board):
-                            continue  # the forced block itself wins for the defender.
+                            forced_win = False
+                            break
                         value, _ = self._attack(player)
                     finally:
                         self._unplace(saved_block)
-                    if value > 0:
-                        return 1.0, move
+                    if value <= 0:
+                        forced_win = False
+                        break
+                if forced_win:
+                    return 1.0, move
             finally:
                 self._unplace(saved)
         return 0.0, None
@@ -134,6 +142,8 @@ class ThreatSpaceSearcher:
         return None
 
     def _wins_after(self, move: int, player: int) -> bool:
+        if time.monotonic() >= self._deadline:
+            raise _Budget
         saved = self._place(move, player)
         try:
             return self._rules.is_win(self._board)
@@ -169,9 +179,20 @@ class ThreatSpaceAZPlayer(TacticalAZPlayer):
         self.activations = 0
         self.last_threat_value = 0.0
 
+    def select_move(self, board) -> tuple[int, int]:
+        self.last_threat_value = 0.0
+        return super().select_move(board)
+
     def _fallback_move(self, board) -> tuple[int, int]:
-        if self.threat_enabled:
-            result = self.searcher.search(board, self.rules, board.current_player)
+        if self.threat_enabled and (self._deadline is None or time.monotonic() < self._deadline):
+            limit = self.searcher.time_limit_ms
+            if self._deadline is not None:
+                self.searcher.time_limit_ms = min(limit, max(0.0, self._deadline - time.monotonic()) * 1000.0)
+            try:
+                result = self.searcher.search(board, self.rules, board.current_player)
+            finally:
+                self.searcher.time_limit_ms = limit
+            self.nodes_visited += result.nodes
             self.last_threat_value = result.value
             if result.triggered:
                 self.activations += 1

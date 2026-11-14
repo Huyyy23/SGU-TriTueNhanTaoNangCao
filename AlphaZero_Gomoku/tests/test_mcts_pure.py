@@ -40,3 +40,31 @@ def test_pure_mcts_only_selects_legal_renju_moves():
 
     row, col = player.select_move(board)
     assert row * SIZE + col not in rules.forbidden_moves(board)
+
+
+def test_timed_rollout_stops_without_changing_input(monkeypatch):
+    import numpy as np
+    import players.mcts_pure as module
+    board = Board()
+    before = board.copy()
+    player = MCTSPure(get_rules("normal"), n_rollouts=1, time_budget_sec=1)
+    ticks = iter([0.0] * 260 + [2.0] * 100)
+    monkeypatch.setattr(module.time, "monotonic", lambda: next(ticks))
+    move = player.select_move(board)
+    assert move[0] * SIZE + move[1] in player.rules.legal_moves(board)
+    assert np.array_equal(board.grid, before.grid)
+    assert board.history == before.history
+    assert player.simulations_run == 0
+
+
+def test_time_mode_runs_beyond_rollout_count(monkeypatch):
+    import players.mcts_pure as module
+    player = MCTSPure(get_rules("normal"), n_rollouts=1, time_budget_sec=1)
+    clock = [0.0]
+    monkeypatch.setattr(module.time, "monotonic", lambda: clock[0])
+    def rollout(_board):
+        clock[0] += 0.4
+        return 0
+    monkeypatch.setattr(player, "_rollout", rollout)
+    player.select_move(Board())
+    assert player.simulations_run == 3

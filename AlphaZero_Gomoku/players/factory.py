@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import math
 from pathlib import Path
 
 from gomoku.rules import Rules
@@ -31,8 +32,13 @@ def create_player(
     depth: int = 2,
     pruning: bool = True,
     time_budget_sec: float | None = None,
+    n_simulations: int | None = None,
 ) -> Player:
     """Create one configured player for the terminal or Pygame interface."""
+    if time_budget_sec is not None and (not math.isfinite(time_budget_sec) or time_budget_sec <= 0):
+        raise ValueError("time_budget_sec must be finite and positive")
+    if n_simulations is not None and (isinstance(n_simulations, bool) or not isinstance(n_simulations, int) or n_simulations <= 0):
+        raise ValueError("n_simulations must be a positive integer")
     if agent == "random":
         from players.random import RandomPlayer
 
@@ -40,7 +46,7 @@ def create_player(
     if agent == "mcts-pure":
         from players.mcts_pure import MCTSPure
 
-        return MCTSPure(rules, n_rollouts=rollouts, rng=random.Random(seed))
+        return MCTSPure(rules, n_rollouts=rollouts, rng=random.Random(seed), time_budget_sec=time_budget_sec)
     if agent == "heuristic":
         from players.heuristic import HeuristicPlayer
 
@@ -48,7 +54,7 @@ def create_player(
     if agent == "alphabeta":
         from players.alphabeta import AlphaBetaPlayer
 
-        return AlphaBetaPlayer(rules, depth=depth, pruning=pruning)
+        return AlphaBetaPlayer(rules, depth=depth, pruning=pruning, time_budget_sec=time_budget_sec)
     if agent not in _AZ_AGENTS:
         raise ValueError(f"unknown agent {agent!r}; choose from {AGENT_CHOICES}")
     if checkpoint is None:
@@ -61,6 +67,8 @@ def create_player(
     if config is None:
         config = Path(__file__).resolve().parents[1] / "configs" / f"{rules.name}.yaml"
     cfg = load_config(config)
+    if n_simulations is not None:
+        cfg["n_simulations"] = n_simulations
     cfg["tactical"] = {
         **(cfg.get("tactical") or {}),
         "enabled": agent in {"az_v1_tactical", "az_v1_threat"},

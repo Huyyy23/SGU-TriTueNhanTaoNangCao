@@ -24,6 +24,12 @@ class MoveRecord:
     value_before: float
     policy_top_k: list[dict[str, Any]]  # [{"move": idx, "prob": p}, ...]
     simulations: int
+    latency_sec: float = 0.0
+    nodes_visited: int | None = None
+    simulations_run: int | None = None
+    nn_calls: int | None = None  # Evaluated neural leaves, not batched forward-pass calls.
+    override_applied: bool = False
+    override_reason: str | None = None
 
 
 @dataclass
@@ -44,6 +50,8 @@ class GameRecord:
     model_iter: int = 0
     config: dict[str, Any] = field(default_factory=dict)
     moves: list[MoveRecord] | None = None
+    override_count: int = 0
+    override_rate: float = 0.0
 
     def validate(self) -> None:
         if self.end_reason not in VALID_END_REASONS:

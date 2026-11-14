@@ -92,3 +92,39 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 Kết quả đúng phải là `2.14.1+cu126 True`. Nếu ra `+cpu False` thì cài lại bản CUDA bằng lệnh ghi trong `requirements.txt`.
 
 
+## T35 — benchmark giải đấu hoàn tất 2026-11-14
+
+Nguồn: [t35_analysis.json](../evidence/colab_return_20261114T085015Z/t35_analysis.json), tính lại từ JSONL bằng [analyze_t35.py](../scripts/analyze_t35.py), đối chiếu checksum `colab_completed.json`. Chi tiết thắng/thua, màu và provenance: [báo cáo T35](report.md#10-ket-qua-t35-hoan-tat-ngay-2026-11-14).
+
+### Nhóm 1 giây/nước — cùng máy local, 3 cặp song song
+
+Windows, Python 3.10.6, PyTorch 2.14.1+cu126, RTX 4060 Laptop, 16 CPU logic; mỗi process một thread PyTorch. Mạng AZ dùng GPU, tìm kiếm/luật/AlphaBeta dùng CPU. AlphaBeta dùng iterative deepening theo thời gian, không bị khóa depth 1.
+
+Mean/p95 tính trên từng lượt `select_move` của agent trong cặp, không phải trung bình các percentile theo ván. Latency không gồm khởi tạo player hoặc kiểm tra hợp lệ sau chọn nước. Simulations và neural leaves là trung bình mọi nước, kể cả nước override không chạy MCTS. Nodes chỉ có nghĩa cho counter thật của agent, không quy đổi sang simulations.
+
+| Cặp | Agent | Số nước | Mean ms/nước | p95 ms/nước | Simulations/nước | Neural leaves/nước | Override |
+|---|---|---:|---:|---:|---:|---:|---:|
+| az_v0–alphabeta | az_v0 | 1181 | 998.04 | 1008.79 | 610.15 | 497.04 | 0.00% |
+| az_v0–alphabeta | alphabeta | 1181 | 999.74 | 1008.36 | — | — | 0% |
+| az_v0–az_v1_threat | az_v0 | 1011 | 999.72 | 1002.37 | 504.28 | 499.56 | 0.00% |
+| az_v0–az_v1_threat | az_v1_threat | 1061 | 798.55 | 1003.27 | 396.90 | 396.79 | 20.26% |
+| az_v1_threat–alphabeta | az_v1_threat | 1305 | 833.99 | 1002.33 | 412.00 | 410.28 | 16.48% |
+| az_v1_threat–alphabeta | alphabeta | 1268 | 1000.25 | 1007.32 | — | — | 0% |
+
+| Cặp | Mean giây/ván | Mean nước/ván |
+|---|---:|---:|
+| az_v0–alphabeta | 23.59 | 23.62 |
+| az_v0–az_v1_threat | 18.58 | 20.72 |
+| az_v1_threat–alphabeta | 23.57 | 25.73 |
+
+AlphaBeta đo khoảng 128,26 node/nước khi đấu AZ gốc và 125,92 khi đấu threat. MCTS không có counter node tương đương. Mean latency threat thấp hơn 1 giây vì override: 215/1.061 nước (20,26%) khi đấu AZ gốc và 215/1.305 (16,48%) khi đấu AlphaBeta. Không diễn giải đó là mạng threat suy luận nhanh hơn.
+
+p95 có thể vượt 1.000 ms vì deadline mềm. Ba cặp cùng tranh tài nguyên; số simulations trong 1 giây phụ thuộc cả phần cứng, tiến trình đồng thời và vị trí bàn cờ. Khi một cặp hoàn tất, tải giảm cho các cặp còn lại; đây là benchmark lịch chạy thực, không phải so sánh hiệu năng cô lập giữa các agent.
+
+Wall-clock nhóm 300 ván khoảng **2.372 giây (39,53 phút)**, throughput **455 ván/giờ**. Tổng thời gian từng ván **6.574,36 giây**, không cộng thành thời gian chờ thực. Chưa có lần chạy tuần tự đối chứng nên không công bố mức giảm 50% hoặc speedup 2,77× như kết quả thực nghiệm có kiểm soát.
+
+### Nhóm cố định và giới hạn so sánh depth
+
+Normal 1.500 + Renju 600 ván: AZ/MCTS Pure ngân sách 200 simulations/rollouts, AlphaBeta depth 1. Tám cặp AlphaBeta được chạy mới, 13 cặp không có AlphaBeta giữ lại. Dữ liệu cố định gồm nhiều lần chạy local, Colab T4 và hồ sơ phiên Colab CPU; số worker và tải máy cũng đổi. `t35_analysis.json` giữ mean/p95 và counter của từng cặp để truy xuất, **không dùng chúng làm bảng xếp hạng tốc độ cùng phần cứng**.
+
+Chưa có benchmark depth 1/2 trên cùng vị trí, cùng máy và tải. Các so sánh thời gian ván cũ chỉ là mô tả hai thí nghiệm có nước đi/độ dài ván khác nhau, không chứng minh tăng tốc riêng AlphaBeta 90–98%. Không chạy lại giải chỉ để tạo số benchmark đẹp.

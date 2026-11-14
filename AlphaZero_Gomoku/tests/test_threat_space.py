@@ -122,3 +122,65 @@ def test_enabled_uses_forced_win_and_counts_activation():
     assert player.activations == 1
     assert base.calls == 0
     assert board.history == []
+
+
+def test_pattern_alone_does_not_prove_forced_win(monkeypatch):
+    from types import SimpleNamespace
+    import az.threat_space as module
+
+    class Rules:
+        def legal_moves(self, board):
+            return [i for i in (0, 1, 2) if board.grid[i] == 0]
+
+        def is_win(self, board):
+            return False
+
+    monkeypatch.setattr(module, "find_patterns", lambda *args: [SimpleNamespace(kind="open_four", completion_cells={(0, 1), (0, 2)})])
+    board = Board()
+    result = ThreatSpaceSearcher().search(board, Rules())
+    assert result.value == 0
+    assert result.move is None
+    assert not board.grid.any()
+    assert not board.history
+    assert board.current_player == BLACK
+
+
+def test_threat_and_base_telemetry_and_budget_are_per_move(monkeypatch):
+    from az.threat_space import ThreatResult
+    import az.player_tactical as tactical
+
+    rules = get_rules("normal")
+    base = FixedPlayer(rules, 0)
+    base.time_budget_sec = 1.0
+    base.nn_calls = 2
+    base.simulations_run = 2
+    base.nodes_visited = 3
+    player = ThreatSpaceAZPlayer(base, cfg={"threat_space": {"enabled": True}})
+    clock = [0.0]
+    monkeypatch.setattr(tactical.time, "monotonic", lambda: clock[0])
+
+    def search(*args):
+        clock[0] += 0.4
+        return ThreatResult(None, 0.0, 5, True, False)
+
+    def select_move(board):
+        assert abs(base.time_budget_sec - 0.6) < 1e-8
+        return (0, 0)
+
+    monkeypatch.setattr(player.searcher, "search", search)
+    monkeypatch.setattr(base, "select_move", select_move)
+    player.select_move(Board())
+    assert player.nodes_visited == 8
+    assert player.simulations_run == player.nn_calls == 2
+    assert base.time_budget_sec == 1.0
+    monkeypatch.setattr(player.searcher, "search", lambda *args: ThreatResult(1, 1.0, 4, True, False))
+    assert player.select_move(Board()) == (0, 1)
+    assert player.nodes_visited == 4
+    assert player.simulations_run == player.nn_calls == 0
+    assert player.last_override_reason == "threat_space"
+    player.threat_enabled = False
+    clock[0] = 0.0
+    monkeypatch.setattr(base, "select_move", lambda board: (0, 0))
+    player.select_move(Board())
+    assert player.last_threat_value == 0.0
+    assert player.last_override_reason is None

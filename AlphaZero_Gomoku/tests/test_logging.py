@@ -229,3 +229,16 @@ def test_read_records_maps_legacy_keys(tmp_path: Path):
     summary = GameLogger.generate_summary(GameLogger.read_records(log_file), agent_a="A")
     assert summary["as_black"]["wins"] == 1
 
+
+
+def test_move_latency_and_search_work_survive_jsonl(tmp_path):
+    move = MoveRecord(0, 1, 5, 5, 0.0, [], 12, latency_sec=.125,
+                      nodes_visited=31, simulations_run=12)
+    record = GameRecord(0, "2026-11-13T00:00:00Z", "normal", "a", "b", "black",
+                        True, "five_in_row", 1, .125, moves=[move])
+    logger = GameLogger(tmp_path / "games.jsonl", log_moves=True)
+    logger.log_game(record)
+    stored = logger.read_records(logger.log_path)[0]["moves"][0]
+    assert stored["latency_sec"] == .125
+    assert stored["nodes_visited"] == 31
+    assert stored["simulations_run"] == 12

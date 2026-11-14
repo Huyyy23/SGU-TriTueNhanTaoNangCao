@@ -32,3 +32,21 @@ def test_same_checkpoint_with_separate_tactical_configs(tmp_path):
     assert summary["config_b"]["tactical"]["enabled"] is True
     assert record["first_player"] != record["second_player"]
     assert record["moves_count"] >= 9
+
+
+def test_named_agents_and_nonempty_output_rejected(tmp_path):
+    import pytest
+
+    out = tmp_path / "named"
+    assert main(["--a", "random", "--b", "heuristic", "--games", "2",
+                 "--budget", "sims:1", "--out-dir", str(out)]) == 0
+    summary = json.loads((out / "summary.json").read_text())
+    assert summary["agent_a"] == "random"
+    assert summary["agent_b"] == "heuristic"
+    assert summary["as_black"]["games"] == summary["as_white"]["games"] == 1
+    records = [json.loads(line) for line in (out / "games.jsonl").read_text().splitlines()]
+    assert all(r["moves"] for r in records)
+    original = (out / "games.jsonl").read_bytes()
+    with pytest.raises(SystemExit):
+        main(["--a", "random", "--b", "heuristic", "--out-dir", str(out)])
+    assert (out / "games.jsonl").read_bytes() == original

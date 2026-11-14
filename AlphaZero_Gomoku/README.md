@@ -6,7 +6,7 @@ Agent Gomoku trên bàn 11x11, tự học bằng self-play theo AlphaZero: mạn
 
 Dự án đã có lõi game 11x11, agent AlphaZero và pipeline huấn luyện/đánh giá.
 CLI và giao diện Pygame hỗ trợ Normal/Renju, người đấu máy và máy đấu máy.
-Tích hợp huấn luyện riêng cho Renju vẫn đang được phát triển.
+Checkpoint Renju và log fine-tune đã có; nguồn gốc, số liệu huấn luyện và giới hạn được đối chiếu trong [báo cáo](docs/report.md).
 
 Các tài liệu kế hoạch:
 
@@ -16,6 +16,7 @@ Các tài liệu kế hoạch:
 | [tasks/todo.md](tasks/todo.md) | Chi tiết từng task: tiêu chí nghiệm thu, cách kiểm chứng, file dự kiến đụng |
 | [tasks/proposal.md](tasks/proposal.md) | Đề tài trình bày: mục tiêu, phương pháp, thiết kế thí nghiệm E1–E5 |
 | [tasks/proposal-requirements.md](tasks/proposal-requirements.md) | Yêu cầu đề tài theo từng khối |
+| [docs/report.md](docs/report.md) | Thuật toán, huấn luyện, nguồn gốc checkpoint và kết quả đánh giá có bằng chứng |
 
 Đối chiếu tiêu chí và tiến độ theo `tasks/todo.md`.
 
@@ -107,6 +108,10 @@ python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
 python -m ui.pygame_app --mode ai-vs-ai --checkpoint checkpoints/last.pt
 python scripts/train.py --config configs/normal.yaml
 python scripts/arena.py --a random --b checkpoints/last.pt --games 100
+python scripts/arena.py --a heuristic --b az_v1_tactical --games 100 --budget sims:200
+python scripts/tournament.py --agents random,heuristic,alphabeta,mcts-pure,az_v0,az_v1_threat --games 100 --budget sims:200
+python scripts/tournament.py --agents az_v0,az_v1_threat,alphabeta --games 100 --budget time:1
+python scripts/tournament.py --agents random,heuristic,alphabeta,az_renju --rules renju --games 100 --budget sims:200
 pytest -q
 ```
 
@@ -118,3 +123,22 @@ AlphaZero cần checkpoint; có thể truyền checkpoint riêng cho mỗi bên.
 `--depth`/`--no-pruning` cấu hình Alpha-Beta, `--rollouts` cấu hình MCTS Pure.
 Trong chế độ AI-vs-AI, nhấn Space để tạm dừng/tiếp tục và New game để chơi lại.
 Checkpoint ghi vào `checkpoints/`, log vào `logs/`. Cả hai nằm ngoài git.
+
+Giải đấu ghi `games.jsonl` (nước đi, độ trễ, lượng tìm kiếm), `manifest.json`
+(seed, cấu hình, SHA-256 checkpoint), `matrix.csv` và `summary.json` vào
+`logs/tournament/<run_id>/`. Mỗi cặp đổi màu, vì vậy `--games` phải chẵn.
+`--checkpoint NAME=PATH` chọn trọng số từng agent; mặc định các biến thể Normal
+dùng `checkpoints/last.pt`, Renju dùng `checkpoints/renju_last.pt`.
+Thư mục `--out-dir` phải rỗng để không trộn số liệu giữa các lần chạy.
+`sims:N` đặt số mô phỏng cho AZ/MCTS Pure, Alpha-Beta dùng `--depth` (mặc định 2);
+`time:S` đặt ngân sách giây mỗi nước cho tác tử tìm kiếm. Random/heuristic không
+bị làm chậm để dùng hết ngân sách. Báo cáo độ trễ và lượng tìm kiếm thực tế,
+không coi số node Alpha-Beta bằng số simulation MCTS.
+`--pair NAME,NAME` chạy một cặp với seed theo vị trí trong danh sách đầy đủ.
+Sau khi đủ mọi cặp, dùng `--merge-root SHARD_ROOT --out-dir FROZEN_DIR` để
+kiểm tra và gộp log mà không đấu lại. Merge từ chối thiếu/trùng cặp, lệch
+cấu hình, checkpoint, seed, số ván hoặc màu; không sửa log nguồn.
+Tiếp tục một cặp bị gián đoạn bằng cùng lệnh, thêm `--resume --pair NAME,NAME`
+và giữ nguyên `--out-dir`. Resume kiểm tra cấu hình, checkpoint và seed/màu
+từng ván đã ghi, chỉ chạy các chỉ số còn thiếu; giữ nguyên manifest và tiền tố
+log cũ. Log hỏng hoặc cấu hình khác bị từ chối, không tự xóa bằng chứng.

@@ -98,3 +98,49 @@ def test_never_returns_renju_forbidden_move():
     assert flat in rules.legal_moves(board)
     assert flat not in rules.forbidden_moves(board)
     assert (board.grid == before).all()
+
+
+def test_opponent_candidates_use_opponent_legal_set():
+    class AsymmetricRules:
+        def legal_moves(self, board):
+            return [0, 1] if board.current_player == WHITE else [1]
+
+        def is_win(self, board):
+            return board.grid[0] == BLACK
+
+    board = board_with({}, WHITE)
+    base = FixedPlayer(AsymmetricRules(), 1)
+    player = TacticalAZPlayer(base, enabled=True)
+    assert player.select_move(board) == (0, 1)
+    assert not player.last_override_applied
+    assert base.calls == 1
+    assert board.current_player == WHITE
+    assert not board.history
+
+
+def test_override_clears_stale_counters_and_thinking_budget(monkeypatch):
+    rules = get_rules("normal")
+    base = FixedPlayer(rules, 0)
+    base.time_budget_sec = 1.0
+    base.nn_calls = 3
+    base.simulations_run = 3
+    base.nodes_visited = 4
+    clock = [0.0]
+    monkeypatch.setattr("az.player_tactical.time.monotonic", lambda: clock[0])
+    player = TacticalAZPlayer(base, enabled=False)
+    original = base.select_move
+
+    def select_move(board):
+        assert base.time_budget_sec == 1.0
+        return original(board)
+
+    monkeypatch.setattr(base, "select_move", select_move)
+    player.select_move(Board())
+    assert player.nn_calls == player.simulations_run == 3
+    assert player.nodes_visited == 4
+    player.enabled = True
+    board = board_with({(5, c): BLACK for c in (2, 3, 4, 5)}, BLACK)
+    player.select_move(board)
+    assert player.last_override_reason == "win_now"
+    assert player.nn_calls == player.simulations_run == player.nodes_visited == 0
+    assert base.time_budget_sec == 1.0
