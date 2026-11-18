@@ -1,0 +1,253 @@
+{
+  "python": "3.10.6 (tags/v3.10.6:9c7b4bd, Aug  1 2022, 21:53:49) [MSC v.1932 64 bit (AMD64)]",
+  "torch": "2.14.1+cu126",
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "logical_cpus": 16,
+  "ram_total_bytes": 16940261376,
+  "ram_available_before_bytes": 6769610752,
+  "checkpoint": "D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\checkpoints\\last.pt",
+  "checkpoint_sha256": "6e29a4e3b8c235449898450de0f44b520829eda097ee74f97ef599238e52ffbc",
+  "mode": "profile",
+  "simulations_per_move": 200,
+  "repeats": 1,
+  "results": [
+    {
+      "mcts_backend": "python",
+      "parallel_games": 4,
+      "workers": 1,
+      "games": 4,
+      "moves": 111,
+      "wall_s": 26.595079200000328,
+      "games_min": 9.024225804899917,
+      "moves_s": 4.173704434766211,
+      "simulations": 22200,
+      "simulations_s": 834.7408869532424,
+      "nn_calls": 21149,
+      "inference_batches": 6709,
+      "inference_batch_mean": 3.152332687434789,
+      "inference_latency_p50_ms": 1.8397,
+      "inference_latency_p95_ms": 3.9072599999999986,
+      "rss_peak_bytes_parent_and_children": 1026830336,
+      "gpu_util_mean_pct_sampled": 18.852272727272727,
+      "gpu_memory_peak_mib_sampled": 1257,
+      "cuda_peak_allocated_bytes_parent": 11140096,
+      "cuda_peak_reserved_bytes_parent": 29360128,
+      "record_mean_batch": 3.592633782111509,
+      "moves_per_game": [
+        21,
+        23,
+        32,
+        35
+      ],
+      "nn_calls_per_game": [
+        3938,
+        4300,
+        6219,
+        6692
+      ],
+      "cprofile_top_cumulative": "         20636401 function calls (19802471 primitive calls) in 26.587 seconds\n\n   Ordered by: cumulative time\n   List reduced from 367 to 35 due to restriction <35>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        5    0.119    0.024   26.594    5.319 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\selfplay.py:30(run_games)\n     6709    0.056    0.000   14.907    0.002 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\scripts\\bench_selfplay_round2.py:165(timed_predict)\n     6709    0.168    0.000   14.845    0.002 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:84(predict)\n386927/42857    0.754    0.000   11.454    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\scripts\\bench_selfplay_round2.py:84(measured)\n     6709    0.213    0.000   10.643    0.002 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:66(forward)\n375704/134180    0.264    0.000   10.280    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1779(_wrapped_call_impl)\n375704/134180    0.401    0.000   10.173    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1787(_call_impl)\n    40254    0.824    0.000    7.374    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:24(forward)\n    21149    2.657    0.000    5.724    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:158(receive)\n    21260    0.158    0.000    5.561    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:88(request)\n   100635    0.136    0.000    3.622    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py:564(forward)\n   100635    0.081    0.000    3.432    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py:546(_conv_forward)\n   100635    3.352    0.000    3.352    0.000 {built-in method torch.conv2d}\n    43272    2.611    0.000    3.335    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:265(_select_child)\n   100635    0.337    0.000    3.107    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\batchnorm.py:176(forward)\n  2233110    2.753    0.000    2.753    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:21(__init__)\n   100635    0.176    0.000    2.527    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\functional.py:2865(batch_norm)\n   100635    2.281    0.000    2.281    0.000 {built-in method torch.batch_norm}\n    13418    1.949    0.000    1.949    0.000 {method 'cpu' of 'torch._C.TensorBase' objects}\n     6709    1.524    0.000    1.524    0.000 {method 'to' of 'torch._C.TensorBase' objects}\n   107344    0.061    0.000    1.003    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\activation.py:139(forward)\n   107344    0.069    0.000    0.941    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\functional.py:1766(relu)\n   107344    0.856    0.000    0.856    0.000 {built-in method torch.relu_}\n    20127    0.026    0.000    0.648    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\linear.py:130(forward)\n    20127    0.613    0.000    0.613    0.000 {built-in method torch._C._nn.linear}\n  4608995    0.471    0.000    0.471    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:32(q_value)\n  1086858    0.440    0.000    0.440    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1959(__getattr__)\n    21149    0.169    0.000    0.386    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:310(_get_legal_mask)\n    42920    0.069    0.000    0.329    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\normal.py:30(is_win)\n    21569    0.055    0.000    0.315    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\base.py:22(is_terminal)\n    22200    0.021    0.000    0.266    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:303(_undo_path)\n    42908    0.031    0.000    0.238    0.000 {built-in method builtins.any}\n  4334179    0.233    0.000    0.233    0.000 {built-in method builtins.abs}\n    42460    0.055    0.000    0.217    0.000 C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numpy\\_core\\numeric.py:646(flatnonzero)\n   214282    0.061    0.000    0.207    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\normal.py:45(<genexpr>)\n\n\n",
+      "function_profile": {
+        "NormalRules.is_win": {
+          "calls": 42920,
+          "inclusive_ms": 373.0183,
+          "exclusive_ms": 373.0183,
+          "p50_ms": 0.0073,
+          "p95_ms": 0.0143
+        },
+        "NormalRules.is_terminal": {
+          "calls": 21569,
+          "inclusive_ms": 332.6243,
+          "exclusive_ms": 173.7138,
+          "p50_ms": 0.0127,
+          "p95_ms": 0.026
+        },
+        "MCTS._get_planes": {
+          "calls": 21149,
+          "inclusive_ms": 166.8343,
+          "exclusive_ms": 166.8343,
+          "p50_ms": 0.0064,
+          "p95_ms": 0.0131
+        },
+        "NormalRules.legal_moves": {
+          "calls": 21149,
+          "inclusive_ms": 173.4929,
+          "exclusive_ms": 173.4929,
+          "p50_ms": 0.007,
+          "p95_ms": 0.0134
+        },
+        "MCTS._get_legal_mask": {
+          "calls": 21149,
+          "inclusive_ms": 402.4008,
+          "exclusive_ms": 228.9079,
+          "p50_ms": 0.0161,
+          "p95_ms": 0.0302
+        },
+        "MCTS.request": {
+          "calls": 21260,
+          "inclusive_ms": 5580.8884,
+          "exclusive_ms": 679.4578,
+          "p50_ms": 0.2284,
+          "p95_ms": 0.4449
+        },
+        "MCTS.receive": {
+          "calls": 21149,
+          "inclusive_ms": 5761.5361,
+          "exclusive_ms": 5761.5361,
+          "p50_ms": 0.1134,
+          "p95_ms": 0.2701
+        },
+        "MCTS._select_child": {
+          "calls": 43272,
+          "inclusive_ms": 3377.5375,
+          "exclusive_ms": 3377.5375,
+          "p50_ms": 0.0709,
+          "p95_ms": 0.1174
+        },
+        "Board.play": {
+          "calls": 43383,
+          "inclusive_ms": 91.0259,
+          "exclusive_ms": 91.0259,
+          "p50_ms": 0.0017,
+          "p95_ms": 0.0037
+        },
+        "MCTS._play_move": {
+          "calls": 43272,
+          "inclusive_ms": 231.718,
+          "exclusive_ms": 141.0083,
+          "p50_ms": 0.0044,
+          "p95_ms": 0.0091
+        },
+        "Board.undo": {
+          "calls": 43272,
+          "inclusive_ms": 71.545,
+          "exclusive_ms": 71.545,
+          "p50_ms": 0.0015,
+          "p95_ms": 0.0026
+        },
+        "MCTS._undo_move": {
+          "calls": 43272,
+          "inclusive_ms": 179.7704,
+          "exclusive_ms": 108.2254,
+          "p50_ms": 0.0037,
+          "p95_ms": 0.0064
+        },
+        "az.selfplay.board_to_planes": {
+          "calls": 111,
+          "inclusive_ms": 1.0491,
+          "exclusive_ms": 1.0491,
+          "p50_ms": 0.0092,
+          "p95_ms": 0.01735
+        }
+      }
+    },
+    {
+      "mcts_backend": "cpp",
+      "parallel_games": 4,
+      "workers": 1,
+      "games": 4,
+      "moves": 111,
+      "wall_s": 19.948872799999663,
+      "games_min": 12.030754940700412,
+      "moves_s": 5.56422416007394,
+      "simulations": 22200,
+      "simulations_s": 1112.8448320147882,
+      "nn_calls": 21149,
+      "inference_batches": 6709,
+      "inference_batch_mean": 3.152332687434789,
+      "inference_latency_p50_ms": 1.7164,
+      "inference_latency_p95_ms": 2.6487,
+      "rss_peak_bytes_parent_and_children": 1044324352,
+      "gpu_util_mean_pct_sampled": 35.04477611940298,
+      "gpu_memory_peak_mib_sampled": 1200,
+      "cuda_peak_allocated_bytes_parent": 11140096,
+      "cuda_peak_reserved_bytes_parent": 29360128,
+      "record_mean_batch": 3.592633782111509,
+      "moves_per_game": [
+        21,
+        23,
+        32,
+        35
+      ],
+      "nn_calls_per_game": [
+        3938,
+        4300,
+        6219,
+        6692
+      ],
+      "cprofile_top_cumulative": "         8328320 function calls (7626306 primitive calls) in 19.941 seconds\n\n   Ordered by: cumulative time\n   List reduced from 281 to 35 due to restriction <35>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n        5    0.109    0.022   19.947    3.989 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\selfplay.py:30(run_games)\n     6709    0.046    0.000   12.409    0.002 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\scripts\\bench_selfplay_round2.py:165(timed_predict)\n     6709    0.140    0.000   12.358    0.002 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:84(predict)\n     6709    0.168    0.000    8.476    0.001 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:66(forward)\n375704/134180    0.216    0.000    8.186    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1779(_wrapped_call_impl)\n375704/134180    0.326    0.000    8.099    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1787(_call_impl)\n255103/42857    0.472    0.000    7.315    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\scripts\\bench_selfplay_round2.py:84(measured)\n    40254    0.651    0.000    5.906    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\model.py:24(forward)\n    21149    5.022    0.000    5.349    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:375(receive)\n   100635    0.112    0.000    2.846    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py:564(forward)\n   100635    0.067    0.000    2.690    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py:546(_conv_forward)\n   100635    2.623    0.000    2.623    0.000 {built-in method torch.conv2d}\n   100635    0.276    0.000    2.496    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\batchnorm.py:176(forward)\n    13418    2.286    0.000    2.286    0.000 {method 'cpu' of 'torch._C.TensorBase' objects}\n   100635    0.140    0.000    2.026    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\functional.py:2865(batch_norm)\n   100635    1.830    0.000    1.830    0.000 {built-in method torch.batch_norm}\n    21260    0.235    0.000    1.787    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:338(request)\n     6709    1.061    0.000    1.061    0.000 {method 'to' of 'torch._C.TensorBase' objects}\n   107344    0.049    0.000    0.798    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\activation.py:139(forward)\n   107344    0.057    0.000    0.748    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\functional.py:1766(relu)\n   107344    0.678    0.000    0.678    0.000 {built-in method torch.relu_}\n    20127    0.022    0.000    0.534    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\linear.py:130(forward)\n    20127    0.503    0.000    0.503    0.000 {built-in method torch._C._nn.linear}\n  1086858    0.355    0.000    0.355    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py:1959(__getattr__)\n    21149    0.153    0.000    0.341    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\az\\mcts.py:310(_get_legal_mask)\n    42920    0.056    0.000    0.279    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\normal.py:30(is_win)\n    21569    0.049    0.000    0.274    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\base.py:22(is_terminal)\n    42908    0.028    0.000    0.205    0.000 {built-in method builtins.any}\n    42349    0.049    0.000    0.187    0.000 C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numpy\\_core\\numeric.py:646(flatnonzero)\n   214282    0.053    0.000    0.177    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\normal.py:45(<genexpr>)\n    21320    0.031    0.000    0.159    0.000 C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numpy\\_core\\fromnumeric.py:2338(sum)\n   375704    0.139    0.000    0.139    0.000 {built-in method torch._C._get_tracing_state}\n    64382    0.137    0.000    0.137    0.000 {method 'reduce' of 'numpy.ufunc' objects}\n    21149    0.036    0.000    0.133    0.000 D:\\PycharmProject\\SGU-TriTueNhanTaoNangCao\\AlphaZero_Gomoku\\gomoku\\rules\\normal.py:16(legal_moves)\n    21422    0.038    0.000    0.125    0.000 C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python310\\lib\\site-packages\\numpy\\_core\\fromnumeric.py:69(_wrapreduction)\n\n\n",
+      "function_profile": {
+        "NormalRules.is_win": {
+          "calls": 42920,
+          "inclusive_ms": 315.3172,
+          "exclusive_ms": 315.3172,
+          "p50_ms": 0.0066,
+          "p95_ms": 0.0112
+        },
+        "NormalRules.is_terminal": {
+          "calls": 21569,
+          "inclusive_ms": 289.0961,
+          "exclusive_ms": 152.5709,
+          "p50_ms": 0.0117,
+          "p95_ms": 0.0192
+        },
+        "NormalRules.legal_moves": {
+          "calls": 21149,
+          "inclusive_ms": 147.7459,
+          "exclusive_ms": 147.7459,
+          "p50_ms": 0.0066,
+          "p95_ms": 0.009
+        },
+        "MCTS._get_legal_mask": {
+          "calls": 21149,
+          "inclusive_ms": 356.5572,
+          "exclusive_ms": 208.8113,
+          "p50_ms": 0.0153,
+          "p95_ms": 0.0224
+        },
+        "MCTS._get_planes": {
+          "calls": 21149,
+          "inclusive_ms": 138.1941,
+          "exclusive_ms": 138.1941,
+          "p50_ms": 0.0058,
+          "p95_ms": 0.0091
+        },
+        "NativeMCTS.request": {
+          "calls": 21260,
+          "inclusive_ms": 1807.3214,
+          "exclusive_ms": 711.2375,
+          "p50_ms": 0.0768,
+          "p95_ms": 0.126
+        },
+        "NativeMCTS.receive": {
+          "calls": 21149,
+          "inclusive_ms": 5393.9757,
+          "exclusive_ms": 5393.9757,
+          "p50_ms": 0.2732,
+          "p95_ms": 0.4971599999999999
+        },
+        "Board.play": {
+          "calls": 42379,
+          "inclusive_ms": 77.2136,
+          "exclusive_ms": 77.2136,
+          "p50_ms": 0.0016,
+          "p95_ms": 0.0034
+        },
+        "Board.undo": {
+          "calls": 42268,
+          "inclusive_ms": 60.9129,
+          "exclusive_ms": 60.9129,
+          "p50_ms": 0.0014,
+          "p95_ms": 0.002
+        },
+        "az.selfplay.board_to_planes": {
+          "calls": 111,
+          "inclusive_ms": 1.1742,
+          "exclusive_ms": 1.1742,
+          "p50_ms": 0.0104,
+          "p95_ms": 0.0182
+        }
+      }
+    }
+  ]
+}

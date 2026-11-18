@@ -1,0 +1,5 @@
+base: ../../configs/normal.yaml
+n_iter: 3
+games_per_iter: 4
+parallel_games: 4
+train_steps_per_iter: 10

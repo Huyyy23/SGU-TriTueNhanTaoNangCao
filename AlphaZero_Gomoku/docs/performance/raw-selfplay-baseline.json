@@ -1,0 +1,23 @@
+{
+  "checkpoint": "checkpoints/last.pt",
+  "sha256": "6e29a4e3b8c235449898450de0f44b520829eda097ee74f97ef599238e52ffbc",
+  "device": "cuda",
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "torch_threads": 10,
+  "patterns_backend": "python",
+  "parallel_games_requested": 4,
+  "games_per_run": 1,
+  "seed": 20261118,
+  "repeats": 3,
+  "measurement": "wall-clock around run_games; checkpoint load excluded; no explicit warm-up; one game means inference batch remained 1",
+  "results": [
+    {"simulations":2,"mcts":"python","runs":[{"wall_s":0.3380861,"moves":63,"nn_calls":125,"mean_batch":1.0},{"wall_s":0.1890386,"moves":63,"nn_calls":125,"mean_batch":1.0},{"wall_s":0.1954302,"moves":63,"nn_calls":125,"mean_batch":1.0}],"median_s":0.1954302},
+    {"simulations":2,"mcts":"cpp","runs":[{"wall_s":0.1740311,"moves":63,"nn_calls":125,"mean_batch":1.0},{"wall_s":0.1699808,"moves":63,"nn_calls":125,"mean_batch":1.0},{"wall_s":0.1736123,"moves":63,"nn_calls":125,"mean_batch":1.0}],"median_s":0.1736123},
+    {"simulations":50,"mcts":"python","runs":[{"wall_s":2.0537118,"moves":25,"nn_calls":1201,"mean_batch":1.0},{"wall_s":2.2078791,"moves":25,"nn_calls":1201,"mean_batch":1.0},{"wall_s":2.1921738,"moves":25,"nn_calls":1201,"mean_batch":1.0}],"median_s":2.1921738},
+    {"simulations":50,"mcts":"cpp","runs":[{"wall_s":2.4624607,"moves":25,"nn_calls":1201,"mean_batch":1.0},{"wall_s":3.0542188,"moves":25,"nn_calls":1201,"mean_batch":1.0},{"wall_s":2.9214078,"moves":25,"nn_calls":1201,"mean_batch":1.0}],"median_s":2.9214078},
+    {"simulations":100,"mcts":"python","runs":[{"wall_s":5.6936413,"moves":23,"nn_calls":2221,"mean_batch":1.0},{"wall_s":5.3693214,"moves":23,"nn_calls":2221,"mean_batch":1.0},{"wall_s":5.3750203,"moves":23,"nn_calls":2221,"mean_batch":1.0}],"median_s":5.3750203},
+    {"simulations":100,"mcts":"cpp","runs":[{"wall_s":4.9628131,"moves":23,"nn_calls":2221,"mean_batch":1.0},{"wall_s":4.3064148,"moves":23,"nn_calls":2221,"mean_batch":1.0},{"wall_s":3.511262,"moves":23,"nn_calls":2221,"mean_batch":1.0}],"median_s":4.3064148},
+    {"simulations":200,"mcts":"python","runs":[{"wall_s":6.8651896,"moves":17,"nn_calls":3242,"mean_batch":1.0},{"wall_s":8.4180429,"moves":17,"nn_calls":3242,"mean_batch":1.0},{"wall_s":7.6948307,"moves":17,"nn_calls":3242,"mean_batch":1.0}],"median_s":7.6948307},
+    {"simulations":200,"mcts":"cpp","runs":[{"wall_s":5.781617,"moves":17,"nn_calls":3242,"mean_batch":1.0},{"wall_s":5.8243198,"moves":17,"nn_calls":3242,"mean_batch":1.0},{"wall_s":5.774356,"moves":17,"nn_calls":3242,"mean_batch":1.0}],"median_s":5.781617}
+  ]
+}
