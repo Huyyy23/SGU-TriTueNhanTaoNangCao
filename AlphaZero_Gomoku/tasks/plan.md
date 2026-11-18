@@ -1,257 +1,111 @@
-# Implementation Plan: Gomoku 11x11 + AlphaZero
+# Kế hoạch triển khai: Gomoku AlphaZero — lộ trình nghiên cứu theo SPEC
 
-## Overview
+## Tổng quan
 
-Dự án xanh, chưa có code. AGENTS.md là spec duy nhất. Kế hoạch này chia việc thành 26 task theo 11 phase, mỗi task là một lát dọc (một đường chạy hoàn chỉnh có thể kiểm chứng), theo build order trong AGENTS.md: game core → CLI → MCTSPure → AlphaZero → arena → **Colab** → **self-play phân tán** → **nhật kí thí nghiệm** → train 11x11 → **đánh giá 1000 ván** → **tài liệu nguồn** → UI → Renju → **báo cáo**.
+Kế hoạch này triển khai các yêu cầu nghiên cứu và cổng chất lượng trong [`../SPEC.md`](../SPEC.md), thay cho chuỗi 26 công việc tiền triển khai đã lỗi thời. Repository hiện có game engine, pipeline AlphaZero (AZ), tournament runner, classical players và một số C++ extension tùy chọn. Kết quả nghiên cứu hiện có là tiêu cực: báo cáo T35 trong repository ghi nhận Heuristic thắng AZ v0/AZ threat 100–0 ở các cặp Normal cố định và thắng AZ Renju 100–0 ở cặp Renju được báo cáo. Mục tiêu trước mắt là chẩn đoán và đo chất lượng theo protocol đăng ký trước; không mặc định rằng tăng số ván sẽ cải thiện mô hình.
 
-Bàn chơi **cố định 11x11**, không làm phase validate 7x7/9x9. Mọi chạy đều trên 11x11. Ngân sách train đã chốt: **20 iteration × 50 ván**.
+**Trạng thái:** Verified = có bằng chứng từ source và test/báo cáo liên quan; Implemented / Unverified = có code nhưng chưa đủ bằng chứng đạt tiêu chí; Planned = chưa triển khai; Unknown = chưa có đủ thông tin. Báo cáo cũ không phải kết quả kiểm thử mới. Không chạy tác vụ tốn tài nguyên nếu chưa được cho phép rõ ràng.
 
-Code phải chạy được giống nhau ở local (RTX 4060) và trên Google Colab. Không phụ thuộc API riêng của Colab trong code chính. Lần train đầu chạy **local**; Colab dùng cho các vòng chạy dài và cho việc chạy song song.
+## Hiện trạng cần bảo toàn
 
-Chi tiết từng task (acceptance criteria + verification) nằm ở `todo.md` cùng thư mục. Task list index ở mục "Task List" bên dưới.
+- `gomoku/`: Board 11×11, luật Normal/Renju, features và patterns; có tests cho luật. Việc tương đương với bộ luật Renju quốc tế vẫn Unknown.
+- `az/`: AZNet, Python MCTS, self-play, replay buffer, trainer, checkpoint/resume và game logs đã có. Báo cáo lịch sử ghi nhận 1.000 ván self-play Normal và 500 ván fine-tune Renju; các con số này không chứng minh sức chơi tăng.
+- `scripts/tournament.py`: round-robin có đổi màu theo cặp, seeds/openings, raw game records, checkpoint hashes, resume/shard merge và thống kê WDL/score/Wilson. Elo hiện Planned, chưa được triển khai.
+- `native/`: C++17 MCTS tree và pattern extension tùy chọn qua pybind11. Python là backend mặc định. Bằng chứng parity/smoke hiện còn hạn chế; không kết luận C++ tốt hơn chỉ từ tốc độ.
+- `configs/normal_5000.yaml` là cấu hình cho 5.000 ván, không phải bằng chứng đã chạy xong 5.000 ván.
+- Thay đổi worktree, logs và checkpoints hiện có thuộc về người dùng. Khi lập kế hoạch, không xóa, ghi đè hoặc sinh lại artifacts.
 
-## Cập nhật phạm vi (đồ án cuối kỳ, 3 tuần)
+## Kiến trúc và thứ tự phụ thuộc
 
-Kế hoạch gốc 26 task được viết trước khi có đề bài cuối kỳ. Các thay đổi đã chốt, ghi đè mọi mô tả
-cũ trong tệp này:
-
-- **Cắt T14–T18** (Colab, `sync_drive`, selfplay shard, merge shard): 1000 ván tự chơi chạy xong
-  trong ~1 giờ trên RTX 4060 tại chỗ, nên hạ tầng chạy phân tán không cần.
-- **`scripts/simulate.py` (T21) gộp vào `scripts/tournament.py` (T31)**: đề bài cần round-robin
-  giữa nhiều tác tử, không phải đấu từng cặp.
-- **Thêm T27–T36**: bộ nhận diện mẫu, tác tử heuristic (cấp 2), Alpha-Beta (cấp 3), API game
-  thống nhất, `az_v1` tactical override, threat-space search, round-robin, ablation, poster/slide/ZIP.
-- **Renju fine-tune từ Normal**, không train từ đầu (xem mục "Quyết định" — mục 1 và mục 5 bên dưới
-  đã được sửa theo).
-- Danh sách task và phân công hiện hành: `todo.md`. Câu hỏi nghiên cứu và thiết kế thí nghiệm hiện
-  hành: `proposal.md` mục 3.2 và 6. Phần cải tiến: `Lo_trinh_cai_tien_AlphaZero_Gomoku.md`.
-
-## Environment (đã kiểm tra)
-
-| Mục | Kết quả |
-|---|---|
-| Python | 3.10.6 |
-| GPU | NVIDIA RTX 4060 Laptop, 8 GB VRAM, driver 610.88 (sm_89) |
-| CPU / RAM | 16 luồng logic / 15.8 GB |
-| Đã có | numpy 2.2.6, PyYAML 6.0.3 |
-| Cần cài | torch (cu124), pytest, pygame (UI), pyyaml đã có |
-| Mạng | pip OK |
-| Git | chưa init repo; cần tạo remote GitHub để Colab clone |
-| Colab free | GPU T4 (hoặc L4), **2 vCPU**, ~12.7 GB RAM, session tối đa 12h, disk tạm bị xóa khi session chết; Drive 15 GB |
-| Colab Pro | GPU A100/V100, nhiều core hơn, session dài hơn |
-
-**Sự thật về tốc độ:** self-play là phần tốn CPU (MCTS chạy trong Python), không phải phần chạy mạng. Colab free chỉ cho 2 core so với 16 luồng ở máy bạn, và T4 chậm hơn RTX 4060. Nên một instance Colab free **chậm hơn máy bạn**, không phải nhanh hơn. Colab đổi lại: một máy chạy liên tục nhiều giờ không tốn laptop.
-
-**Hình hài Colab free tối ưu (đã chốt):** tài khoản free chỉ chạy được **1 session GPU tại một thời điểm**. Instance CPU-only không tính vào giới hạn đó. Bạn chọn chạy **1 instance CPU-only** cho an toàn:
-- 1 instance GPU (notebook T15): lo train, tự sinh ván nếu rảnh
-- 1 instance CPU-only: chỉ sinh shard self-play, ghi npz lên Drive (T17)
-- Instance GPU gộp shard theo thứ tự `model_iter` rồi train tiếp (T18)
-
-Tổng lưu lượng vẫn kém máy local, nhưng chạy song song và không tốn laptop. Nhiều instance GPU cùng lúc đòi nhiều tài khoản — nằm ngoài phần plan này.
-
-**Cách code lên Colab (đã chốt):** `git clone` từ GitHub. Tên repo bạn bổ sung sau, nên `colab/README.md` (T15) là bản hướng dẫn để bạn điền: tạo repo, push code, tạo Colab Secret chứa token, dán `REPO_URL` vào cell đầu notebook. Repo private thì token lấy từ Colab Secret, không hardcode trong notebook. `scripts/sync_drive.py` (T16) giữ làm đường dự phòng khi không muốn dùng GitHub.
-
-## Architecture Decisions
-
-1. **Bàn 11x11 cố định.** `gomoku/board.py` đặt hằng số `SIZE = 11` làm nguồn sự thật duy nhất; features `(4, 11, 11)`, policy head 121, không tham số hóa kích thước xuyên suốt các module. Lý do: bạn chọn 11x11, code ít hơn, ít chỗ sai hơn. Đánh đổi: mất mốc kiểm chứng pipeline trên bàn nhỏ — bù lại bằng smoke test 2 iteration trước khi chạy full (xem Checkpoint D).
-2. **State lưu trong numpy int8 1D phẳng** (121 phần tử cho 11x11), index `(r, c)` → `r * size + c`. `legal_moves` đọc bằng `np.flatnonzero(grid == 0)`; `is_win` dùng so sánh 4 hướng trên mảng đã shift. Không loop Python trên 121 ô (hard rule 6). Không dùng numba: numpy đủ nhanh cho bàn 11x11, numba thêm dependency + compile time.
-3. **Rules là interface duy nhất** (`gomoku/rules/base.py`): `legal_moves`, `is_win`, `is_terminal`, `forbidden_moves` (mặc định rỗng). MCTS, players, UI chỉ gọi qua interface này (hard rule 1).
-4. **Features cố định 4 plane cho cả Normal lẫn Renju**: `[my_stones, opp_stones, forbidden, color_to_move]`. Plane `forbidden` bằng 0 trong Normal. Lý do: một kiến trúc mạng duy nhất cho cả hai rule set, không phải sửa lại model khi đổi rule set. (Quyết định đã chốt: Renju **fine-tune từ checkpoint Normal**, không train từ đầu — `AGENTS.md` rule 7 cho phép đường này, tiết kiệm ~1 giờ GPU, và vẫn giữ 4 plane để code và checkpoint đồng nhất. Buffer Renju vẫn tách riêng.)
-5. **Đánh giá vị trí đúng theo AlphaZero** (đã sửa theo góp ý): mỗi lượt mô phỏng đi tới một lá, lá được đánh giá bằng đúng **một** lượt suy luận; lượt suy luận đó trả về xác suất cho cả 121 ô (làm tiên đoán cho mọi nước đi từ lá) và giá trị của lá. Không gom các nước con của một node để suy luận riêng cho từng con: cách đó tốn gấp nhiều lần tính toán mạng và không phải cách làm chuẩn.
-5b. **Gom lô ở cấp chương trình, không phải cấp cây.** Lô thật là gom nhiều lá đang chờ đánh giá, đến từ nhiều ván self-play chạy song song, rồi gửi một lệnh suy luận. Đây là cách dùng GPU: mỗi lá vẫn tốn đúng một lượt suy luận, nhưng nhiều lá dùng chung một lệnh.
-6. **Torch CUDA cu124** cho sm_89. CPU fallback vẫn chạy được để test nhanh.
-7. **Game runner đặt ở `gomoku/runner.py`**, chỉ gọi `player.select_move(board)` — không import players, không import torch. Giữ `gomoku/` sạch torch (hard rule 7).
-8. **Replay buffer gắn nhãn rule set**, trainer chỉ lấy mẫu của rule set đang train (hard rule 7).
-9. **UI dùng pygame, làm sau khi train xong 11x11** (đã chốt). Web UI để lại.
-10. **`git init` + `.gitignore`** loại `checkpoints/`, `logs/`, `__pycache__/`, `*.pt`.
-11. **Code không phụ thuộc Colab.** Trainer nhận cờ `--device`, `--workers`, `--time-budget-hours`, `--ckpt-every`, `--seed`, `--out-dir`, `--resume`. Colab chỉ là nơi chạy lệnh đó. Lý do: giữ một đường chạy duy nhất, không có nhánh code riêng cho cloud, và chạy local được ngay.
-12. **Buffer replay không ghi ra Drive.** Drive I/O chậm, buffer 50k mẫu sẽ làm nghẽn mỗi iteration. Chỉ checkpoint (~vài chục MB) chạy ra Drive.
-13. **Đặt time budget ngắn hơn giới hạn session.** Colab free giết session ở 12h, còn disconnect khi không tương tác. Trainer tự dừng và lưu `last.pt` trước khi bị giết.
-14. **Mọi ván để lại log JSONL, một dòng = một ván** (T19). Schema cố định: `end_reason` phân biệt thắng 5 quân / bị cấm nước / hòa / hết giờ. Ghi từng nước là tùy chọn `--log-moves` vì tốn I/O trong self-play. Lý do: mọi câu hỏi phân tích ("thua vì sao", "ai đi trước thắng hay thua") đều trả lời từ log, không từ trí nhớ.
-15. **Đánh giá luôn xen kẽ lượt đầu** (T21). Ván chẵn A đi trước, ván lẻ B đi trước. Gomoku cho lợi thế lớn cho người đi trước, nên đánh giá chỉ có nghĩa nếu cân bằng.
-16. **Self-play chia shard theo checkpoint.** Instance CPU-only sinh `shard_<model_iter>_<id>.npz`; gộp theo `model_iter` tăng dần để không trộn policy của hai thế hệ. Features lưu uint8 để shard nhỏ (~30 KB mỗi ván).
-17. **Lần train đầu chạy local.** Ngân sách chốt 20 iteration × 50 ván. Colab dùng cho vòng chạy dài sau đó.
-18. **Ngân sách ván nằm trong cấu hình, không hardcode.** `n_iter × games_per_iter` = 1000 mặc định; nâng lên 1200 (24 × 50), 1500 (30 × 50) hay 5000 (100 × 50, `configs/normal_5000.yaml`) chỉ cần sửa YAML, và phải nối tiếp được từ checkpoint cũ chứ không chạy lại từ đầu (T20). Ngân sách 5000 ván là quyết định riêng cho `az_v0b`: xem `docs/adr/0005-budget-5000-games-for-az-v0b.md`.
-19. **Siêu tham số đủ để tái lập thí nghiệm.** AGENTS.md thiếu learning rate, optimizer, weight decay, trọng số mất mát và lịch giảm learning rate; bổ sung vào `DEFAULT_CONFIG` (T2). `n_simulations` quyết định cả độ mạnh lẫn thời gian chạy nên phải cấu hình được, không hardcode.
-20. **MCTS thuần dùng cùng ngân sách mô phỏng với agent** khi so sánh (E2): 200 lượt mỗi nước, để phép so sánh công bằng.
-
-## Dependency Graph
-
-```
-gomoku/board.py
-     │
-     ├── gomoku/rules/base.py ──► normal.py ──► renju.py
-     │        │                      │            │
-     │        │                      └────┬───────┘
-     │        │                           │
-     │        └──► gomoku/features.py ◄────┘   (+ symmetry 8-fold)
-     │                    │
-     │                    ├──► az/model.py
-     │                    │        │
-     │                    ├──► az/mcts.py ◄────┐
-     │                    │        │           │
-     │                    ├──► az/selfplay.py ┤
-     │                    │        │           │
-     │                    └──► az/replay_buffer.py
-     │                             │           │
-     │                             └──► az/trainer.py
-     │                                          │
-     ├── players/base.py ─► random.py           │
-     │                   └► human.py            │
-     │                   └► mcts_pure.py ◄──────┤
-     │                   └► az_player.py ◄──────┘ (dùng az/mcts.py + az/model.py)
-     │
-     └── gomoku/runner.py ─► scripts/play.py ─► ui/ (pygame)
-
-scripts/train.py ◄── az/trainer.py + az/selfplay.py + az/evaluator.py
-scripts/arena.py ◄── az/evaluator.py
-colab/train.ipynb ─► scripts/train.py (+ --device/--workers/--time-budget-hours/--resume) ─► checkpoints/ trên Drive
+```mermaid
+flowchart TD
+    GR[game-rules] --> AS[ai-search]
+    GR --> NP[native-parity]
+    AS --> ST[selfplay-training]
+    ST --> EV[evaluation: Elo v1.0]
+    ST --> RP[reproducibility]
+    EV --> RP
+    AS --> DX[AZ diagnosis]
+    DX --> ST
+    NP --> AB[backend ablation]
+    EV --> AB
 ```
 
-Thứ tự implement đi ngược lên graph: board → rules → features → model → mcts → selfplay/buffer → trainer → evaluator → players/ui.
+Giữ nguyên ranh giới module và chiều phụ thuộc đã thống nhất. `native-parity` và `selfplay-training` là hai nhánh riêng sau khi hoàn tất điều kiện tiên quyết; evaluation chỉ dùng checkpoints và game logs đáng tin cậy. Tournament/raw-log hiện tại có thể hỗ trợ chẩn đoán ban đầu trong lúc xây Elo analysis; tuyên bố chính thức phải dùng Elo v1.0.
 
-## Task List
+## Các giai đoạn và mã công việc
 
-### Phase 0 — Nền tảng
-- [ ] T1: Skeleton repo, dependency, pytest, .gitignore
-- [ ] T2: Config loader + configs/normal.yaml + configs/renju.yaml
+Tiêu chí nghiệm thu, cách kiểm chứng, phụ thuộc và phạm vi file của từng task nằm trong [`todo.md`](todo.md).
 
-### Checkpoint A — Nền tảng
-- [ ] `pytest` chạy được, torch CUDA available, git repo sạch
+### Giai đoạn 0 — Thiết lập baseline đáng tin cậy
+- **P1** Chốt đầu vào Elo v1.0 và rà soát baseline lịch sử; xác định Heuristic, hashes luật/cấu hình, opening và cách sinh seed.
+- **P2** Kiểm chứng hợp đồng luật Normal/Renju và tính đúng của MCTS bằng tests/diagnostic fixtures tập trung.
+- **P4** Xác định/kiểm chứng manifest, seed streams và lineage bất biến của checkpoint trước khi huấn luyện mới.
 
-### Phase 1 — Game core (Normal)
-- [ ] T3: `gomoku/board.py` — state, play/undo, history
-- [ ] T4: `gomoku/rules/base.py` + `normal.py` — interface + luật Normal
-- [ ] T5: `gomoku/features.py` — 4 plane + 8-fold symmetry
-- [ ] T6: `players/base.py|random.py|human.py` + `gomoku/runner.py` + `scripts/play.py`
+### Cổng A — Tính toàn vẹn baseline
+- Đối chiếu dữ liệu T35 với raw games và manifests hiện có; báo cáo sai khác, không sửa đè logs gốc.
+- Đóng băng protocol (phiên bản Heuristic, ruleset, cách sinh opening/seed, evaluation settings) hoặc ghi rõ Unknown.
 
-### Checkpoint B — Game core chạy được
-- [ ] Toàn bộ test pass, người chơi đánh hết ván với random qua CLI
+### Giai đoạn 1 — Chẩn đoán chất lượng AZ
+- **P3** Phân tích các trận thua: MCTS selection/legal masks/backup, policy/value outputs, self-play targets, điểm yếu chiến thuật và độ nhạy với search budget.
 
-### Phase 2 — Baseline
-- [ ] T7: `players/mcts_pure.py` — rollout baseline
+### Cổng B — Bằng chứng chẩn đoán
+- Mỗi nguyên nhân được khẳng định phải gắn với game/position ID có thể tái lập, checkpoint hash, đối chứng cô lập và metric.
+- Giữ Unknown nếu chưa có bằng chứng cô lập; loss curve không đủ chứng minh nguyên nhân hay cải thiện.
 
-### Checkpoint C — Baseline mạnh
-- [ ] MCTSPure thắng random >60% trên 11x11
+### Giai đoạn 2 — Nền tảng backend và evaluation
+- **P5** Mở rộng kiểm thử sai khác Python/C++, self-play đa seed và vòng đời worker; chưa coi C++ là backend nghiên cứu được hỗ trợ cho đến khi qua các cổng.
+- **P6** Triển khai Elo Evaluation Protocol v1.0 và tests: Bradley–Terry/Davidson có mốc tham chiếu, bootstrap CI theo cặp opening, leaderboard Elo tuần tự K=16.
 
-### Phase 3 — AlphaZero core (11x11)
-- [ ] T8: `az/model.py` — ResNet + policy/value head
-- [ ] T9: `az/mcts.py` — PUCT, node-batched eval, temperature, noise
-- [ ] T10: `az/replay_buffer.py` — lưu mẫu + 8-fold augmentation
-- [ ] T11: `az/selfplay.py` — sinh ván + multiprocessing
-- [ ] T12: `az/trainer.py` + `scripts/train.py`
+### Cổng C — Sẵn sàng đánh giá
+- Synthetic Elo tests và tái dựng từ raw logs phải đạt; rating pool Normal/Renju tách riêng.
+- **P7** Thẩm định screening 100 ván/cặp; xem xét power/cluster variance và mức phù hợp của protocol trước so sánh chính 400 ván.
 
-### Checkpoint D — Pipeline 11x11 end-to-end
-- [ ] Smoke test: 2 iteration train chạy xong trên 11x11, loss giảm (bắt lỗi pipeline trước khi chạy dài)
-- [ ] Train 20 iteration trên 11x11, loss giảm, agent thắng random
+### Giai đoạn 3 — Đo chất lượng và lộ trình huấn luyện
+- **P8** Chạy screening 100 ván/cặp và đánh giá chính 400 ván/cặp với Heuristic/champion đã đóng băng, chỉ sau khi được cho phép; chỉ mở rộng theo từng tranche 200 ván đã đăng ký trước, tối đa 800.
+- **P9** Đánh giá lại checkpoint Normal lịch sử tại mốc 1.000 ván.
+- **P10** Huấn luyện/đánh giá tại mốc 2.500 ván nếu các cổng toàn vẹn và chất lượng cho phép.
+- **P11/P12** Tiếp tục đến 5.000 và 10.000+ theo từng giai đoạn được cho phép riêng; đo Elo ở mỗi checkpoint bất biến.
 
-### Phase 4 — Arena
-- [ ] T13: `az/evaluator.py` + `scripts/arena.py` + cổng promote
+### Cổng D — Quyết định dựa trên chất lượng
+- Chỉ promote candidate khi cận dưới CI 95% ghép cặp của ΔElo so với champion lớn hơn 0.
+- Chỉ xác nhận mục tiêu nghiên cứu khi ΔElo so với Heuristic > 0 và cận dưới CI 95% > 0. Mục tiêu mạnh còn yêu cầu ΔElo ≥ +100.
+- Regression đã được xác nhận so với champion sẽ chặn recipe đó. Kết quả chưa kết luận tuân theo quy tắc mở rộng; nếu vẫn chưa kết luận ở 800 ván/cặp thì dừng để chẩn đoán.
+- Số ván, throughput, fixed-batch loss hoặc training loss không phải điều kiện promote hay tăng quy mô.
 
-### Phase 5 — Hạ tầng chạy dài và chạy song song
-- [ ] T14: `scripts/train.py` — device, workers, time budget, ckpt định kỳ, seed, resume, log thời gian
-- [ ] T15: `colab/train.ipynb` + `configs/colab.yaml` — clone code từ GitHub
-- [ ] T16: `scripts/sync_drive.py` — đường dự phòng không dùng GitHub
-- [ ] T17: `scripts/selfplay_shard.py` — sinh shard npz, chạy được không cần GPU
-- [ ] T18: `scripts/merge_shards.py` — gộp shard + `train.py --buffer-in`
+### Giai đoạn 4 — Ablation và công bố có thể tái lập
+- **P13** Chạy ablation có kiểm soát cho số MCTS simulations, hyperparameters của search/training, kích thước mạng, quy mô self-play và backend. Mỗi đối chiếu chỉ thay đổi một yếu tố; tính đến compute và multiple comparisons.
+- **P14** Tái dựng kết quả huấn luyện/tournament được chấp nhận từ manifests và raw logs; công bố giới hạn và learning curves không bịa hoặc nội suy kết quả.
 
-### Checkpoint E — Colab
-- [ ] Arena chạy, cổng promote đúng ngưỡng 0.55
-- [ ] `git clone $REPO_URL` ra đủ `scripts/train.py`, `configs/colab.yaml`, `az/`
-- [ ] Notebook chạy 1 iteration, checkpoint nằm trong Drive
-- [ ] Kill session rồi chạy lại → nối tiếp đúng chỗ
+## Các cổng nghiệm thu
 
-### Checkpoint F — Chạy song song
-- [ ] Shard gộp giữ đúng thứ tự model, shard hỏng bị bỏ qua
-- [ ] `train.py --buffer-in` nạp buffer đã gộp và train tiếp
+1. Cổng tính đúng của luật, MCTS, self-play targets, replay và resume phải đạt trước thí nghiệm chất lượng.
+2. Elo phải tái tạo được từ raw logs bất biến; mốc Heuristic = 1200; pool Normal/Renju riêng; báo cáo W/D/L, score, ΔElo, CI 95% và hiệu năng.
+3. Mọi official evaluation của AZ dùng 200 MCTS simulations/move, temperature 0, tắt exploration noise; cố định SHA-256 checkpoint, seed/opening, ruleset và evaluation config đã resolve.
+4. So sánh backend phải qua parity chính xác của trạng thái luật, tolerance số học được công bố và kiểm tra targets/outcomes trên nhiều seed ghép cặp trước khi tuyên bố chất lượng hoặc tốc độ.
+5. Mỗi mốc huấn luyện có checkpoint lineage, số ván, optimizer steps, config, environment, Elo CI, compute và quyết định dừng/tiếp tục xác định trước.
+6. Mỗi task có test tập trung hoặc cách kiểm tra thủ công an toàn. Huấn luyện dài, tournament, soak, chạy GPU và thay đổi artifacts cần được cho phép rõ ràng.
 
-### Phase 6 — Nhật kí thí nghiệm
-- [ ] T19: `az/game_log.py` — schema ván (JSONL) + schema nước đi, dùng chung cho runner/self-play/đánh giá
+## Rủi ro và biện pháp giảm thiểu
 
-### Phase 7 — Train 11x11
-- [ ] T20: Chạy train 11x11 theo configs/normal.yaml (local trước, sau đó có thể Colab)
-
-### Checkpoint G — 11x11 có học
-- [ ] Arena win rate tăng qua các iteration, thắng được random và MCTSPure
-- [ ] Log ván của lần train đầy đủ, đọc ra được ai thắng và vì sao
-
-### Phase 8 — Đánh giá 1000 ván + tài liệu nguồn
-- [ ] T21: `scripts/simulate.py` — 1000 ván, đổi lượt đầu xen kẽ, `summary.json`
-- [ ] T22: `docs/provenance.md` — nguồn từng module + danh mục tài liệu tham khảo + `docs/README.md` hướng dẫn cài đặt và chạy
-
-### Checkpoint H — Đánh giá và truy xuất nguồn
-- [ ] 1000 ván xong, đúng 500 ván mỗi bên đi trước, `summary.json` đủ số liệu
-- [ ] Mọi module có dòng nguồn trong `docs/provenance.md`
-
-### Phase 9 — UI
-- [ ] T23: `ui/pygame_app.py` — human vs AI, AI vs AI
-
-### Checkpoint I — UI chạy
-- [ ] Click để đánh, AI đáp lại, ván kết thúc có kết quả
-
-### Phase 10 — Renju
-- [ ] T24: `gomoku/rules/renju.py` — 3-3, 4-4, overline, ngoại lệ đúng 5
-- [ ] T25: Tích hợp Renju (features, MCTS mask, buffer riêng) + fine-tune `az_renju` từ `last.pt`
-
-### Checkpoint J — Hoàn tất
-- [ ] Hai rule set đều train được, buffer tách biệt, mọi test pass
-
-### Phase 11 — Báo cáo tổng kết
-- [ ] T26: `docs/report.md` — phương pháp, kết quả từ log, phân tích nguyên nhân thua
-
-### Checkpoint K — Báo cáo
-- [ ] Báo cáo đủ mục, mọi con số tra được trong log
-
-## Risks and Mitigations
-
-| Risk | Impact | Mitigation |
+| Rủi ro | Tác động | Giảm thiểu |
 |---|---|---|
-| Sai dấu value khi backup (child value là góc nhìn đối thủ) | Cao, model học sai | Test riêng cho T9, kiểm tra dấu trong mọi vòng backup |
-| MCTS chậm, không train nổi 11x11 | Cao | Gom lô ở cấp chương trình giữa các ván song song để tận dụng GPU; đo số lượt gọi NN mỗi ván trước khi scale; giảm `n_simulations` nếu cần |
-| Renju tính forbidden move quá chậm trong MCTS | Trung bình | Tính mask 1 lần mỗi nước rồi cache theo position, invalidate khi `play()` |
-| Torch CUDA lỗi driver / wheel | Trung bình | Dùng cu124 cho sm_89; có fallback CPU |
-| Windows multiprocessing dùng spawn, nhân bản model | Trung bình | `if __name__ == "__main__"` guard, `torch.set_num_threads(1)` trong worker |
-| 11x11 quá khó: agent học chậm, điểm arena ảo | Trung bình | Không có mốc 7x7 để bắt lỗi sớm → smoke test 2 iteration trước Checkpoint D; đo loss + arena win rate từng iteration |
-| Train 11x11 lâu hơn dự kiến | Trung bình | `n_simulations` cấu hình được, giảm 200 → 100 nếu 1 vòng > 20 phút; tăng `games_per_iter` thay vì giảm chất lượng tìm kiếm |
-| Tăng ngân sách giữa chừng làm mất dữ liệu đã train | Trung bình | `--resume` nối tiếp từ checkpoint, buffer được lưu kèm checkpoint; không chạy lại từ vòng 0 |
-| Board 11x11 cho lợi thế quá lớn cho người đen | Thấp | Đọc arena win rate có cân bằng màu (đổi lượt đầu xen kẽ) |
-| Buffer quá lớn → dữ liệu cũ chi phối | Thấp | `buffer_size` 50k trước augmentation, theo AGENTS.md |
-| Colab giết session giữa chừng | Cao nếu không xử lý | `--time-budget-hours` ngắn hơn giới hạn 12h, `--ckpt-every 1`, `--resume` nối tiếp |
-| Colab free chỉ 2 core → self-play chậm hơn local | Trung bình | Chạy overnight trên Colab, giảm `n_simulations` trong `configs/colab.yaml`; nếu cần tốc hơn thì chạy nhiều instance song song |
-| Ghi buffer ra Drive làm nghẽn | Trung bình | Buffer chỉ ở RAM, chỉ checkpoint ra Drive |
-| Torch trên Colab khác version local | Thấp | Không cài lại torch; `state_dict` load được qua version khác |
-| Drive đầy (15 GB free) | Thấp | Chỉ giữ `best.pt` + `last.pt`, xóa checkpoint cũ |
-| Token GitHub lộ trong notebook | Cao nếu repo private | Token đọc từ Colab Secret (`google.colab.userdata`), không ghi vào file; repo public thì clone không cần token |
-| Instance Colab chạy lệch `model_iter` | Trung bình | Shard mang theo `model_iter`; merge sort theo `model_iter`; dữ liệu cũ hơn vài vòng vẫn dùng được |
-| Code trên GitHub là public | Trung bình nếu chưa muốn | Repo private + token; hoặc dùng đường dự phòng `sync_drive.py` |
+| Báo cáo cũ thiếu code/init-seed/parent-checkpoint provenance | Không thể tái lập chính xác baseline cũ | Đối chiếu phần còn có; ghi rõ thiếu hụt; lập baseline mới có content hash |
+| Heuristic/config khác nhau giữa các lần chạy | Elo so sánh sai lệch | Đóng băng implementation, config, luật và model identity trước screening |
+| 400 ván hoặc phần mở rộng chưa đủ power | Kết luận “đạt” sai hoặc tốn tài nguyên | Pilot paired-cluster variance/power; đăng ký trước quy tắc mở rộng và kết quả inconclusive |
+| Lỗi chiến thuật hoặc targets của AZ chi phối việc học | Tăng quy mô chỉ lặp lại chất lượng yếu | Chẩn đoán theo giai đoạn trước self-play quy mô lớn |
+| C++ làm đổi search/data distribution | Regression chất lượng dù tốc độ tăng | Differential và paired target/arena gates; giữ Python mặc định cho đến khi đạt |
+| RAM/GPU bất ổn trong run dài | Mất artifacts hoặc nghiên cứu dở dang | Chạy theo giai đoạn nhỏ, theo dõi RSS/VRAM, giữ checkpoints/logs bất biến; không tuyên bố soak 5k/10k nếu chưa có bằng chứng |
+| Python 3.10 khác môi trường Python 3.12 dùng chung | Hành vi/build khó tái lập | Chọn và ghi canonical environment trước nghiên cứu confirmatory |
 
-## Decisions Confirmed
+## Quyết định còn mở trước Elo chính thức
 
-1. Renju **fine-tune từ checkpoint Normal** (`last.pt`), buffer riêng, không train từ đầu (T25).
-2. Đánh giá vị trí theo cách làm chuẩn của AlphaZero: **một lượt suy luận cho mỗi lá**, xác suất 121 ô làm tiên đoán cho cả nhánh con (T9). Gom lô ở cấp chương trình giữa nhiều ván song song, không gom lô ở cấp cây.
-3. UI pygame **làm sau** mốc 11x11 (T23 sau T20).
-4. Bàn **11x11 cố định**, bỏ phase validate 7x7/9x9. Đánh đổi: mất mốc an toàn nhất của pipeline, bù bằng smoke test 2 iteration ở Checkpoint D.
-5. **Dùng Colab để train dài**, nhưng code chính không phụ thuộc Colab (T14, T15). Không cam kết Colab nhanh hơn local: nó chạy lâu hơn và không tốn laptop.
-6. **Lần train đầu chạy local** (RTX 4060). Colab dùng cho vòng chạy dài sau đó.
-7. **Ngân sách 11x11 mặc định 20 iteration × 50 ván = 1000 ván mỗi bộ luật**, nằm trong cấu hình. Tăng lên 1200, 1500 hay 5000 ván chỉ cần đổi YAML, không sửa mã. Mốc 5000 ván dùng cho `az_v0b` (`configs/normal_5000.yaml`), chốt trong ADR 0005.
-8. **Code lên Colab qua GitHub** (`git clone $REPO_URL`), token đọc từ Colab Secret khi repo private. `scripts/sync_drive.py` (T16) giữ làm đường dự phòng, không phải đường chính.
-9. **Chạy song song theo hình hài 1 GPU + 1 CPU-only.** Instance CPU-only chỉ sinh shard npz; instance GPU gộp rồi train. Không cần nhiều tài khoản Google.
-10. **Số instance CPU-only: 1.** An toàn trong giới hạn tài khoản free, đủ để tách phần tốn CPU khỏi instance GPU.
-11. **`git init` trong T1.** User tạo repo GitHub và push sau, theo hướng dẫn `colab/README.md` (T15).
-12. **Proposal nhắm giảng viên bộ môn AI, không có mẫu.** Cấu trúc dựng trong `tasks/proposal.md` theo 15 mục checklist. Bản nháp trong `tasks/proposal.md`.
-13. **Mục tiêu proposal: tạo game chơi được, có agent ra quyết định.** Không phải nghiên cứu khoa học thuần; vì vậy proposal bám theo hướng sản phẩm có số liệu đo được.
-14. **Câu hỏi nghiên cứu đã chốt**: "Với ngân sách 1000 ván tự chơi, agent Gomoku 11x11 đạt được trình độ nào, và win rate tăng thế nào theo từng 100 ván?" Hai hướng mở rộng (một model cho hai luật, gom lô ở cấp chương trình) ghi ở proposal mục 3.2 dưới dạng hướng sau khi đạt mục tiêu.
-15. **Proposal không nhắc Colab.** Hạ tầng đám mây là chi tiết triển khai, không đưa vào tài liệu trình bày. Mục tài nguyên chỉ nêu máy cá nhân có GPU.
-16. **Proposal không gán lịch theo tuần.** Bảng giai đoạn giữ nguyên, mốc thời gian gán sau khi chốt hạn nộp với giảng viên.
-17. **Nhóm 3 người, chia theo vai trò A/B/C** (chốt 2026-10-21, cập nhật 2026-10-23): A = lõi game, luật, người chơi, UI; B = tầng AlphaZero; C = hạ tầng, đánh giá, tài liệu, báo cáo. Tên: A = Khang, B = Huy, C = Hường (chốt 2026-10-24). Luật sở hữu file: người sở hữu file dẫn dắt task đụng nhiều file. Bản 2026-10-23: T20 chạy train chuyển từ C sang B, T22 chia cho A và B viết dòng nguồn module mình. Chi tiết ở `todo.md` mục "Phân công A/B/C", bản trình bày ở `proposal.md` §7.2.
-18. **Danh mục tài liệu tham khảo đã chốt** (7 mục, proposal mục 9).
-19. **Góp ý đã sửa trong proposal**: mô tả đánh giá vị trí theo cách làm chuẩn của AlphaZero (mục 5.3), bổ sung bảng siêu tham số (mục 5.5), E2 dùng cùng số mô phỏng 200 để so sánh công bằng, ngân sách ván nằm trong cấu hình nên mở rộng 1000 → 1200/1500 được.
+- Chốt implementation/config Heuristic và identity của dữ liệu/model Heuristic nếu có.
+- Pilot xem lịch 100/400/600/800 ván ghép cặp có độ chính xác phù hợp không; chỉ đổi bằng protocol version mới trước main run.
+- Kiểm chứng Davidson/color model fit, opening-pair bootstrap và độ liên thông rating pool bằng synthetic data và pilot.
+- Chọn backend non-inferiority margin sau pilot, trước parity/quality evaluation confirmatory.
+- Chốt Python/PyTorch/C++ toolchain chuẩn và nguồn luật Renju có thẩm quyền.
 
-## Open Questions
+## Giới hạn
 
-Không còn blocker cho T1–T25. Bản nháp proposal nằm ở `tasks/proposal.md`. Còn lại:
-
-1. **Gán tên cho A/B/C**: phạm vi đã chốt, chỉ còn tên người sẽ điền sau.
-2. **Hạn nộp thật**: proposal cố ý không gán lịch theo tuần, sẽ điền sau khi biết hạn.
-3. **Repo GitHub**: bạn bổ sung sau, làm theo `colab/README.md` (T15).
-4. **Đường dẫn Drive for Desktop** — chỉ cần nếu dùng đường dự phòng T16.
+Tuân thủ `SPEC.md`: không sửa source code, hyperparameters, checkpoints hay logs trong phạm vi lập kế hoạch; không huấn luyện, benchmark hoặc chạy tournament nếu chưa được cho phép rõ ràng; không trình bày cổng dự kiến như đã đạt.
