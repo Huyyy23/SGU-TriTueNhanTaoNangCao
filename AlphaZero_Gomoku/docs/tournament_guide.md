@@ -1,14 +1,4 @@
 # Hướng dẫn chạy Tournament (T31) cho chạy dài
-## Backend Python/C++
-
-Mặc định `--backend auto`: tournament chỉ chọn các native component mà agent thực sự dùng. Nếu `g++`, `clang++` hoặc `cl` có trong `PATH`, module thiếu/cũ sẽ được build một lần trước khi chạy; nếu không có compiler, build lỗi hoặc module không nạp được, chương trình cảnh báo ngắn và dùng Python. Worker chỉ nạp module đã sẵn sàng, không build.
-
-- `--backend cpp`: bắt buộc native; không khả dụng thì dừng với lỗi rõ ràng.
-- `--backend python`: không dò compiler, build hay dùng native.
-- `--mcts-backend` và `--patterns-backend`: ghi đè độc lập preset.
-
-Backend thực tế và component được dùng được ghi trong `config.json`, từng game JSONL và `logs/backend_runs.sqlite3`.
-
 
 Tài liệu này chỉ dùng lệnh và tham số có thật trong `scripts/tournament.py`. Không cần sửa source để đổi agent, số ván, luật, seed hay ngân sách.
 
@@ -28,6 +18,16 @@ pytest -q tests/test_tournament.py tests/test_agent_factory.py     # phải pass
 python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1_tactical \
     --games 100 --budget sims:200 --checkpoint checkpoints/last.pt --dry-run
 ```
+
+## Backend Python/C++
+
+Mặc định `--backend auto`: tournament chỉ chọn các native component mà agent thực sự dùng. Nếu `g++`, `clang++` hoặc `cl` có trong `PATH`, module thiếu/cũ sẽ được build một lần trước khi chạy; nếu không có compiler, build lỗi hoặc module không nạp được, chương trình cảnh báo ngắn và dùng Python. Worker chỉ nạp module đã sẵn sàng, không build.
+
+- `--backend cpp`: bắt buộc native; không khả dụng thì dừng với lỗi rõ ràng.
+- `--backend python`: không dò compiler, build hay dùng native.
+- `--mcts-backend` và `--patterns-backend`: ghi đè độc lập preset.
+
+Backend thực tế và component được dùng được ghi trong `config.json`, từng game JSONL và `logs/backend_runs.sqlite3`.
 
 ## 2. Chọn agent
 
