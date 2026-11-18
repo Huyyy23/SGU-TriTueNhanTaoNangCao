@@ -9,10 +9,11 @@
 ## Considered Options
 
 - **Dùng TensorBoard / WandB đơn thuần**: khó trích xuất tự động thành bảng Markdown cho báo cáo LaTeX/Markdown của đồ án, phụ thuộc thư viện ngoài và khó chạy offline an toàn trên máy phòng lab.
-- **Lưu database SQLite**: dư thừa abstraction cho mô hình huấn luyện tuần tự/gom shard, khó inspect bằng công cụ dòng lệnh tiêu chuẩn (`head`, `jq`, `grep`).
+- **Dùng SQLite cho toàn bộ sự kiện:** tăng abstraction và khó inspect bằng công cụ dòng lệnh; vẫn giữ JSONL là log chuẩn. Yêu cầu truy vết backend được đáp ứng bằng SQLite companion hẹp, chỉ ghi metadata lựa chọn backend.
 - **Gộp chung 1 file log duy nhất**: làm phình kích thước file, script vẽ biểu đồ loss phải parse qua hàng trăm nghìn dòng ván đấu không cần thiết.
 
 ## Consequences
 
 - Mọi con số trong báo cáo đều có nguồn gốc truy vết ngược về từng dòng log cụ thể (`tests/test_report.py` có thể assert tự động).
+- Mỗi lần train/tournament ghi một dòng `backend_runs` vào `logs/backend_runs.sqlite3` (backend được yêu cầu/thực tế, compiler, components được dùng); không thay thế hay làm thay đổi JSONL, manifest hoặc giao thức resume.
 - Báo cáo phân tích được chính xác nguyên nhân thua và bóc tách được lợi thế đi trước đặc thù của cờ Gomoku.

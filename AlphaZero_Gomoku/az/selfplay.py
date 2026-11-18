@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 import numpy as np
 
 from az.game_log import GameRecord
-from az.mcts import LeafRequest, MCTS
+from az.mcts import LeafRequest, MCTS, NativeMCTS
+from az.backend import configure_backends
 from az.replay_buffer import ReplayBuffer
 from gomoku.board import BLACK, SIZE, Board
 from gomoku.features import board_to_planes
@@ -48,7 +49,17 @@ def run_games(
     """
     if cfg["rule_set"] != rules.name:
         raise ValueError(f"config rule_set '{cfg['rule_set']}' does not match rules '{rules.name}'.")
-
+    backends = cfg.get("backend_metadata")
+    if backends is None:
+        backends = configure_backends(
+            cfg.get("backend", "auto"),
+            mcts_backend=cfg.get("mcts_backend"),
+            patterns_backend=cfg.get("patterns_backend", "python"),
+            allow_build=cfg.get("_allow_native_build"),
+        )
+    cfg["mcts_backend"] = backends["mcts"]
+    cfg["patterns_backend"] = backends["patterns"]
+    cfg["backend_metadata"] = backends
     rng = np.random.default_rng(seed)
     parallel = max(1, int(cfg["parallel_games"]))
     next_game_id = 0
@@ -90,7 +101,8 @@ def run_games(
 
 def _new_game(game_id: int, rules, cfg: dict, rng: np.random.Generator) -> _Game:
     board = Board()
-    mcts = MCTS(
+    mcts_cls = NativeMCTS if cfg.get("mcts_backend", "python") == "cpp" else MCTS
+    mcts = mcts_cls(
         rules=rules,
         n_simulations=cfg["n_simulations"],
         c_puct=cfg["c_puct"],
@@ -162,7 +174,7 @@ def _finish_game(
         nn_calls=game.mcts.nn_calls,
         mean_batch=game.mean_batch,
         model_iter=model_iter,
-        config=dict(cfg),
+        config={**cfg, "components_used": cfg.get("components_used", {"mcts": cfg.get("mcts_backend", "python"), "patterns": "not_used"})},
     )
 
 
@@ -195,9 +207,23 @@ def run_games_parallel(
     if cfg["rule_set"] != rules.name:
         raise ValueError(f"config rule_set '{cfg['rule_set']}' does not match rules '{rules.name}'.")
 
+    backends = cfg.get("backend_metadata")
+    if backends is None:
+        backends = configure_backends(
+            cfg.get("backend", "auto"),
+            mcts_backend=cfg.get("mcts_backend"),
+            patterns_backend=cfg.get("patterns_backend", "python"),
+        )
+    worker_cfg = {
+        **cfg,
+        "mcts_backend": backends["mcts"],
+        "patterns_backend": backends["patterns"],
+        "backend_metadata": backends,
+        "_allow_native_build": False,
+    }
     state_dict = {name: tensor.detach().cpu() for name, tensor in model.state_dict().items()}
     payloads = [
-        (state_dict, rules.name, {**cfg, "parallel_games": chunk}, chunk, seed * 1000 + index, model_iter)
+        (state_dict, rules.name, {**worker_cfg, "parallel_games": chunk}, chunk, seed * 1000 + index, model_iter)
         for index, chunk in enumerate(split_games(n_games, workers))
     ]
 
@@ -225,6 +251,9 @@ def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
 
     torch.set_num_threads(1)
 
+    if cfg.get("patterns_backend"):
+        from gomoku.patterns import set_backend
+        set_backend(cfg["patterns_backend"])
     from az.model import AZNet
     from gomoku.rules import get_rules
 

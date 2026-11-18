@@ -24,6 +24,24 @@ class UniformEvaluator:
 def small_cfg(**overrides) -> dict:
     return {**DEFAULT_CONFIG, "n_simulations": 8, "temp_moves": 4, "rule_set": "normal", **overrides}
 
+def test_backend_is_resolved_once_for_reused_selfplay_config(monkeypatch):
+    import az.selfplay as selfplay_module
+
+    calls = 0
+    original = selfplay_module.configure_backends
+
+    def counted(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(selfplay_module, "configure_backends", counted)
+    cfg = small_cfg(backend="python", mcts_backend="python", patterns_backend="python")
+    for seed in (1, 2):
+        list(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=seed))
+
+    assert calls == 1
+
 
 def test_one_game_sample_count_matches_moves():
     buffer = ReplayBuffer(capacity=1000)

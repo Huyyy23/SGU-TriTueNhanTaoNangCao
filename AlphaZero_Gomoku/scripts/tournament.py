@@ -190,8 +190,10 @@ def default_builder(settings: dict, rules, seed: int):
 
     kwargs = dict(settings["factory"])
     agent = kwargs.pop("agent")
+    if settings.get("backend"):
+        kwargs["mcts_backend"] = settings["backend"]["mcts"]
+        kwargs["patterns_backend"] = settings["backend"]["patterns"]
     return create_player(agent, rules, seed=seed, **kwargs)
-
 
 # -- instrumentation -----------------------------------------------------------
 
@@ -346,7 +348,12 @@ def _set_torch_threads(n: int | None) -> None:
 
 def play_game_task(task: dict, builder: Callable | None = None) -> dict:
     """Play one scheduled game and return its JSON record (top-level so workers can pickle it)."""
-    _set_torch_threads(task.get("torch_threads"))
+    from az.backend import configure_backends
+    backends = task.get("backends")
+    if backends is None:
+        backends = configure_backends("python", allow_build=False)
+    configure_backends("python", mcts_backend=backends["mcts"], patterns_backend=backends["patterns"],
+                       allow_build=False)
     builder = builder or default_builder
     rules = get_rules(task["ruleset"])
     opening = task["opening"]
@@ -399,6 +406,11 @@ def play_game_task(task: dict, builder: Callable | None = None) -> dict:
         "stats": {
             "black": _move_stats(black.moves, budget_time),
             "white": _move_stats(white.moves, budget_time),
+        },
+        "backends": backends,
+        "components_used": {
+            "mcts": backends["mcts"] if any(task["settings"][label]["factory"]["agent"] in AZ_KINDS for label in (black_label, white_label)) else "not_used",
+            "patterns": backends["patterns"] if any(task["settings"][label]["factory"]["agent"] in {"alphabeta", "heuristic", "az_v1_threat"} for label in (black_label, white_label)) else "not_used",
         },
     }
 
@@ -705,9 +717,23 @@ def run_tournament(
     pair: str | None = None,
     out_dir: str | Path | None = None,
     seed_scheme: str = "paired-crc32",
+    backends: dict | None = None,
 ) -> tuple[Path, dict]:
     """Play the round-robin for `entries` (label -> resolved settings) and write all files."""
     log = log or (lambda message: print(message, flush=True))
+    kinds = {settings["factory"]["agent"] for settings in entries.values()}
+    if backends is None:
+        from az.backend import configure_backends
+        backends = configure_backends(
+            "auto",
+            mcts_backend=None if kinds & set(AZ_KINDS) else "python",
+            patterns_backend=None if kinds & {"alphabeta", "heuristic", "az_v1_threat"} else "python",
+        )
+    components_used = {
+        "mcts": backends["mcts"] if kinds & set(AZ_KINDS) else "not_used",
+        "patterns": backends["patterns"] if kinds & {"alphabeta", "heuristic", "az_v1_threat"} else "not_used",
+    }
+    entries = {label: {**settings, "backend": backends} for label, settings in entries.items()}
     labels = list(entries)
     if games < 2 or games % 2 or len(labels) < 2:
         raise ValueError("at least two agents and a positive even game count required")
@@ -780,6 +806,8 @@ def run_tournament(
         "git": _git_state(),
         "versions": _versions(),
         **(extra_config or {}),
+        "backends": backends,
+        "components_used": components_used,
     }
     records = []
     saved_path = run_dir / "config.json"
@@ -788,7 +816,7 @@ def run_tournament(
             raise ValueError("resume requires a config.json from the unified runner; historical manifests are read separately")
         saved = json.loads(saved_path.read_text(encoding="utf-8"))
         fields = ("agents", "agent_settings", "games_per_pair", "budget", "ruleset", "seed", "seed_scheme",
-                  "pair", "random_opening_plies", "checkpoint_sha256", "torch_threads_per_game", "algorithm_version", "loaded_config")
+                  "pair", "random_opening_plies", "checkpoint_sha256", "torch_threads_per_game", "algorithm_version", "loaded_config", "backends", "components_used")
         if any(saved.get(key) != config.get(key) for key in fields):
             raise ValueError("resume configuration or checkpoint does not match saved manifest")
         records = [json.loads(line) for line in (run_dir / "games.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()] if (run_dir / "games.jsonl").exists() else []
@@ -811,10 +839,19 @@ def run_tournament(
         tasks = [task for task in tasks if task["game_id"] not in seen]
     else:
         saved_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    from az.backend_logging import log_backend_selection
+    log_backend_selection(
+        run_id=run_id,
+        workload="tournament",
+        requested_backend=backends.get("requested_backend", "auto"),
+        backends=backends,
+        components_used=components_used,
+    )
     log(f"run {run_id}: {len(labels)} agents, {config['pairs']} pairs, {len(tasks)} games -> {run_dir}")
 
     for task in tasks:
-        task.update(run_id=run_id, settings=entries, time_budget=time_budget, torch_threads=torch_threads)
+        task["backends"] = backends
+        task.update(run_id=run_id, settings={label: {**settings, "backend": backends} for label, settings in entries.items()}, time_budget=time_budget, torch_threads=torch_threads)
 
     started = time.perf_counter()
     # Existing records remain byte-for-byte; only unfinished IDs are appended.
@@ -1108,6 +1145,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mcts-rollouts-time-mode", type=int, default=200)
     parser.add_argument("--time-sims-cap", type=int, default=100000)
     parser.add_argument("--seed-scheme", choices=("paired-crc32", "legacy-v1"), default="paired-crc32")
+    parser.add_argument("--backend", choices=("auto", "cpp", "python"), default="auto")
+    parser.add_argument("--mcts-backend", choices=("python", "cpp"))
+    parser.add_argument("--patterns-backend", choices=("python", "cpp"))
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -1144,6 +1184,22 @@ def main(argv: list[str] | None = None) -> int:
                                 alphabeta_pruning=not args.alphabeta_no_pruning,
                                 mcts_rollouts_time_mode=args.mcts_rollouts_time_mode, time_sims_cap=args.time_sims_cap)
             entries[spec.label] = agent_settings(spec, budget, defaults)
+        kinds = {settings["factory"]["agent"] for settings in entries.values()}
+        mcts_backend = args.mcts_backend
+        patterns_backend = args.patterns_backend
+        if args.backend == "auto":
+            if mcts_backend is None and not kinds & set(AZ_KINDS):
+                mcts_backend = "python"
+            if patterns_backend is None and not kinds & {"alphabeta", "heuristic", "az_v1_threat"}:
+                patterns_backend = "python"
+        from az.backend import configure_backends
+        backends = configure_backends(
+            args.backend,
+            mcts_backend=mcts_backend,
+            patterns_backend=patterns_backend,
+            allow_build=not args.dry_run,
+        )
+        print(json.dumps({"backends": backends}, sort_keys=True))
         if args.dry_run:
             for label, settings in entries.items():
                 print(label, settings["budget_note"])
@@ -1154,9 +1210,10 @@ def main(argv: list[str] | None = None) -> int:
                                     out_root=args.out_root, run_id=args.run_id, out_dir=args.out_dir,
                                     workers=args.workers, opening_plies=args.random_opening,
                                     torch_threads=args.threads or None, resume=args.resume, pair=args.pair,
-                                    seed_scheme=args.seed_scheme, extra_config={"loaded_config": loaded_config})
+                                    seed_scheme=args.seed_scheme, extra_config={"loaded_config": loaded_config},
+                                    backends=backends)
         return 0 if summary["illegal_moves_total"] == 0 and summary["checkpoint_unchanged"] else 2
-    except (ValueError, OSError, KeyError, TypeError) as exc:
+    except (ImportError, RuntimeError, ValueError, OSError, KeyError, TypeError) as exc:
         parser.error(str(exc))
 
 

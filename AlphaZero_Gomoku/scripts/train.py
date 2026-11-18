@@ -40,13 +40,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--games", type=int, default=None, help="Games per iteration (overrides cfg games_per_iter).")
     parser.add_argument("--simulations", type=int, default=None, help="MCTS simulations per move (overrides cfg).")
     parser.add_argument("--workers", type=int, default=1, help="Self-play processes; 1 keeps the single-process path.")
+    parser.add_argument("--backend", choices=("auto", "cpp", "python"), default="auto", help="Backend preset; auto uses C++ when available.")
+    parser.add_argument("--mcts-backend", choices=("python", "cpp"), help="Override the MCTS backend preset.")
+    parser.add_argument("--patterns-backend", choices=("python", "cpp"), help="Override the patterns backend preset.")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-
+    from az.backend import configure_backends
+    patterns_backend = args.patterns_backend
+    if args.backend == "auto" and patterns_backend is None:
+        patterns_backend = "python"
+    try:
+        backends = configure_backends(args.backend, mcts_backend=args.mcts_backend,
+                                      patterns_backend=patterns_backend)
+    except (ImportError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
+    print(json.dumps({"backends": backends}, sort_keys=True))
     cfg = load_config(args.config)
+    cfg["backend"] = args.backend
+    cfg["backend_metadata"] = backends
+    cfg["patterns_backend"] = backends["patterns"]
+    cfg["mcts_backend"] = backends["mcts"]
+    cfg["components_used"] = {"mcts": backends["mcts"], "patterns": "not_used"}
     if args.iterations is not None:
         cfg["n_iter"] = args.iterations
     if args.games is not None:
@@ -64,6 +81,14 @@ def main(argv: list[str] | None = None) -> int:
     checkpoint_path = out_dir / "last.pt"
     buffer_path = out_dir / "buffer_last.npz"
     log_path = log_dir / f"train_{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.jsonl"
+    from az.backend_logging import log_backend_selection
+    log_backend_selection(
+        run_id=log_path.stem,
+        workload="selfplay",
+        requested_backend=args.backend,
+        backends=backends,
+        components_used=cfg["components_used"],
+    )
     games_logger = GameLogger(log_path.with_name(log_path.name.replace("train_", "games_")), log_moves=cfg["log_moves"])
 
     if args.resume:
@@ -135,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
             "nn_calls_per_game": round(sum(r.nn_calls for r in records) / games, 1),
             "mean_batch": round(sum(r.mean_batch for r in records) / games, 3),
             "global_step": trainer.global_step,
+            "backends": backends,
+            "components_used": {"mcts": backends["mcts"], "patterns": "not_used"},
         }
         with open(log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")

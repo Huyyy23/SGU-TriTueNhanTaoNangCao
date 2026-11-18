@@ -21,6 +21,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--iterations", type=int, default=None)
     parser.add_argument("--games", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--backend", choices=("auto", "cpp", "python"), default="auto")
+    parser.add_argument("--mcts-backend", choices=("python", "cpp"))
+    parser.add_argument("--patterns-backend", choices=("python", "cpp"))
     args = parser.parse_args(argv)
 
     source = Path(args.source)
@@ -33,6 +36,21 @@ def main(argv: list[str] | None = None) -> int:
         cfg["n_iter"] = args.iterations
     if args.games is not None:
         cfg["games_per_iter"] = args.games
+    from az.backend import configure_backends
+    patterns_backend = args.patterns_backend
+    if args.backend == "auto" and patterns_backend is None:
+        patterns_backend = "python"
+    try:
+        backends = configure_backends(args.backend, mcts_backend=args.mcts_backend,
+                                      patterns_backend=patterns_backend)
+    except (ImportError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
+    print(json.dumps({"backends": backends}, sort_keys=True))
+    cfg["backend"] = args.backend
+    cfg["backend_metadata"] = backends
+    cfg["mcts_backend"] = backends["mcts"]
+    cfg["patterns_backend"] = backends["patterns"]
+    cfg["components_used"] = {"mcts": backends["mcts"], "patterns": "not_used"}
 
     out_dir, log_dir = Path(args.out_dir), Path(args.log_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -40,6 +58,14 @@ def main(argv: list[str] | None = None) -> int:
     checkpoint = out_dir / "renju_last.pt"
     buffer_path = out_dir / "renju_buffer_last.npz"
     log_path = log_dir / f"renju_finetune_{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.jsonl"
+    from az.backend_logging import log_backend_selection
+    log_backend_selection(
+        run_id=log_path.stem,
+        workload="renju_selfplay",
+        requested_backend=args.backend,
+        backends=backends,
+        components_used=cfg["components_used"],
+    )
     rules = get_rules("renju")
     buffer = ReplayBuffer(cfg["buffer_size"])
     trainer = Trainer.from_pretrained(source, cfg, buffer=buffer, seed=args.seed)
@@ -66,6 +92,8 @@ def main(argv: list[str] | None = None) -> int:
             "value_loss": stats["value_loss"],
             "loss_eval_on_fixed_batch": eval_loss,
             "nn_calls_per_game": sum(r.nn_calls for r in records) / len(records),
+            "backends": backends,
+            "components_used": cfg["components_used"],
         }
         with log_path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(row) + "\n")

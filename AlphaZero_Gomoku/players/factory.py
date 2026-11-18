@@ -33,6 +33,8 @@ def create_player(
     pruning: bool = True,
     time_budget_sec: float | None = None,
     n_simulations: int | None = None,
+    mcts_backend: str = "auto",
+    patterns_backend: str = "auto",
 ) -> Player:
     """Create one configured player for terminal, Pygame or tournament.
 
@@ -70,6 +72,15 @@ def create_player(
     if config is None:
         config = Path(__file__).resolve().parents[1] / "configs" / f"{rules.name}.yaml"
     cfg = load_config(config)
+    if mcts_backend not in ("auto", "python", "cpp") or patterns_backend not in ("auto", "python", "cpp"):
+        raise ValueError("backend options must be auto, cpp, or python")
+    if patterns_backend == "auto" and agent != "az_v1_threat":
+        patterns_backend = "python"
+    from az.backend import configure_backends
+    backends = configure_backends("auto", mcts_backend=mcts_backend, patterns_backend=patterns_backend)
+    cfg["backend_metadata"] = backends
+    cfg["mcts_backend"] = backends["mcts"]
+    cfg["patterns_backend"] = backends["patterns"]
     if n_simulations is not None:
         cfg["n_simulations"] = n_simulations
     cfg["tactical"] = {
