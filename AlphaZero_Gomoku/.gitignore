@@ -40,3 +40,6 @@ native/*.so
 # Docs generated exports / raw perf captures
 docs/exports/
 docs/performance/raw-*.json
+
+# Runtime logs under data/
+data/*.log
