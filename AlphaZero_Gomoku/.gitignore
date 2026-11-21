@@ -43,3 +43,8 @@ docs/performance/raw-*.json
 
 # Runtime logs under data/
 data/*.log
+!checkpoints/
+checkpoints/*
+!checkpoints/normal/
+checkpoints/normal/*
+!checkpoints/normal/az_normal_weights.pt
