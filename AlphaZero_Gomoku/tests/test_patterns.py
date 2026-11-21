@@ -82,6 +82,17 @@ def test_finds_new_patterns_for_both_players_and_all_directions():
             assert matches[0].completion_cells == (gap,)
 
 
+def test_broken_three_near_board_edges():
+    for stones, candidate, direction, gap in (
+        ({(0, 0): BLACK, (0, 3): BLACK}, (0, 1), (0, 1), (0, 2)),
+        ({(10, 10): BLACK, (7, 10): BLACK}, (9, 10), (1, 0), (8, 10)),
+        ({(0, 10): BLACK, (3, 7): BLACK}, (1, 9), (1, -1), (2, 8)),
+        ({(0, 0): BLACK, (3, 3): BLACK}, (1, 1), (1, 1), (2, 2)),
+    ):
+        patterns = find_patterns(board_with(stones), *candidate, BLACK)
+        assert any(p.kind == "broken_three" and p.direction == direction and p.completion_cells == (gap,) for p in patterns)
+
+
 def test_ignores_disconnected_or_opponent_stones():
     board = board_with({(5, 2): BLACK, (5, 4): BLACK, (5, 5): WHITE})
     assert find_patterns(board, 5, 6, BLACK) == []

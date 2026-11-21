@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import tempfile
 import numpy as np
 import torch
 import torch.nn as nn
@@ -125,14 +127,29 @@ def save_checkpoint(
             "n_filters": model.n_filters,
         },
     }
-    torch.save(checkpoint_data, path)
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
+        temp_path = Path(stream.name)
+    try:
+        torch.save(checkpoint_data, temp_path)
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def resolve_checkpoint_path(path: str | Path) -> Path:
+    """Resolve a generation pointer, retaining explicit legacy checkpoint support."""
+    path = Path(path)
+    if path.suffix.lower() == ".json":
+        from az.trainer import resolve_generation
+        return resolve_generation(path)[0]
+    return path
 
 
 def load_checkpoint(
     path: str | Path,
     device: str | torch.device | None = None,
 ) -> tuple[AZNet, dict]:
-    path = Path(path)
+    path = resolve_checkpoint_path(path)
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:

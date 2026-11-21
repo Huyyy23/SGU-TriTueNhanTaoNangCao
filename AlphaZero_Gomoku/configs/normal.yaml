@@ -1,3 +1,6 @@
+# Active continuous model and training schedule; continue from checkpoints/normal/latest.json.
+model_id: az_v0
+
 # Search
 n_simulations: 200
 c_puct: 1.5
@@ -12,10 +15,10 @@ pi_target_temp: 1.0
 move_time_budget_sec: null
 
 # Training
-n_iter: 20
+n_iter: 200
 games_per_iter: 50
 buffer_size: 50000
-train_steps_per_iter: 200
+train_steps_per_iter: 1000
 batch_size: 128
 learning_rate: 1.0e-3
 optimizer: adam
@@ -27,15 +30,12 @@ eval_fixed_batch_size: 512
 checkpoint_buffer: true
 log_moves: false
 
-# Evaluation
-arena_win_threshold: 0.55
 
 # Model
 n_blocks: 6
 n_filters: 64
 
-# az_v1 feature flags (T29/T30). Keep both false here: az_v0 runs with them off.
-# players/factory.py enables them for az_v1_tactical / az_v1_threat only.
+# az_v1 feature flags (T29/T30). Keep both false; variants enable them per agent name.
 tactical:
   enabled: false
 threat_space:

@@ -70,12 +70,18 @@ def test_forbidden_moves_empty_for_normal():
     assert NormalRules().forbidden_moves(Board()) == []
 
 
-def test_full_board_is_terminal():
+def test_full_board_without_winner_is_a_draw():
     board = Board()
-    board.grid[:] = np.where(np.arange(SIZE * SIZE) % 2 == 0, BLACK, WHITE)
+    pattern = (BLACK, BLACK, WHITE, WHITE)
+    board.grid[:] = [
+        pattern[(row + 2 * col) % len(pattern)]
+        for row in range(SIZE)
+        for col in range(SIZE)
+    ]
     rules = NormalRules()
     assert rules.legal_moves(board) == []
-    assert rules.is_terminal(board) is True
+    assert not rules.is_win(board)
+    assert rules.is_terminal(board)
 
 
 def test_empty_board_is_not_terminal():

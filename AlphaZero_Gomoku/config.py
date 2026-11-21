@@ -25,13 +25,12 @@ DEFAULT_CONFIG: dict = {
     "value_loss_weight": 1.0,
     "policy_loss_weight": 1.0,
     "lr_schedule": "cosine",
-    # Evaluation
-    "arena_win_threshold": 0.55,
     # Model
     "n_blocks": 6,
     "n_filters": 64,
     # Rule set and self-play
     "rule_set": "normal",
+    "selfplay_opening_plies": 0,
     "parallel_games": 16,
     "pi_target_temp": 1.0,
     "move_time_budget_sec": None,
@@ -43,6 +42,12 @@ DEFAULT_CONFIG: dict = {
     "tactical": {"enabled": False},
     "threat_space": {"enabled": False},
 }
+
+
+def _validate_selfplay_opening_plies(config: dict) -> None:
+    value = config.get("selfplay_opening_plies", 0)
+    if type(value) is not int or value not in (0, 2):
+        raise ValueError("selfplay_opening_plies must be 0 or 2")
 
 
 def load_config(path: str | Path | None = None) -> dict:
@@ -58,4 +63,5 @@ def load_config(path: str | Path | None = None) -> dict:
         # shortcut: one level of inheritance, enough for normal/renju
         config.update(yaml.safe_load((path.parent / base).read_text(encoding="utf-8")) or {})
     config.update(data)
+    _validate_selfplay_opening_plies(config)
     return config

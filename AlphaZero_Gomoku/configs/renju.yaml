@@ -1,2 +1,5 @@
 base: normal.yaml
+model_id: az_renju
 rule_set: renju
+n_iter: 20
+train_steps_per_iter: 200
