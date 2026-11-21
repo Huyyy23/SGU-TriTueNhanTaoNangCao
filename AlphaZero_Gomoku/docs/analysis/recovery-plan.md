@@ -1,0 +1,22 @@
+# Kế hoạch phục hồi chất lượng AlphaZero 25k
+
+Phạm vi: đề xuất nghiên cứu, **chưa thực hiện thay đổi thuật toán hay huấn luyện**. Giữ luật Normal, MCTS 200 simulations mỗi lần search, màu/seed/opening theo protocol được đóng băng; không tăng số simulations hoặc số ván như biện pháp mặc định. Mọi thay đổi contract, thời gian huấn luyện hay tournament lớn cần được phê duyệt trước theo `SPEC.md:193,444-448`.
+
+## Thứ tự theo giá trị thông tin / thời gian
+
+| Ưu tiên | Việc và chi phí tương đối | Gate / quyết định |
+|---|---|---|
+| 0 | **Kiểm tra self-play ngắn và lệch màu** — rẻ: 15.000 bản ghi continuation có 14.931 ván Đen thắng, trung bình 10,13 nước; replay 50.000 mẫu có 4.906 bàn trống. Đọc [audit dữ liệu](training-data-audit.md) để phân biệt tập trung thực đo với giả thuyết collapse. | Replay những ván ngắn, đo phân bố openings, target entropy và tỷ lệ thắng theo iteration/màu. So target với MCTS roots, tìm lỗi nhãn và forced-line lặp. Không thay recipe trước khi xác định cơ chế và control. |
+| 1 | **Cố định danh tính và bảo toàn hiện vật** — rẻ: lưu manifest read-only gồm SHA checkpoint, parent, config thực tế, phiên bản/dirty diff, seed, backend, optimizer step và nguồn replay; tìm candidate gốc SHA `2384043ae275dfe5eef24cb9ec1f87d771ae0238ccfff01ffa14591baffeb731`. | Không gán 46/400 cho file SHA `f7f521c1cc37a5054ed854201b087e484e9fcef3d4d6b1877ab81dff2e51d7e4` nếu chưa so tensor hoặc có bằng chứng chuỗi lưu. Không ghi đè checkpoint/NPZ/SQLite. |
+| 2 | **Tập canary chiến thuật và bất biến dữ liệu** — rẻ: cố định các thế từ ván thua kèm ID, luật, nước hợp lệ; kiểm tra win/block một nước, fork hai nước, terminal, perspective theo nhiều độ sâu, target π/z và mask. Mỗi search dùng đúng 200, không noise; ghi prior, value, visits, lựa chọn. | Chỉ kết luận lỗi implementation khi fixture có oracle độc lập và test cô lập xác nhận; thêm regression test trước khi sửa. Hai thế tổng hợp trong audit đã pass không đủ thay thế tập held-out. |
+| 3 | **Đánh giá value/policy trên tập độc lập theo ván** — vừa: đóng băng held-out games trước phân tích; tính policy entropy, support hợp lệ, calibration/Brier/MSE so với outcome, tách màu, giai đoạn ván, seed và tactical category. So sánh train và held-out theo game, tránh chia các vị trí cùng ván sang cả hai tập. | Tách dự đoán sai khỏi search bỏ qua nước; fixed-batch loss không phải strength hoặc generalization. Chưa có kết quả thì không gọi collapse/overfit đã xác nhận. |
+| 4 | **Làm sạch nguồn đánh giá và kiểm chứng backend** — vừa: cùng checkpoint SHA, fixture, evaluator, seed, rules, 200 sims, so Python/C++ theo mask, terminal, visits, value và trajectories; thêm nhiều seed, Normal/Renju. | Parity sáu cặp bàn trống hiện tại chỉ là smoke; không dùng throughput để kết luận chất lượng. Dùng Python làm đối chứng cho đến khi đạt quality gate đăng ký trước. |
+| 5 | **Thử nghiệm nguyên nhân có kiểm soát** — chỉ sau canary: so các checkpoint cũ/mới nếu còn và cùng protocol, hoặc ablate từng can thiệp được duyệt với cùng dữ liệu, seed, số updates và compute báo cáo. Xem riêng tactical override như thay đổi tầng search, không coi là cải thiện weights. | Dùng paired openings/đổi màu, báo W/D/L và uncertainty theo cụm opening; pilot nhỏ để sàng lọc, nghiên cứu xác nhận chỉ sau khi định cỡ mẫu. Không dùng kết quả v1 lịch sử thay cho tournament v1 25k. |
+| 6 | **Sửa các rủi ro integrity/provenance đã được xác định** — sau phê duyệt thay đổi: checkpoint và replay có generation ID/hash, lưu theo cơ chế khôi phục nhất quán; validate input policy tại biên; enforce budget tại các entry point theo contract. | Test interruption/mismatch và regression; đây là rủi ro xác định trong mã, **không phải** bằng chứng replay hiện tại hỏng hay nguyên nhân của 46/400. |
+
+## Diễn giải và điều kiện dừng
+
+- 484.000 optimizer updates trong checkpoint là số quan sát được, không thể kết luận thừa hay thiếu chỉ từ 25.000 ván. Đo tái sử dụng mẫu, LR theo thời gian và chất lượng trên tập độc lập trước khi thay schedule.
+- Giữ tách biệt xác nhận thực nghiệm, cơ chế khả dĩ và unknown. Không chọn một nguyên nhân gốc đơn nhất nếu không có control cô lập biến.
+- Dừng và bảo toàn hiện vật nếu hash/provenance không khớp hoặc thiếu replay: không phục hồi bằng cách ghi đè. Kết quả mạnh lên hay yếu đi chỉ có giá trị khi so sánh matched protocol và uncertainty phù hợp paired openings.
+- Tham chiếu chi tiết: [MCTS](mcts-correctness-audit.md), [training/data](training-data-audit.md), [ván thua](heuristic-loss-analysis.md), [tổng hợp](alphazero-25k-root-cause.md).
