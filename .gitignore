@@ -35,3 +35,8 @@ AlphaZero_Gomoku/Agents.md
 graphify-out/
 # pytest basetemp output
 pytest-of-*/
+
+# Lab deliverables (unrelated to repo)
+lab05 - game/
+# Log backups
+gomoku_logging_backup_*/

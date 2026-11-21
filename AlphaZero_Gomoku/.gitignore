@@ -6,3 +6,37 @@ __pycache__/
 .venv/
 .pytest_cache/
 pytest-of-*/
+evidence/
+gomoku_native*.pyd
+gomoku_native*.so
+
+# Local SQLite databases, sidecars and explicit experiment exchange bundles.
+*.sqlite*
+*.sqlite3*
+
+# Experiment run directories (dated/pilot)
+az_*pilot*/
+az_*probe*/
+az_*native*/
+*_50k_*/
+tactical_experiment_*/
+value_calibration_*/
+defensive_*_50k*/
+final_*_pilot/
+checkpoints_selfplay_20k/
+
+# Smoke/test artifacts under checkpoints
+checkpoints/_check/
+checkpoints/_smoke/
+checkpoints/_smoke2/
+
+# Pygame runtime log
+pygame_gui.log
+
+# Native build artifacts only (keep .cpp source)
+native/*.pyd
+native/*.so
+
+# Docs generated exports / raw perf captures
+docs/exports/
+docs/performance/raw-*.json
