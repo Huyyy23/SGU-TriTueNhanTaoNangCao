@@ -26,41 +26,47 @@ Tiêu chí task cũ dựa trên loss, win-rate giả định, throughput Colab h
 ## Giai đoạn 0 — Protocol và baseline hiện tại
 
 ### P1: Chốt đầu vào nghiên cứu Elo v1.0
-- **Mô tả:** Xác định implementation/config Heuristic đã đóng băng, ruleset/phiên bản chuẩn, model IDs, evaluation config, cách sinh opening/seed và lựa chọn fit BT/Davidson trước khi thu thập dữ liệu chính thức.
+- **Mô tả:** Xác định implementation/config Heuristic, ruleset, model IDs, evaluation settings, opening/seed scheme và lựa chọn fit trước khi thu thập dữ liệu chính thức.
 - **Tiêu chí nghiệm thu:**
-  - [ ] Heuristic được đặt mốc 1200 trong hai rating pool Normal và Renju riêng.
-  - [ ] Protocol ghi rõ screening 100 ván, main 400 ván (200 cặp opening đổi màu), AZ cố định 200 simulations, temperature 0, tắt Dirichlet noise, SHA-256/config/rules/seed/opening identity.
-  - [ ] Đăng ký trước paired-cluster bootstrap, xử lý hòa, tiêu chí (ΔElo > 0 và cận dưới CI 95% > 0; mục tiêu mạnh ΔElo ≥ +100) và mở rộng 600/800.
-  - [ ] Lựa chọn chưa giải quyết được ghi Unknown; mọi thay đổi phương pháp trước main run phải tăng protocol version.
-- **Cách kiểm chứng:** Đối chiếu protocol đã chốt với `SPEC.md` §10.2 và CLI/log fields hiện có của `scripts/tournament.py`; synthetic fixtures sẽ được kiểm tra ở P6/P7. Không chạy trận ở task này.
+  - [x] Heuristic là anchor `R=1200` trong hai pool Normal/Renju riêng; model identity có code/config SHA-256 theo ruleset.
+  - [x] Protocol: screening 100 games/pair, main 400 (200 cặp đổi màu); AZ MCTS `n_simulations=200` mỗi lần search, temperature 0, root noise tắt. Search variants có thể bypass MCTS và phải ghi override/0 simulations; không đổi budget.
+  - [x] Chốt Heuristic Python + Python patterns, AZ Python MCTS; `random_opening_plies=0`; seed scheme `paired-crc32`; preregister base seed trước mỗi run và dùng cùng per-agent seeds/opening trong cặp đổi màu.
+  - [x] Đăng ký paired-cluster bootstrap, draw handling, thresholds (ΔElo > 0, CI lower bound > 0; strong target ΔElo ≥ +100), và extension 600/800.
+  - [x] Mọi identity/metadata lịch sử không có bằng chứng ghi **Unknown**; protocol thay đổi phải tăng version.
+- **Quyết định P1:** Cụ thể hóa trong `SPEC.md` §10.2. Base seed là run-specific, phải được đăng ký trước; opening rỗng nên kết luận giới hạn ở ván bắt đầu từ bàn trống.
+- **Unknown:** T35 thiếu Heuristic source hash, backend, temp/noise, opening metadata và matched per-agent seeds; không dùng T35 như Elo v1.0. BT/Davidson implementation validation, color-effect decision và power/variance cần kiểm chứng ở P6/P7.
+- **Cách kiểm chứng:** Đối chiếu SPEC §10.2, default `paired-crc32`/`random_opening_plies=0` và backend resolution của tournament; không chạy trận.
 - **Phụ thuộc:** Không có.
-- **File dự kiến:** `tasks/plan.md`, `tasks/todo.md`; nếu quyết định làm thay đổi SPEC thì cập nhật `SPEC.md`.
+- **File dự kiến:** `tasks/plan.md`, `tasks/todo.md`, `SPEC.md`.
 - **Phạm vi:** S.
 
 ### P2: Kiểm chứng lại luật và tính đúng của MCTS
 - **Mô tả:** Kiểm tra các hợp đồng hiện tại trước khi diễn giải kết quả thua hoặc thay đổi training.
 - **Tiêu chí nghiệm thu:**
-  - [ ] Normal win/draw và Renju exact-five, overline, double-three/double-four, tính hợp lệ của quân Trắng có test hiện hành hoặc báo cáo thiếu hụt cụ thể.
-  - [ ] MCTS win-in-1, dấu khi backup, terminal handling, legal masking, trường hợp zero-visit và lựa chọn temperature-0 đều đạt.
-  - [ ] Sai khác giữa source và test được ghi nhận trước khi sửa code; chưa khẳng định tương đương luật Renju quốc tế nếu thiếu nguồn có thẩm quyền.
-- **Cách kiểm chứng:** Chạy lệnh tập trung `python -m pytest -q tests/test_rules_normal.py tests/test_rules_renju.py tests/test_mcts.py tests/test_native_mcts.py` (chỉ chạy native tests khi extension tồn tại). Ghi lại interpreter và kết quả.
+  - [x] Normal thắng/thua và draw có test; Renju exact-five, overline, double-three/double-four và White legality có test hiện hành.
+  - [x] MCTS win-in-1, backup sign, terminal handling, legal masking, zero-visit rejection và temperature-0 đều được kiểm tra.
+  - [x] Sai khác source/test được ghi nhận trước khi sửa test; không khẳng định tương đương Renju quốc tế.
+- **Cách kiểm chứng:** `.venv/Scripts/python.exe -m pytest -q tests/test_rules_normal.py tests/test_rules_renju.py tests/test_mcts.py tests/test_native_mcts.py` — CPython 3.10.6, 42 passed.
+
+- **Gap đã xử lý:** Fixture Normal cũ chỉ khẳng định bàn đầy là terminal; checkerboard còn có đường chéo thắng nên không chứng minh draw. Thay bằng bàn đầy không thắng; thêm kiểm tra MCTS từ zero visits phải từ chối chọn nước.
 - **Phụ thuộc:** P1.
-- **File dự kiến:** `tests/test_rules_normal.py`, `tests/test_rules_renju.py`, `tests/test_mcts.py`; chỉ bổ sung coverage tối thiểu cho gap đã xác định.
+- **File dự kiến:** `tests/test_rules_normal.py`, `tests/test_rules_renju.py`, `tests/test_mcts.py`; chỉ bổ sung coverage tối thiểu cho gap.
 - **Phạm vi:** M.
 
 ### Cổng A — Tính toàn vẹn baseline
-- [ ] Đối chiếu dữ liệu T35 với raw games/manifests; báo cáo sai khác, không ghi đè logs gốc.
-- [ ] Đầu vào protocol đã được chốt hoặc ghi rõ Unknown.
-- [ ] Kết quả kiểm chứng tập trung được lưu lại; chưa bắt đầu tác vụ tốn tài nguyên.
+- [x] Đối chiếu raw games/manifests T35, không sửa logs gốc.
+- [x] Protocol được khóa hoặc lựa chọn chưa thể kết luận được ghi Unknown.
+- [x] Kết quả kiểm chứng tập trung được ghi lại; không chạy training/tournament tốn tài nguyên.
+- **Bằng chứng:** `evidence/colab_return_20261114T085015Z/`: 107/107 file hash khớp `colab_completed.json`; 24 matchup ×100 games; IDs, colors, rules và W/D/L summary khớp raw records. 1,133 override moves bỏ qua MCTS; cặp màu không dùng lại cùng per-agent seeds. T35 giữ trạng thái lịch sử/Unknown, không phải protocol v1.0.
 
 ## Giai đoạn 1 — Chẩn đoán khoảng cách sức chơi
 
 ### P3: Chẩn đoán vì sao AlphaZero thua Heuristic
-- **Mô tả:** Theo SPEC §10.4: tái dựng các trận thua, kiểm tra search, targets, lỗi chiến thuật, độ nhạy theo budget và chất lượng checkpoint theo từng đối chiếu cô lập.
+- **Mô tả:** Theo SPEC §10.4: tái dựng các trận thua, kiểm tra MCTS budget cố định 200 mỗi lần search, targets, lỗi chiến thuật và chất lượng checkpoint qua các đối chiếu cô lập khác.
 - **Tiêu chí nghiệm thu:**
   - [ ] Mỗi game/position được xem xét có ID bất biến, hash checkpoint/config/rules, màu quân, seed và kết quả.
   - [ ] Audit metrics gồm policy targets hợp lệ/được chuẩn hóa, visit distribution/entropy, góc nhìn `z`, value calibration trên holdout tách theo game và các loại bỏ lỡ win/block/fork/endgame.
-  - [ ] Đối chiếu search budget 50/100/200/400 giữ nguyên checkpoint/positions/openings/seeds, báo cáo Elo/score, tactical error rate và latency; ghi đây là ablation, không phải Elo chính với 200 simulations.
+  - [ ] Chẩn đoán giữ MCTS cố định 200 mỗi lần search và giữ nguyên checkpoint/positions/openings/seeds; báo cáo Elo/score, tactical error rate và latency. Ghi override bypass riêng; không sweep hoặc đổi budget.
   - [ ] Nguyên nhân không có đối chứng cô lập vẫn để Unknown; không kết luận chỉ từ loss giảm.
 - **Cách kiểm chứng:** Bổ sung/kiểm tra deterministic diagnostic fixtures và tests; lập bảng bằng chứng gồm baseline/control, metrics và giới hạn. Chạy arena cần được cho phép riêng.
 - **Phụ thuộc:** P2.
@@ -125,7 +131,7 @@ Tiêu chí task cũ dựa trên loss, win-rate giả định, throughput Colab h
 ### P8: Đánh giá chính ghép cặp các checkpoint hiện có
 - **Mô tả:** So sánh các AZ checkpoints đã đóng băng với Heuristic và champion theo Elo v1.0.
 - **Tiêu chí nghiệm thu:**
-  - [ ] 400 ván/cặp (200 cặp opening), cùng opening cho hai ván đổi màu; AZ 200 simulations/move, temperature 0, tắt root noise.
+  - [ ] 400 ván/cặp (200 paired blocks), cùng opening cho hai ván đổi màu; mỗi AZ MCTS search dùng 200 simulations, temperature 0, tắt root noise. Override bypass ghi riêng; không thay budget.
   - [ ] Hashes, seeds, rules, resolved config, backend execution identity và W/D/L logs đầy đủ được xác thực trước analysis.
   - [ ] Báo cáo ΔElo/CI, W/D/L, score và hiệu năng; chỉ mở rộng 600/800 theo quy tắc đăng ký trước; chưa kết luận ở 800 thì ghi inconclusive.
   - [ ] Chỉ tuyên bố đạt mục tiêu khi ΔElo > 0 và cận dưới CI 95% > 0; mục tiêu mạnh còn yêu cầu ΔElo ≥ +100.
@@ -179,7 +185,7 @@ Tiêu chí task cũ dựa trên loss, win-rate giả định, throughput Colab h
 
 ### P13: Chạy ablation AZ có kiểm soát
 - **Tiêu chí nghiệm thu:**
-  - [ ] So sánh riêng MCTS 50/100/200/400, search/training hyperparameters, mạng 3×32/6×64/9×96, self-play 1k/2.5k/5k/10k và Python/C++.
+  - [ ] So sánh search/training hyperparameters (không gồm số simulations), mạng 3×32/6×64/9×96, self-play 1k/2.5k/5k/10k và Python/C++; mọi lần AZ MCTS search giữ 200 simulations, override bypass được log riêng.
   - [ ] Mỗi contrast chỉ đổi một yếu tố; ghép cặp seeds/openings, giữ evaluation pool/protocol cố định, tắt evaluation noise và giữ checkpoint nếu phù hợp.
   - [ ] Báo cáo Elo/ΔElo/CI, W/D/L/score, compute, latency, memory và data counts; xử lý multiple comparisons hoặc ghi rõ là exploratory.
   - [ ] Đăng ký trước số training seeds và backend non-inferiority margin từ pilot trước confirmatory tests; không chạy full Cartesian sweep.

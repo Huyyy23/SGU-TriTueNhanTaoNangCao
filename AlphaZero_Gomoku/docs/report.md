@@ -145,7 +145,7 @@ Mỗi nước reset counters, ghi số simulation, số neural leaves và lý do
 
 Loss train cuối run thấp hơn đầu run, nhưng loss batch cố định cuối run **cao hơn** đầu run và dao động giữa các iteration. Bằng chứng này không hỗ trợ tuyên bố loss đánh giá giảm hay mô hình hội tụ tốt hơn. Ván ngắn hơn cũng không tự chứng minh sức chơi tăng.
 
-[Log ngày 2026-11-01](../logs/train_20261101-163215.jsonl) chỉ có một iteration với hai ván, 95 mẫu và 200 global steps. Không cộng nó thành một đợt huấn luyện lớn hoặc dùng thay bằng chứng của run 1.000 ván. [Cấu hình `normal_5000.yaml`](../configs/normal_5000.yaml) đặt 100 iterations và 1.000 bước train/iteration; riêng tệp cấu hình và thư mục `checkpoints/az_v0b/` không chứng minh đã chạy đủ 5.000 ván.
+[Log ngày 2026-11-01](../logs/train_20261101-163215.jsonl) chỉ có một iteration với hai ván, 95 mẫu và 200 global steps. Không cộng nó thành một đợt huấn luyện lớn hoặc dùng thay bằng chứng của run 1.000 ván. Cấu hình lịch sử `normal_5000.yaml` đặt 100 iterations và 1.000 bước train/iteration; tệp cấu hình và thư mục `checkpoints/az_v0b/` không chứng minh đã chạy đủ 5.000 ván. File cấu hình đã bị gỡ khi pipeline được hợp nhất vào `az_v0`.
 
 ### 8.2. Fine-tune Renju
 

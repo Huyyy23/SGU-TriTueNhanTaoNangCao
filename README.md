@@ -24,29 +24,32 @@
 
 Mỗi lab có `README.md` riêng liệt kê bài tập. `lab01/README.md` ghi nguồn tài liệu gốc: Michael Hahsler, giấy phép CC BY-SA 4.0.
 
-## ▶️ Chạy notebook
+## Môi trường Python dùng chung
 
-Mở Jupyter từ đúng thư mục lab, vì notebook đọc file dữ liệu bằng đường dẫn tương đối:
+Toàn bộ labs và `AlphaZero_Gomoku` dùng Python 3.12 và một `.venv` ở thư mục gốc. Tạo môi trường, cài dependency một lần:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+Trong PyCharm, chọn interpreter `.venv\Scripts\python.exe` tại thư mục repo. Mở JupyterLab từ thư mục lab tương ứng để giữ đúng đường dẫn dữ liệu:
 
 ```powershell
 cd "lab02 - Searching"
-jupyter lab
+..\.venv\Scripts\jupyter-lab
 ```
 
-Notebook cần thêm `gymnasium` (`lunar_lander.ipynb`) và `numba` (`n_queens_fast_conflict_calculation_with_numba.ipynb`). Chạy `Run All` theo thứ tự từ trên xuống để tránh lỗi biến chưa khai báo.
-
-## 🤖 Chạy phần AlphaZero
-
-Yêu cầu Python 3.10. Phần này có test riêng, chạy trước khi commit:
+Chạy Gomoku bằng cùng interpreter:
 
 ```powershell
 cd AlphaZero_Gomoku
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-.venv\Scripts\python -m pytest
+..\.venv\Scripts\python -m pytest
+..\.venv\Scripts\python -m ui.pygame_app
 ```
 
-Máy có GPU NVIDIA thì cài thêm bản CUDA theo hướng dẫn trong `AlphaZero_Gomoku/requirements.txt`. Số đo hiệu năng nằm ở `AlphaZero_Gomoku/docs/benchmarks.md`.
+Các Python khác trên máy không bị gỡ; `.venv` cố định phiên bản dùng trong repo.
+Máy có GPU NVIDIA thì cài bản CUDA theo hướng dẫn trong `AlphaZero_Gomoku/requirements.txt`.
 
 ## 🚧 Tiến độ đồ án AlphaZero
 

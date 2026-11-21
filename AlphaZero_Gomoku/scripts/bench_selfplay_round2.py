@@ -11,8 +11,8 @@ import pstats
 import subprocess
 import threading
 import time
-from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from az.logging_v2 import SELFPLAY_DB, connect, initialize, record_selfplay_run, write_event
 
 def percentile(values: list[float], p: float) -> float | None:
     if not values:
@@ -171,16 +172,13 @@ class FunctionProfiler:
 
 
 def load_runtime(checkpoint: str, device: str | None):
-    from az.model import AZNet, load_checkpoint
+    from az.model import load_checkpoint
     from config import load_config
     from gomoku.rules.normal import NormalRules
 
     cfg = load_config("configs/normal.yaml")
     selected_device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
-    if Path(checkpoint).is_file():
-        model, _ = load_checkpoint(checkpoint, device=selected_device)
-    else:
-        model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"]).to(selected_device)
+    model, _ = load_checkpoint(checkpoint, device=selected_device)
     model.eval()
     return cfg, model, NormalRules(), selected_device
 
@@ -274,7 +272,6 @@ def profile_auxiliary_work() -> dict:
     """Measure work outside run_games: Renju rules, buffer copies, and durable logging."""
     import tempfile
 
-    from az.game_log import GameLogger, GameRecord
     from az.replay_buffer import ReplayBuffer
     from gomoku.board import BLACK, WHITE, Board
     from gomoku.rules.renju import RenjuRules
@@ -312,21 +309,27 @@ def profile_auxiliary_work() -> dict:
 
     logging_times = []
     with tempfile.TemporaryDirectory(prefix="gomoku-log-profile-") as tmp:
-        logger = GameLogger(Path(tmp) / "games.jsonl")
+        db_path = Path(tmp) / "profile.sqlite"
+        initialize(db_path, "selfplay")
+        run_id = "auxiliary_logging"
+        recorded_at = datetime.now(timezone.utc).isoformat()
+        with connect(db_path) as connection:
+            record_selfplay_run(connection, run_id=run_id, started_at=recorded_at, backend="benchmark",
+                                rule_set="normal", seed=None, config={},
+                                metadata={"kind": "auxiliary_logging_profile"})
         for game_id in range(48):
-            record = GameRecord(
-                game_id=game_id, timestamp="2026-11-18T00:00:00+00:00",
-                rule_set="normal", first_player="selfplay", second_player="selfplay",
-                winner="draw", first_player_won=False, end_reason="board_full",
-                moves_count=121, duration_sec=1.0, config={"mcts": "python"},
-            )
             started = time.perf_counter_ns()
-            logger.log_game(record)
+            with connect(db_path) as connection:
+                write_event(connection, run_id=run_id, event="profile_game_log",
+                            payload={"game_id": game_id, "rule_set": "normal", "winner": "draw",
+                                     "end_reason": "board_full", "moves_count": 121,
+                                     "duration_sec": 1.0, "config": {"mcts": "python"}},
+                            recorded_at=recorded_at)
             logging_times.append(time.perf_counter_ns() - started)
     return {
         "renju_rules": {name: summarize_samples(samples) for name, samples in renju.items()},
         "replay_buffer_add": summarize_samples(buffer_times),
-        "game_logger_fsync": summarize_samples(logging_times),
+        "sqlite_event_commit": summarize_samples(logging_times),
         "note": "Synthetic microbenchmarks; not included in self-play wall time.",
     }
 
@@ -334,19 +337,25 @@ def profile_auxiliary_work() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=("matrix", "workers", "profile"), required=True)
-    parser.add_argument("--checkpoint", default="checkpoints/last.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/best.json")
     parser.add_argument("--device", default=None)
     parser.add_argument("--simulations", type=int, default=200)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--worker-games-per-worker", type=int, default=16)
     parser.add_argument("--worker-total-games", type=int, default=None,
                         help="Fixed total games per worker configuration; overrides per-worker scaling.")
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--db", default=str(SELFPLAY_DB), help="SQLite self-play database.")
+    parser.add_argument("--out", help="Optional JSON export for external consumers.")
     args = parser.parse_args()
+    from az.model import resolve_checkpoint_path
+    args.checkpoint = str(resolve_checkpoint_path(args.checkpoint))
+    initialize(args.db, "selfplay")
     cfg, model, rules, device = load_runtime(args.checkpoint, args.device)
     cfg["n_simulations"] = args.simulations
     checkpoint_path = Path(args.checkpoint)
     checkpoint_sha256 = hashlib.sha256(checkpoint_path.read_bytes()).hexdigest() if checkpoint_path.is_file() else None
+    run_id = f"bench_selfplay_round2_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
+    created_at = datetime.now(timezone.utc).isoformat()
     output = {"python": os.sys.version, "torch": torch.__version__, "device": str(device),
               "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
               "logical_cpus": os.cpu_count(), "ram_total_bytes": psutil.virtual_memory().total,
@@ -412,9 +421,20 @@ def main() -> int:
         output["auxiliary_microbenchmarks"] = profile_auxiliary_work()
 
     output["ram_available_after_bytes"] = psutil.virtual_memory().available
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(output, indent=2), encoding="utf-8")
-    print(json.dumps({"out": args.out, "mode": args.mode, "results": output["results"]}, indent=2))
+
+    with connect(args.db) as connection:
+        record_selfplay_run(connection, run_id=run_id, started_at=created_at, backend="benchmark",
+                            rule_set="normal", seed=None,
+                            config={"mode": args.mode, "simulations_per_move": args.simulations,
+                                    "repeats": args.repeats},
+                            metadata={"kind": "bench_selfplay_round2", "checkpoint": output["checkpoint"],
+                                      "checkpoint_sha256": checkpoint_sha256})
+        write_event(connection, run_id=run_id, event="selfplay_benchmark_result",
+                    payload=output, recorded_at=created_at)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(output, indent=2), encoding="utf-8")
+    print(json.dumps({"run_id": run_id, "db": args.db, "mode": args.mode, "results": output["results"]}, indent=2))
     return 0
 
 

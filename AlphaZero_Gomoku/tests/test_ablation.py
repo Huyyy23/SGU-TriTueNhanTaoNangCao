@@ -1,6 +1,5 @@
 """T32: ablation script on tiny inputs (fake agents for MCTS, crowded boards for Alpha-Beta)."""
 
-import json
 
 import pytest
 
@@ -43,10 +42,13 @@ def quiet(_msg):
 
 
 def test_mcts_levels_come_from_parameters(tmp_path):
+    db_path = tmp_path / "tournament.sqlite"
     path, payload = A.run_mcts(sims=[3, 9], games=4, opponent="heuristic", seed=1, run_id="m",
-                               out_root=tmp_path, builder=fake_builder, log=quiet)
-    assert path == tmp_path / "m.json"
-    on_disk = json.loads(path.read_text())
+                               db_path=db_path, builder=fake_builder, log=quiet)
+    assert path == db_path
+    on_disk = A.load_result(db_path, "m")
+    assert on_disk == payload
+    assert not (tmp_path / "m.json").exists()
     assert on_disk["config"]["sims"] == [3, 9]
     assert on_disk["config"]["games_per_level"] == 4
     assert [r["sims"] for r in on_disk["results"]] == [3, 9]
@@ -64,7 +66,7 @@ def test_mcts_levels_come_from_parameters(tmp_path):
 
 def test_mcts_real_player_reports_completed_search(tmp_path):
     _, payload = A.run_mcts(sims=[1], games=2, opponent="random", seed=7,
-                            run_id="real", out_root=tmp_path, log=quiet)
+                            run_id="real", db_path=tmp_path / "real.sqlite", log=quiet)
     level = payload["results"][0]
     assert level["games_black"] == level["games_white"] == 1
     assert level["illegal_moves"] == 0
@@ -90,18 +92,19 @@ def test_positions_repeat_and_remain_legal(ruleset):
             board.play(*divmod(move, SIZE))
         assert not rules.is_terminal(board)
 
-def test_mcts_rejects_odd_games_and_existing_file(tmp_path):
+def test_mcts_rejects_odd_games_and_existing_run(tmp_path):
+    db_path = tmp_path / "tournament.sqlite"
     with pytest.raises(ValueError):
-        A.run_mcts(sims=[3], games=3, out_root=tmp_path, builder=fake_builder, log=quiet)
-    A.run_mcts(sims=[3], games=2, run_id="same", out_root=tmp_path, builder=fake_builder, log=quiet)
+        A.run_mcts(sims=[3], games=3, db_path=db_path, builder=fake_builder, log=quiet)
+    A.run_mcts(sims=[3], games=2, run_id="same", db_path=db_path, builder=fake_builder, log=quiet)
     with pytest.raises(FileExistsError):
-        A.run_mcts(sims=[3], games=2, run_id="same", out_root=tmp_path, builder=fake_builder, log=quiet)
-
+        A.run_mcts(sims=[3], games=2, run_id="same", db_path=db_path, builder=fake_builder, log=quiet)
 
 def test_alphabeta_pruning_on_off_same_depth(tmp_path):
+    db_path = tmp_path / "tournament.sqlite"
     positions = A.make_positions("normal", 1, 100, seed=0)
     path, payload = A.run_alphabeta(depths=[1, 2], positions=positions, seed=0, run_id="ab",
-                                    out_root=tmp_path, position_plies=100, log=quiet)
+                                    db_path=db_path, position_plies=100, log=quiet)
     rows = {r["depth"]: r for r in payload["results"]}
     # Pruning never changes the chosen move, only the work done.
     assert all(r["same_move"] for r in payload["results"])
@@ -109,19 +112,20 @@ def test_alphabeta_pruning_on_off_same_depth(tmp_path):
     assert rows[1]["nodes_on"] == rows[1]["nodes_off"]
     # Depth 2: pruning visits fewer nodes.
     assert rows[2]["nodes_on"] < rows[2]["nodes_off"]
-    assert json.loads(path.read_text())["summary"][1]["depth"] == 2
+    assert A.load_result(path, "ab") == payload
+    assert payload["summary"][1]["depth"] == 2
 
 
 @pytest.mark.parametrize("mode", ["mcts", "alphabeta"])
 def test_plot_writes_png(tmp_path, mode):
     pytest.importorskip("matplotlib")
     if mode == "mcts":
-        path, _ = A.run_mcts(sims=[3, 9], games=2, run_id="p", out_root=tmp_path,
-                             builder=fake_builder, log=quiet)
+        _, payload = A.run_mcts(sims=[3, 9], games=2, run_id="p", db_path=tmp_path / "t.sqlite",
+                                builder=fake_builder, log=quiet)
     else:
-        path, _ = A.run_alphabeta(depths=[1], positions=A.make_positions("normal", 1, 100, seed=0),
-                                  run_id="p", out_root=tmp_path, log=quiet)
-    out = A.plot(path)
+        _, payload = A.run_alphabeta(depths=[1], positions=A.make_positions("normal", 1, 100, seed=0),
+                                     run_id="p", db_path=tmp_path / "t.sqlite", log=quiet)
+    out = A.plot(payload, tmp_path / "plot.png")
     assert out.suffix == ".png" and out.stat().st_size > 0
 
 

@@ -48,7 +48,7 @@ az/            Tầng AlphaZero
   replay_buffer.py  Buffer + tăng cường đối xứng 8 phép
   trainer.py     Loss = policy CE + value MSE + L2
   evaluator.py   Arena, cổng thay thế mô hình tốt nhất
-  game_log.py    Schema ván JSONL
+  logging_v2.py  Nguồn log có cấu trúc SQLite cho self-play, training và tournament
 players/       base.py (select_move), random, human, mcts_pure, az_player
 ui/            Pygame: human vs AI, AI vs AI
 scripts/       train.py, play.py, arena.py, simulate.py, sync_drive.py, selfplay_shard.py, merge_shards.py
@@ -57,6 +57,7 @@ configs/       normal.yaml, renju.yaml, colab.yaml
 tests/         Test luật (kỹ Renju), MCTS, self-play, huấn luyện, arena
 docs/          provenance.md, report.md, README.md
 ```
+
 
 Bốn quy tắc kiến trúc giữ xuyên suốt: luật chơi nằm sau một interface duy nhất (`legal_moves`, `is_win`, `is_terminal`), giá trị của node con là góc nhìn đối thủ nên phủ định khi backup, mỗi bộ luật một model riêng, và `gomoku/` không import torch.
 
@@ -69,24 +70,26 @@ Bốn quy tắc kiến trúc giữ xuyên suốt: luật chơi nằm sau một i
 | Tìm kiếm | nhiễu Dirichlet alpha / epsilon | 0.15 / 0.25 |
 | Tìm kiếm | số nước dùng nhiệt độ = 1 | 15 |
 | Mô hình | số block / số filter | 6 / 64 |
-| Mô hình | tối ưu hoá / tốc độ học | Adam / 1e-3, giảm dần theo cosin |
+| Mô hình | tối ưu hoá / tốc độ học | Adam / 1e-4, hằng số cho checkpoint Normal hiện tại |
 | Mô hình | hệ số chuẩn hoá L2 | 1e-4 |
 | Mô hình | trọng số mất mát chính sách / giá trị | 1.0 / 1.0 |
-| Huấn luyện | số bước mỗi vòng / batch size | 200 / 128 |
+| Huấn luyện | số bước mỗi vòng / batch size | 100 / 32 cho checkpoint Normal hiện tại |
 | Huấn luyện | dung lượng buffer (trước tăng cường) | 50000 |
-| Ngân sách | số vòng × số ván mỗi vòng | 20 × 50 = 1000 ván mỗi bộ luật |
-| Ngân sách mở rộng | lần chạy `az_v0b`, `configs/normal_5000.yaml` | 100 × 50 = 5000 ván, 1000 bước huấn luyện mỗi vòng |
-| Đánh giá | ngưỡng thay thế mô hình tốt nhất | tỉ lệ thắng ≥ 0.55 |
-| Đánh giá | số ván đánh giá | 1000, xen kẽ lượt đầu |
+| Lịch Normal | ván mỗi vòng | 50; tiếp tục từ generation chính thức |
+| Định danh | mô hình Normal chính thức | AZ Normal |
+| Đánh giá | điều kiện chọn best | cận dưới CI 95% của ΔElo so với best hiện tại > 0 |
+| Đánh giá | cỡ mẫu mỗi gate | 100 ván tổng cộng, không mở rộng |
+| Đánh giá | opening | 4 nước ngẫu nhiên, đổi màu theo cặp |
 
-Ngân sách ván nằm trong `configs/*.yaml`, tăng lên 1200, 1500 hay 5000 ván chỉ cần sửa YAML rồi chạy tiếp từ checkpoint. Lý do chọn mốc 5000 và điều kiện lên 10000: `docs/adr/0005-budget-5000-games-for-az-v0b.md`.
+Mỗi 5000 ván self-play mới, candidate đấu best; nếu chưa có best thì đấu Heuristic. Khi đã có best, gate không đo Heuristic.
+Renju giữ lịch fine-tune riêng trong `configs/renju.yaml`.
 
 ## Môi trường
 
 | Mục | Yêu cầu |
 |---|---|
-| Python | 3.10 |
-| Thư viện | torch (cu124), numpy, pyyaml, pytest, pygame |
+| Python | 3.12 (`../.venv` dùng chung toàn repo) |
+| Thư viện | Cài từ `../requirements.txt` |
 | GPU | NVIDIA RTX 4060 8 GB (sm_89) cho lần train đầu; CPU vẫn chạy được để test |
 | Mạng | pip OK |
 
@@ -94,51 +97,67 @@ Colab free chỉ cho 2 vCPU, nên một instance Colab chậm hơn máy local. C
 
 ## Lệnh dự kiến
 
-Các lệnh dưới đây là hợp đồng với `tasks/todo.md`, sẽ chạy được sau khi có mã nguồn:
+Chạy lệnh từ thư mục `AlphaZero_Gomoku`, dùng `.venv` ở root:
 
-```bash
-pip install -r requirements.txt
-
-python scripts/play.py --mode human-vs-ai --agent mcts-pure --ruleset normal
-python scripts/play.py --mode ai-vs-ai --agent random --ruleset renju
-python scripts/play.py --mode ai-vs-ai --black-agent heuristic --white-agent alphabeta
-python scripts/play.py --mode human-vs-ai --human-color white --agent heuristic
-python scripts/play.py --mode ai-vs-ai --black-agent az_v1_tactical --white-agent mcts-pure --black-checkpoint checkpoints/last.pt
-python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
-python -m ui.pygame_app --mode ai-vs-ai --checkpoint checkpoints/last.pt
-python scripts/train.py --config configs/normal.yaml
-python scripts/arena.py --a random --b checkpoints/last.pt --games 100
-python scripts/arena.py --a heuristic --b az_v1_tactical --games 100 --budget sims:200
-python scripts/tournament.py --agents random,heuristic,alphabeta,mcts-pure,az_v0,az_v1_threat --games 100 --budget sims:200
-python scripts/tournament.py --agents az_v0,az_v1_threat,alphabeta --games 100 --budget time:1
-python scripts/tournament.py --agents random,heuristic,alphabeta,az_renju --rules renju --games 100 --budget sims:200
-pytest -q
+```powershell
+..\.venv\Scripts\python scripts/play.py --mode human-vs-ai --agent mcts-pure --ruleset normal
+..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --agent random --ruleset renju
+..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --black-agent heuristic --white-agent alphabeta
+..\.venv\Scripts\python scripts/play.py --mode human-vs-ai --human-color white --agent heuristic
+..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --black-agent az --white-agent mcts-pure
+..\.venv\Scripts\python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
+..\.venv\Scripts\python -m ui.pygame_app --mode ai-vs-ai
+..\.venv\Scripts\python scripts/train.py --iterations 701
+..\.venv\Scripts\python scripts/arena.py --a random --b az --games 100
+..\.venv\Scripts\python scripts/arena.py --a heuristic --b az_v1_tactical --games 100 --budget sims:200
+..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic,alphabeta,mcts-pure,az,az_v1_threat --games 100 --budget sims:200
+..\.venv\Scripts\python scripts/tournament.py --agents az,az_v1_threat,alphabeta --games 100 --budget time:1
+..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic,alphabeta,az_renju --rules renju --games 100 --budget sims:200
+..\.venv\Scripts\python -m pytest -q
 ```
+
 
 `--agent` đặt cùng một agent cho cả hai phía để giữ tương thích; dùng
 `--black-agent` và `--white-agent` để chọn riêng. `--human-color` đổi màu
 quân của người chơi. Agent hỗ trợ: `random`, `mcts-pure`, `heuristic`,
-`alphabeta`, `az`/`az_v0`, `az_v1_tactical`, và `az_v1_threat`. Các biến thể
-AlphaZero cần checkpoint; có thể truyền checkpoint riêng cho mỗi bên.
+`alphabeta`, `az`, `az_v0`, `az_v1_tactical`, and `az_v1_threat`. `az` dùng biến thể
+`az_v1_threat` với weights chính thức hiện tại; chọn `az_v0` tường minh để dùng v0.
 `--depth`/`--no-pruning` cấu hình Alpha-Beta, `--rollouts` cấu hình MCTS Pure.
 Trong chế độ AI-vs-AI, nhấn Space để tạm dừng/tiếp tục và New game để chơi lại.
-Checkpoint ghi vào `checkpoints/`, log vào `logs/`. Cả hai nằm ngoài git.
-
-Giải đấu ghi `games.jsonl` (nước đi, độ trễ, lượng tìm kiếm), `manifest.json`
-(seed, cấu hình, SHA-256 checkpoint), `matrix.csv` và `summary.json` vào
-`logs/tournament/<run_id>/`. Mỗi cặp đổi màu, vì vậy `--games` phải chẵn.
-`--checkpoint NAME=PATH` chọn trọng số từng agent; mặc định các biến thể Normal
-dùng `checkpoints/last.pt`, Renju dùng `checkpoints/renju_last.pt`.
-Thư mục `--out-dir` phải rỗng để không trộn số liệu giữa các lần chạy.
+Checkpoint Normal chính thức: `checkpoints/normal/latest.json`; generation được xác minh
+bằng hash và bao gồm weights cùng replay. Training mặc định nạp generation, optimizer và
+trạng thái phục hồi; thiếu checkpoint là lỗi, không tự tạo model mới. `--fresh` là
+chế độ khởi tạo mới tường minh. Lịch sử thí nghiệm và checkpoint cũ được giữ riêng.
+Log Normal: `data/normal.sqlite`; tournament: `data/tournament.sqlite`.
+Mốc lịch sử 60k là danh nghĩa, không cộng 20k ván từ run độc lập đã loại bỏ.
+Tournament ghi games, moves, agent/config metadata và events vào SQLite; không sinh
+JSONL/CSV/JSON output mặc định. Mỗi cặp đổi màu, vì vậy `--games` phải chẵn.
+`--checkpoint NAME=PATH` chọn weights riêng cho agent; Normal mặc định dùng
+`checkpoints/normal/latest.json`, Renju dùng checkpoint riêng.
+`--db` chọn database tournament; mặc định là `data/tournament.sqlite`.
 `sims:N` đặt số mô phỏng cho AZ/MCTS Pure, Alpha-Beta dùng `--depth` (mặc định 2);
 `time:S` đặt ngân sách giây mỗi nước cho tác tử tìm kiếm. Random/heuristic không
 bị làm chậm để dùng hết ngân sách. Báo cáo độ trễ và lượng tìm kiếm thực tế,
 không coi số node Alpha-Beta bằng số simulation MCTS.
 `--pair NAME,NAME` chạy một cặp với seed theo vị trí trong danh sách đầy đủ.
-Sau khi đủ mọi cặp, dùng `--merge-root SHARD_ROOT --out-dir FROZEN_DIR` để
-kiểm tra và gộp log mà không đấu lại. Merge từ chối thiếu/trùng cặp, lệch
-cấu hình, checkpoint, seed, số ván hoặc màu; không sửa log nguồn.
-Tiếp tục một cặp bị gián đoạn bằng cùng lệnh, thêm `--resume --pair NAME,NAME`
-và giữ nguyên `--out-dir`. Resume kiểm tra cấu hình, checkpoint và seed/màu
-từng ván đã ghi, chỉ chạy các chỉ số còn thiếu; giữ nguyên manifest và tiền tố
-log cũ. Log hỏng hoặc cấu hình khác bị từ chối, không tự xóa bằng chứng.
+Để tiếp tục run đã có, dùng cùng cấu hình với `--resume --run-id RUN_ID`; resume
+đọc các ván đã commit trong database và từ chối nếu run/config không khớp.
+
+Dry-run inventory migration mặc định quét `logs/` và `evidence/`, không ghi dữ liệu:
+
+```powershell
+.venv\Scripts\python.exe scripts/migrate_logs_to_sqlite.py
+.venv\Scripts\python.exe scripts/migrate_logs_to_sqlite.py --import
+```
+
+Import bổ sung vào hai database chính, idempotent theo source identity/hash, không
+xóa hoặc sửa file nguồn. Dùng `scripts/analyze_t35.py --db data/tournament.sqlite`
+để truy vấn tournament; JSON export chỉ được tạo khi truyền `--out`.
+
+## Backend Python/C++ (thử nghiệm)
+
+Mặc định là `python`. `scripts/train.py` và `scripts/tournament.py` nhận preset `--backend python|cpp`, cùng override độc lập `--mcts-backend` và `--patterns-backend`; override thắng preset. Build Patterns bằng `scripts/build_gomoku_native.py --module patterns`; build MCTS bằng `scripts/build_gomoku_native.py --module mcts`.
+
+Native MCTS dùng arena C++ sở hữu node theo index; Python vẫn xử lý rules, board, RNG và inference. Có thể chọn `--mcts-backend cpp` sau khi build extension đúng Python ABI. Không fallback im lặng khi extension thiếu/không tương thích. Python vẫn là mặc định: test native mới đạt, nhưng chưa chạy integration với PyTorch/checkpoint, multiprocessing/resume hoặc benchmark end-to-end; microbenchmark search/fake evaluator mới tăng 7,9%, chưa đạt ngưỡng 10%. Không xem backend C++ là production-ready hoặc dùng cho 5.000 ván.
+
+Tournament log ghi cả backend đã chọn và `components_used` thực tế. Patterns C++ không tăng tốc AlphaZero self-play cơ bản, vốn không gọi `find_patterns()`. Xem [báo cáo Dual Backend](docs/bao-cao-dual-backend.md) để biết lệnh, số liệu và các gate còn thiếu.

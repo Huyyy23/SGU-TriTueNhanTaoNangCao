@@ -17,3 +17,7 @@
 - Mọi con số trong báo cáo đều có nguồn gốc truy vết ngược về từng dòng log cụ thể (`tests/test_report.py` có thể assert tự động).
 - Mỗi lần train/tournament ghi một dòng `backend_runs` vào `logs/backend_runs.sqlite3` (backend được yêu cầu/thực tế, compiler, components được dùng); không thay thế hay làm thay đổi JSONL, manifest hoặc giao thức resume.
 - Báo cáo phân tích được chính xác nguyên nhân thua và bóc tách được lợi thế đi trước đặc thù của cờ Gomoku.
+
+## Operational status
+
+This ADR records the original JSONL-based decision; its file formats are historical, not the current logging contract. Logging V2 supersedes the active storage policy: self-play/training use local `data/selfplay.sqlite`, tournament/Elo use local `data/tournament.sqlite`, and SQLite is ignored by Git. New runs do not emit the JSONL/CSV/JSON files described above. Historical sources remain untouched; `scripts/migrate_logs_to_sqlite.py` imports identifiable data additively and preserves provenance. Checkpoints and replay buffers remain separate.

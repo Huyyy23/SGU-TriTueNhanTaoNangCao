@@ -44,22 +44,19 @@ def _play(payload: tuple[dict, int, int, str]) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Spike: multiprocessing self-play vs one process.")
     parser.add_argument("--config", default="configs/normal.yaml")
-    parser.add_argument("--checkpoint", default="checkpoints/last.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/best.json")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--games-per-worker", type=int, default=4)
     args = parser.parse_args(argv)
 
-    from az.model import AZNet, load_checkpoint, save_checkpoint
+    from az.model import load_checkpoint, resolve_checkpoint_path
     from az.selfplay import run_games
     from config import load_config
     from gomoku.rules.normal import NormalRules
 
     cfg = load_config(args.config)
 
-    if not Path(args.checkpoint).is_file():
-        args.checkpoint = "logs/spike_model.pt"
-        print(f"warning: checkpoint missing, generating {args.checkpoint} from a random-init model")
-        save_checkpoint(AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"]), args.checkpoint, meta={"rule_set": "normal"})
+    args.checkpoint = str(resolve_checkpoint_path(args.checkpoint))
 
     total_games = args.workers * args.games_per_worker
 

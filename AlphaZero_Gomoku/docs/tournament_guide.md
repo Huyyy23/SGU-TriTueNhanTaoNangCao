@@ -10,13 +10,13 @@ pip install -r requirements.txt
 pytest -q tests/test_tournament.py tests/test_agent_factory.py     # phải pass trước khi chạy dài
 ```
 
-- Checkpoint đặt trong `checkpoints/` (thư mục này bị `.gitignore`, không commit). Ví dụ: `checkpoints/last.pt` cho Normal, checkpoint Renju riêng cho `az_renju`.
-- Script chỉ đọc checkpoint. SHA-256 của mỗi checkpoint được ghi vào `config.json` trước khi chạy và kiểm tra lại khi xong (`checkpoint_unchanged` trong `summary.json`).
+ - Checkpoint đặt trong `checkpoints/` (không commit); script chỉ đọc file và ghi SHA-256 cùng provenance vào SQLite.
+ - `--dry-run` kiểm tra cấu hình mà không chạy ván hoặc tạo run.
 - Xem trước cấu hình, không chơi ván nào:
 
 ```bash
 python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1_tactical \
-    --games 100 --budget sims:200 --checkpoint checkpoints/last.pt --dry-run
+    --games 100 --budget sims:200 --checkpoint checkpoints/best.pt --dry-run
 ```
 
 ## Backend Python/C++
@@ -27,7 +27,7 @@ Mặc định `--backend auto`: tournament chỉ chọn các native component m�
 - `--backend python`: không dò compiler, build hay dùng native.
 - `--mcts-backend` và `--patterns-backend`: ghi đè độc lập preset.
 
-Backend thực tế và component được dùng được ghi trong `config.json`, từng game JSONL và `logs/backend_runs.sqlite3`.
+ Backend thực tế và component được dùng được lưu trong event SQLite cùng game/run; không ghi thêm file `backend_runs.sqlite3` hay JSONL.
 
 ## 2. Chọn agent
 
@@ -39,7 +39,7 @@ Backend thực tế và component được dùng được ghi trong `config.json
 | `heuristic` | HeuristicPlayer | không tìm kiếm |
 | `alphabeta` | AlphaBetaPlayer | độ sâu cố định `--alphabeta-depth` (mặc định 1) |
 | `mcts_pure` (hoặc `mcts-pure`) | MCTSPurePlayer | số rollout lấy từ `--budget sims:N` |
-| `az_v0` (hoặc `az`) | AZPlayer | cần `--checkpoint` |
+| `az_v0` (hoặc `az`) | AZPlayer | Normal mặc định dùng `checkpoints/normal/latest.json`; có thể chỉ định checkpoint riêng |
 | `az_v1_tactical` | TacticalAZPlayer bọc AZPlayer | tactical bật; `az_v1` bị từ chối vì mơ hồ |
 | `az_v1_threat` | ThreatSpaceAZPlayer bọc AZPlayer | tactical + threat-space bật |
 
@@ -49,7 +49,7 @@ Tùy chọn riêng cho từng agent, nối bằng `@`:
 - `mcts_pure@sims=50` (ghi đè `--budget` cho riêng agent này)
 - `az_v0@checkpoint=checkpoints/renju_last.pt` (checkpoint khác cho riêng agent này)
 
-Tên đầy đủ (kể cả phần `@...`) là nhãn của agent trong `matrix.csv`, nên có thể đặt hai biến thể cùng loại trong một giải, ví dụ `mcts_pure@sims=50,mcts_pure@sims=800`.
+ Tên đầy đủ (kể cả phần `@...`) là nhãn agent trong SQLite; có thể đặt hai biến thể cùng loại trong một giải.
 
 Cả ba mốc AlphaZero dùng chung một checkpoint, cùng số simulations và cùng quy tắc seed. Chúng được tạo qua `players/factory.py`, cùng factory với `scripts/play.py` và giao diện Pygame. Cờ `tactical.enabled` và `threat_space.enabled` trong `configs/*.yaml` mặc định `false`; factory tự bật theo tên agent.
 
@@ -75,26 +75,28 @@ Cách hiểu ngân sách của từng agent được in ra đầu mỗi lần ch
 | `--random-opening` | 0 | số nước khai cuộc ngẫu nhiên dùng chung cho 2 ván đổi màu; 0 = tắt |
 | `--workers` | 1 | số tiến trình chơi song song |
 | `--torch-threads` | 1 | số luồng torch mỗi tiến trình; 0 = mặc định của torch |
-| `--out-root` | `logs/tournament` | thư mục gốc của log |
-| `--run-id` | tự sinh `<UTC>_<ruleset>_<budget>_s<seed>` | tên thư mục log; nếu đã tồn tại thì script dừng, không ghi đè |
-
+| `--db` | `data/tournament.sqlite` | database local dùng chung; không ghi đè database khác |
+| `--run-id` | tự sinh | ID ổn định của experiment; resume yêu cầu ID đã tồn tại |
 Ván 2k và 2k+1 của mỗi cặp dùng cùng seed và cùng khai cuộc, chỉ đổi màu, nên kết quả theo màu so sánh được. Nước đi trái luật làm bên đó thua ván và được đếm trong `illegal_moves_*`.
 
-**Resume:** chạy lại cùng lệnh với `--resume`. Runner kiểm tra cấu hình, checksum checkpoint và danh tính/seed từng ván; giữ nguyên prefix JSONL, chỉ thêm ván thiếu. Dùng `--pair NAME,NAME` để chia giải thành shard, `--merge-root ROOT --out-dir NEW_DIR` để gộp đủ mọi cặp từ raw logs. Seed mặc định `paired-crc32`; `--seed-scheme legacy-v1` giữ công thức seed cũ nhưng không cho khai cuộc ngẫu nhiên. Log lịch sử `manifest.json` chỉ hỗ trợ đọc/gộp, không tiếp tục bằng runner mới; không trộn thuật toán mới vào phép đo cũ.
+**Resume:** chạy lại cùng cấu hình với `--resume --run-id RUN_ID`. Runner đọc dữ liệu đã commit trong SQLite, kiểm tra cấu hình/checkpoint/seed, rồi chỉ tiếp tục các ván còn thiếu. Dùng `--pair NAME,NAME` để giới hạn một cặp. Không có shard merge/file-based resume mới; historical JSONL vẫn giữ nguyên và chỉ importer được phép đọc chúng.
 
-## 5. Đầu ra `logs/tournament/<run_id>/`
+## 5. Dữ liệu và truy vấn
 
-| File | Nội dung |
-|---|---|
-| `config.json` | lệnh, agent, ngân sách, luật, seed, SHA-256 checkpoint, commit git, phiên bản thư viện; ghi trước ván đầu tiên |
-| `games.jsonl` | mỗi dòng một ván: người đi trước/sau, thắng, lý do kết thúc, toàn bộ nước đi, seed, thời gian từng nước, node/sims, override, threat-space |
-| `matrix.csv` | điểm của agent hàng gặp agent cột (thắng 1, hòa 0,5, thua 0) và điểm tổng |
-| `pairs.csv` | mỗi cặp: thắng/hòa/thua, điểm, Wilson 95%, điểm khi cầm Đen/Trắng, thời gian trung bình và p95 mỗi nước, node, số lần gọi mạng |
-| `summary.json` | tất cả ở trên, cộng thống kê từng agent: override (số lần, tỷ lệ, lý do, thời gian thêm), threat-space (số lần tìm, kích hoạt, chạm giới hạn, node, ms), `warnings` |
+Kết quả được ghi vào `data/tournament.sqlite`; không tạo thư mục output riêng, JSONL, manifest, CSV hay summary file. Schema lưu experiment/config, agents, matches, games, moves, events, provenance/backend metadata và lịch sử Elo. Cùng database dùng cho resume, `scripts/analyze_t35.py`, và `scripts/recalculate_elo.py`.
 
-Mã thoát: 0 nếu không có nước trái luật và checkpoint không đổi; 2 nếu có.
+```sql
+SELECT experiment_id, rule_set, config_json FROM experiments;
+SELECT agent_id, display_name, checkpoint_hash, backend FROM agents;
+SELECT experiment_id, winner, count(*) FROM games
+GROUP BY experiment_id, winner;
+PRAGMA foreign_key_check;
+PRAGMA integrity_check;
+```
 
-Mẫu thật từ smoke test nằm trong `docs/samples/tournament/` (xem README trong đó).
+`scripts/analyze_t35.py --db data/tournament.sqlite` chỉ truy vấn SQLite; `--out PATH` tạo JSON export tường minh. Không xóa hoặc thay database để đồng bộ; trao đổi thí nghiệm qua `scripts/exchange_experiment.py`.
+
+Mẫu trong `docs/samples/tournament/` là evidence lịch sử, không phải output mặc định mới.
 
 ## 6. Lệnh cho các giải chính thức (T35)
 
@@ -103,12 +105,12 @@ Thay đường dẫn checkpoint bằng checkpoint đã chốt. Nên chạy `--dr
 ```bash
 # Normal chế độ A: 6 agent, 15 cặp x 100 ván = 1.500 ván
 python scripts/tournament.py --agents random,heuristic,alphabeta,mcts_pure,az_v0,az_v1_tactical \
-    --games 100 --budget sims:200 --checkpoint checkpoints/last.pt --seed 0 --workers 4 \
+    --games 100 --budget sims:200 --checkpoint checkpoints/best.pt --seed 0 --workers 4 \
     --run-id T35_normal_A_sims200_s0
 
 # Normal chế độ B (1 s/nước): 3 cặp x 100 ván = 300 ván
 python scripts/tournament.py --agents az_v0,az_v1_tactical,alphabeta \
-    --games 100 --budget time:1 --checkpoint checkpoints/last.pt --seed 0 --workers 4 \
+    --games 100 --budget time:1 --checkpoint checkpoints/best.pt --seed 0 --workers 4 \
     --run-id T35_normal_B_time1_s0
 
 # Renju: 4 agent, 6 cặp x 100 ván = 600 ván
@@ -142,12 +144,11 @@ Lưu ý: torch mặc định dùng nhiều luồng; với một thế cờ mỗi
 - [ ] Checkpoint đúng file, đúng luật (Normal/Renju), đúng kiến trúc trong YAML; `az_v0`, `az_v1_tactical`, `az_v1_threat` tạo được (script tạo thử mọi agent trước ván đầu, lỗi checkpoint sẽ dừng ngay).
 - [ ] Chạy thử 2 ván/cặp với `--run-id` thử: `illegal_moves_total` = 0, `checkpoint_unchanged` = true, `games_a_black` = `games_a_white` mọi cặp.
 - [ ] Ước tính thời gian theo mục 7 từ lần chạy thử.
-- [ ] Đặt `--run-id` mới cho mỗi giải chính thức; không xóa thư mục log cũ.
-- [ ] Đọc `warnings` trong `summary.json`. Nếu báo hai agent tất định cho ra ván giống hệt nhau (ví dụ `heuristic` vs `alphabeta`), cân nhắc `--random-opening 2` và ghi lý do.
-- [ ] Sau khi chạy: số dòng `games.jsonl` = `total_games` trong `config.json`; tổng thắng+hòa+thua mỗi cặp = `--games`.
+ - Đặt `--run-id` duy nhất cho mỗi giải; resume chỉ với cùng ID/cấu hình.
+ - Sau khi chạy, đối chiếu số game và kết quả trực tiếp trong SQLite; chạy `PRAGMA integrity_check` và `PRAGMA foreign_key_check`.
+ - Không dọn file evidence cũ trong khuôn khổ Logging V2.
 
 ## 9. Những điều script không làm
 
-- Không resume giải bị ngắt.
-- `alphabeta` và `mcts_pure` không tuân thủ `time:S` (chỉ đếm số nước vượt).
-- Không train, không sửa trọng số, không đổi luật.
+ - `--logging-level none` chỉ dùng làm baseline đo, không lưu dữ liệu và không thể resume; không dùng cho nghiên cứu.
+ - Tournament không train, không sửa checkpoint, không đổi luật hoặc thuật toán AI.

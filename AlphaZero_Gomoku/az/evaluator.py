@@ -3,10 +3,9 @@ from __future__ import annotations
 import math
 import time
 from numbers import Integral
-from dataclasses import asdict
 from datetime import datetime, timezone
 
-from az.game_log import GameLogger, GameRecord, MoveRecord
+from az.game_log import VALID_END_REASONS, GameRecord, MoveRecord
 from gomoku.board import BLACK, SIZE, Board
 
 
@@ -74,25 +73,37 @@ def play_game(black, white, rules, game_id: int, rule_set: str | None = None) ->
     )
 
 
-def evaluate(a, b, rules, n_games: int, logger: GameLogger | None = None) -> list[GameRecord]:
+def evaluate(a, b, rules, n_games: int) -> list[GameRecord]:
     """Play `n_games` between a and b, alternating colours: even ids have a as Black."""
     records = []
     for game_id in range(n_games):
         black, white = (a, b) if game_id % 2 == 0 else (b, a)
-        record = play_game(black, white, rules, game_id)
-        records.append(record)
-        if logger is not None:
-            logger.log_game(record)
+        records.append(play_game(black, white, rules, game_id))
     return records
 
 
 def summarise(records: list[GameRecord], agent_a: str, agent_b: str) -> dict:
     """Aggregate WDL, score, colors, raw-move latency and actual search work."""
-    summary = GameLogger.generate_summary([asdict(r) for r in records], agent_a=agent_a, agent_b=agent_b)
+    n = len(records)
     wins = sum(r.winner == ("black" if r.first_player == agent_a else "white") for r in records)
     draws = sum(r.winner == "draw" for r in records)
     losses = sum(r.winner in {"black", "white"} for r in records) - wins
-    n = len(records)
+    if records:
+        end_reasons = dict.fromkeys(VALID_END_REASONS, 0)
+        for record in records:
+            end_reasons[record.end_reason] = end_reasons.get(record.end_reason, 0) + 1
+        summary = {
+            "total_games": n,
+            "agent_a": agent_a,
+            "agent_b": agent_b,
+            "overall_win_rate_a": round(wins / n, 4),
+            "draw_rate": round(draws / n, 4),
+            "by_end_reason": end_reasons,
+            "mean_game_duration_sec": round(sum(r.duration_sec for r in records) / n, 4),
+            "mean_moves_per_game": round(sum(r.moves_count for r in records) / n, 2),
+        }
+    else:
+        summary = {"total_games": 0}
     summary.update(wins=wins, draws=draws, losses=losses, score=(wins + draws / 2) / n if n else 0.0,
                    wilson_95_a=wilson_interval(wins, n), score_ci_95=wilson_interval(wins + draws / 2, n))
     for key, is_black in (("as_black", True), ("as_white", False)):

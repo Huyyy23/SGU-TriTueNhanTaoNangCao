@@ -105,16 +105,13 @@ Tác tử `random`, mốc thấp nhất mà mọi tác tử khác phải vượt
 _Avoid_: baseline ngầm hiểu là AlphaZero
 
 **az_v0**:
-AlphaZero gốc: `checkpoints/last.pt` sau 20 vòng × 50 ván trên luật Normal, không có thành phần chiến thuật nào. Là mốc cố định, không sửa, không train đè.
+Một mô hình Normal duy nhất, được huấn luyện liên tục. `latest.pt` là trạng thái để resume; `best.pt` chỉ đổi khi candidate vượt qua paired Elo gate. Không giữ checkpoint 1k ván làm baseline.
 _Avoid_: model cũ, bản gốc, alpha zero
 
 **az_v1**:
-AlphaZero cộng thành phần chiến thuật, dùng **đúng trọng số của az_v0** và chỉ khác ở tầng tìm kiếm. Nhờ vậy phép so sánh az_v0 với az_v1 cô lập đúng một biến.
+Các biến thể tìm kiếm `az_v1_tactical` và `az_v1_threat` dùng cùng checkpoint hash `az_v0` trong mỗi phép so sánh; chỉ khác tầng search. Mặc định chúng dùng `checkpoints/best.pt`.
 _Avoid_: model mới, bản cải tiến, v2
 
-**az_v0b**:
-az_v0 huấn luyện tiếp với ngân sách lớn hơn (5000 ván), khởi động từ trọng số và buffer của az_v0 nhưng ghi ra thư mục checkpoint riêng. Là thí nghiệm "thêm ván thì mạnh lên bao nhiêu", tách khỏi câu hỏi az_v0 / az_v1 và không thay thế az_v0 làm mốc cố định.
-_Avoid_: az_v0 mới, az_v2, train lại từ đầu
 
 **az_renju**:
 Mô hình Renju tạo bằng cách fine-tune từ az_v0, có Buffer riêng. Không phải một phiên bản cải tiến, không nhân bản chuỗi az_v1 sang Renju.

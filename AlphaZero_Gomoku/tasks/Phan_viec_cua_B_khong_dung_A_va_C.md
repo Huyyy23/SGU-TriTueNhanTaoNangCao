@@ -13,7 +13,7 @@ Tài liệu này liệt kê toàn bộ những việc thuộc quyền sở hữu
 | `az/` | `model.py`, `mcts.py`, `selfplay.py`, `replay_buffer.py`, `trainer.py`, `game_log.py`, `evaluator.py` đều có |
 | `players/` | mới có `random.py`, `az_player.py` (A còn thiếu heuristic, alphabeta, mcts_pure) |
 | `az_v0` | xong 20 vòng × 50 ván; `checkpoints/last.pt` (10/28) |
-| `az_v0b` 5000 ván | có ADR 0005 + `configs/normal_5000.yaml`, **chưa chạy ván nào** |
+| Lịch sử đề xuất `az_v0b` 5000 ván | Tại 2026-11-01 chưa chạy; kế hoạch đã bị supersede, không dùng cho lần chạy mới |
 | Việc B đã làm | assert giá trị lá trong `az/mcts.py`, export API trong `az/__init__.py` |
 
 ## 1. Danh sách task trực tiếp của B

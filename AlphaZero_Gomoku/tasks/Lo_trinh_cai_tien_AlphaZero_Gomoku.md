@@ -3,6 +3,8 @@
 Tài liệu này chỉ nói về **phần cải tiến** (`az_v0` → `az_v1`). Phần bắt buộc của đồ án
 (tác tử cấp 1–4, engine, giải đấu, báo cáo) nằm ở `tasks/proposal.md` và `tasks/todo.md`.
 
+**Trạng thái:** Lộ trình dưới đây là bản ghi nghiên cứu lịch sử. Mốc `az_v0` 1.000 ván cố định đã được supersede bởi pipeline `az_v0` liên tục; `az_v1_tactical` và `az_v1_threat` vẫn phải so sánh trên cùng checkpoint hash trong mỗi phép đo.
+
 ## 0. Trạng thái xuất phát (số đo thật, không phải giả định)
 
 - `az_v0` đã chạy xong: 20 vòng × 50 ván = 1000 ván tự chơi trên luật Normal.

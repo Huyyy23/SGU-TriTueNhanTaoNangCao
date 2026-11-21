@@ -10,9 +10,9 @@ Kế hoạch này triển khai các yêu cầu nghiên cứu và cổng chất l
 
 - `gomoku/`: Board 11×11, luật Normal/Renju, features và patterns; có tests cho luật. Việc tương đương với bộ luật Renju quốc tế vẫn Unknown.
 - `az/`: AZNet, Python MCTS, self-play, replay buffer, trainer, checkpoint/resume và game logs đã có. Báo cáo lịch sử ghi nhận 1.000 ván self-play Normal và 500 ván fine-tune Renju; các con số này không chứng minh sức chơi tăng.
-- `scripts/tournament.py`: round-robin có đổi màu theo cặp, seeds/openings, raw game records, checkpoint hashes, resume/shard merge và thống kê WDL/score/Wilson. Elo hiện Planned, chưa được triển khai.
+- `scripts/tournament.py`: round-robin có đổi màu theo cặp, seeds/openings, raw game records, checkpoint hashes, resume/shard merge và thống kê WDL/score/Wilson. Elo leaderboard v1.0 còn Planned; pairwise Davidson gate cho promotion đã Implemented / Unverified.
 - `native/`: C++17 MCTS tree và pattern extension tùy chọn qua pybind11. Python là backend mặc định. Bằng chứng parity/smoke hiện còn hạn chế; không kết luận C++ tốt hơn chỉ từ tốc độ.
-- `configs/normal_5000.yaml` là cấu hình cho 5.000 ván, không phải bằng chứng đã chạy xong 5.000 ván.
+- Kế hoạch cũ `normal_5000.yaml`/`az_v0b` đã bị supersede. `configs/normal.yaml` hiện cấu hình một lineage `az_v0` liên tục; target iterations không phải bằng chứng về số ván đã chạy.
 - Thay đổi worktree, logs và checkpoints hiện có thuộc về người dùng. Khi lập kế hoạch, không xóa, ghi đè hoặc sinh lại artifacts.
 
 ## Kiến trúc và thứ tự phụ thuộc
@@ -38,7 +38,7 @@ Giữ nguyên ranh giới module và chiều phụ thuộc đã thống nhất. 
 Tiêu chí nghiệm thu, cách kiểm chứng, phụ thuộc và phạm vi file của từng task nằm trong [`todo.md`](todo.md).
 
 ### Giai đoạn 0 — Thiết lập baseline đáng tin cậy
-- **P1** Chốt đầu vào Elo v1.0 và rà soát baseline lịch sử; xác định Heuristic, hashes luật/cấu hình, opening và cách sinh seed.
+- **P1** Chốt protocol Elo v1.0: Heuristic code/config identity, Python backends, AZ search 200 simulations cố định, bàn trống và seed scheme `paired-crc32`; rà soát T35 lịch sử và ghi metadata thiếu là Unknown.
 - **P2** Kiểm chứng hợp đồng luật Normal/Renju và tính đúng của MCTS bằng tests/diagnostic fixtures tập trung.
 - **P4** Xác định/kiểm chứng manifest, seed streams và lineage bất biến của checkpoint trước khi huấn luyện mới.
 
@@ -47,7 +47,7 @@ Tiêu chí nghiệm thu, cách kiểm chứng, phụ thuộc và phạm vi file 
 - Đóng băng protocol (phiên bản Heuristic, ruleset, cách sinh opening/seed, evaluation settings) hoặc ghi rõ Unknown.
 
 ### Giai đoạn 1 — Chẩn đoán chất lượng AZ
-- **P3** Phân tích các trận thua: MCTS selection/legal masks/backup, policy/value outputs, self-play targets, điểm yếu chiến thuật và độ nhạy với search budget.
+- **P3** Phân tích các trận thua: kiểm tra MCTS với budget cố định 200 mỗi lần search, legal masks/backup, policy/value outputs, self-play targets và điểm yếu chiến thuật; tactical override có thể bypass search nhưng không đổi budget.
 
 ### Cổng B — Bằng chứng chẩn đoán
 - Mỗi nguyên nhân được khẳng định phải gắn với game/position ID có thể tái lập, checkpoint hash, đối chứng cô lập và metric.
@@ -74,7 +74,7 @@ Tiêu chí nghiệm thu, cách kiểm chứng, phụ thuộc và phạm vi file 
 - Số ván, throughput, fixed-batch loss hoặc training loss không phải điều kiện promote hay tăng quy mô.
 
 ### Giai đoạn 4 — Ablation và công bố có thể tái lập
-- **P13** Chạy ablation có kiểm soát cho số MCTS simulations, hyperparameters của search/training, kích thước mạng, quy mô self-play và backend. Mỗi đối chiếu chỉ thay đổi một yếu tố; tính đến compute và multiple comparisons.
+- **P13** Chạy ablation có kiểm soát cho hyperparameters search/training (không đổi số MCTS simulations), kích thước mạng, quy mô self-play và backend. Mọi lần AZ MCTS search dùng cố định 200 simulations; mỗi contrast chỉ thay đổi yếu tố khác, tính đến compute và multiple comparisons.
 - **P14** Tái dựng kết quả huấn luyện/tournament được chấp nhận từ manifests và raw logs; công bố giới hạn và learning curves không bịa hoặc nội suy kết quả.
 
 ## Các cổng nghiệm thu

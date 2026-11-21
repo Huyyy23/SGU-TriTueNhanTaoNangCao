@@ -1,22 +1,15 @@
-"""Ablation experiments for T32.
+"""SQLite-backed ablation experiments for T32; plots remain opt-in PNG artifacts.
 
-Two modes write one JSON file each, logs/ablation/<run_id>.json, and a third draws it:
-
-    # Alpha-Beta: pruning on vs off at the same depth, on the same positions.
     python scripts/ablation.py alphabeta --depths 2 --positions 3 --position-plies 100
-
-    # MCTS Pure: several simulation budgets against one opponent, colours split evenly.
     python scripts/ablation.py mcts --sims 50,200,800 --games 100 --opponent heuristic
-
-    # PNG straight from the JSON (needs matplotlib).
-    python scripts/ablation.py plot logs/ablation/<run_id>.json
+    python scripts/ablation.py plot <run_id>
 
 Alpha-Beta notes: at depth 1 no cut-off can happen (the root only raises alpha and depth-0
 nodes return the evaluation), so pruning only shows from depth 2. Positions come from random
 legal play of --position-plies plies with a fixed seed; on an empty 11x11 board depth 2 without
 pruning costs minutes per move, which is why the smoke default uses crowded positions.
 
-Nothing here changes players/ or any checkpoint; existing JSON files are never overwritten.
+Nothing here changes players/ or any checkpoint.
 """
 
 from __future__ import annotations
@@ -29,9 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+from az.logging_v2 import TOURNAMENT_DB, connect, initialize, record_tournament_experiment, write_event
 
 from gomoku.board import SIZE, Board
 from gomoku.rules import get_rules
@@ -61,16 +56,48 @@ def _int_list(text: str) -> list[int]:
     return values
 
 
-def _output_path(out_root: str | Path, run_id: str) -> Path:
-    path = Path(out_root) / f"{run_id}.json"
-    if path.exists():
-        raise FileExistsError(f"{path} already exists; logs are never overwritten, pick another --run-id")
-    return path
+def _assert_new_run(db_path: str | Path, run_id: str) -> None:
+    initialize(db_path, "tournament")
+    with connect(db_path) as connection:
+        exists = connection.execute(
+            "SELECT 1 FROM experiments WHERE experiment_id=?", (run_id,)
+        ).fetchone()
+    if exists:
+        raise FileExistsError(f"{run_id} already exists in {db_path}; pick another --run-id")
 
 
-def _write(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+def _write_result(db_path: str | Path, payload: dict) -> None:
+    initialize(db_path, "tournament")
+    with connect(db_path) as connection:
+        record_tournament_experiment(
+            connection,
+            experiment_id=payload["run_id"],
+            started_at=payload["created_at"],
+            backend="python",
+            rule_set=payload["ruleset"],
+            seed=payload["seed"],
+            config=payload["config"],
+            metadata={key: payload[key] for key in ("mode", "command", "git", "versions")},
+        )
+        write_event(
+            connection,
+            event="ablation_result",
+            payload=payload,
+            experiment_id=payload["run_id"],
+            recorded_at=payload["created_at"],
+        )
+
+
+def load_result(db_path: str | Path, run_id: str) -> dict:
+    with connect(db_path) as connection:
+        row = connection.execute(
+            "SELECT payload_json FROM events WHERE experiment_id=? AND event='ablation_result' "
+            "ORDER BY event_id DESC LIMIT 1",
+            (run_id,),
+        ).fetchone()
+    if row is None:
+        raise FileNotFoundError(f"no ablation result for {run_id} in {db_path}")
+    return json.loads(row[0])
 
 
 def _common(mode: str, run_id: str, seed: int, ruleset: str) -> dict:
@@ -100,15 +127,15 @@ def run_alphabeta(
     ruleset: str = "normal",
     seed: int = 0,
     run_id: str | None = None,
-    out_root: str | Path = "logs/ablation",
+    db_path: str | Path = TOURNAMENT_DB,
     position_plies: int | None = None,
     log: Callable[[str], None] | None = None,
 ) -> tuple[Path, dict]:
     from players.alphabeta import AlphaBetaPlayer
 
-    log = log or (lambda message: print(message, flush=True))
     run_id = run_id or f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}_alphabeta_{ruleset}_s{seed}"
-    path = _output_path(out_root, run_id)
+    path = Path(db_path)
+    _assert_new_run(path, run_id)
     rules = get_rules(ruleset)
     rows = []
     for p_index, moves in enumerate(positions):
@@ -158,8 +185,8 @@ def run_alphabeta(
         "results": rows,
         "summary": by_depth,
     }
-    _write(path, payload)
-    log(f"wrote {path}")
+    _write_result(path, payload)
+    log(f"wrote {path} ({run_id})")
     return path, payload
 
 
@@ -174,16 +201,14 @@ def run_mcts(
     ruleset: str = "normal",
     seed: int = 0,
     run_id: str | None = None,
-    out_root: str | Path = "logs/ablation",
+    db_path: str | Path = TOURNAMENT_DB,
     alphabeta_depth: int = 1,
     builder: Callable | None = None,
     log: Callable[[str], None] | None = None,
 ) -> tuple[Path, dict]:
-    log = log or (lambda message: print(message, flush=True))
-    if games < 2 or games % 2:
-        raise ValueError("--games must be an even number >= 2 so colours split evenly")
     run_id = run_id or f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}_mcts_{ruleset}_s{seed}"
-    path = _output_path(out_root, run_id)
+    path = Path(db_path)
+    _assert_new_run(path, run_id)
     budget = Budget("sims", 1)
     defaults = Defaults(alphabeta_depth=alphabeta_depth)
     opponent_spec = AgentSpec.parse(opponent)
@@ -233,15 +258,15 @@ def run_mcts(
         "results": levels,
         "games": all_games,
     }
-    _write(path, payload)
-    log(f"wrote {path}")
+    _write_result(path, payload)
+    log(f"wrote {path} ({run_id})")
     return path, payload
 
 
 # -- plot ------------------------------------------------------------------------
 
 
-def plot(json_path: str | Path, out: str | Path | None = None) -> Path:
+def plot(data: dict | str | Path, out: str | Path | None = None) -> Path:
     try:
         import matplotlib
 
@@ -249,8 +274,10 @@ def plot(json_path: str | Path, out: str | Path | None = None) -> Path:
         import matplotlib.pyplot as plt
     except ImportError:
         raise SystemExit("plot needs matplotlib: pip install matplotlib") from None
-    data = json.loads(Path(json_path).read_text(encoding="utf-8"))
-    out = Path(out) if out else Path(json_path).with_suffix(".png")
+    source = Path(data) if not isinstance(data, dict) else None
+    if source is not None:
+        data = json.loads(source.read_text(encoding="utf-8"))
+    out = Path(out) if out else (source.with_suffix(".png") if source else Path(f"{data['run_id']}.png"))
     if data["mode"] == "alphabeta":
         rows = data["summary"]
         labels = [f"depth {r['depth']}" for r in rows]
@@ -313,11 +340,12 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--ruleset", choices=("normal", "renju"), default="normal")
         p.add_argument("--seed", type=int, default=0)
         p.add_argument("--run-id")
-        p.add_argument("--out-root", default="logs/ablation")
-        p.add_argument("--plot", action="store_true", help="Also write the PNG next to the JSON.")
+        p.add_argument("--db", type=Path, default=TOURNAMENT_DB)
+        p.add_argument("--plot", action="store_true", help="Also write a user-facing PNG plot.")
 
-    pl = sub.add_parser("plot", help="Draw a PNG from an ablation JSON.")
-    pl.add_argument("json")
+    pl = sub.add_parser("plot", help="Draw a PNG from a stored run ID or legacy JSON result.")
+    pl.add_argument("run_id")
+    pl.add_argument("--db", type=Path, default=TOURNAMENT_DB)
     pl.add_argument("--out")
     return parser
 
@@ -326,23 +354,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.mode == "plot":
-        plot(args.json, args.out)
+        source = Path(args.run_id)
+        plot(source if source.is_file() else load_result(args.db, args.run_id), args.out)
         return 0
     try:
         if args.mode == "alphabeta":
             if args.positions <= 0 or args.position_plies < 0:
                 raise ValueError("--positions must be positive and --position-plies >= 0")
             positions = make_positions(args.ruleset, args.positions, args.position_plies, args.seed)
-            path, _ = run_alphabeta(depths=args.depths, positions=positions, ruleset=args.ruleset, seed=args.seed,
-                                    run_id=args.run_id, out_root=args.out_root, position_plies=args.position_plies)
+            path, payload = run_alphabeta(depths=args.depths, positions=positions, ruleset=args.ruleset,
+                                          seed=args.seed, run_id=args.run_id, db_path=args.db,
+                                          position_plies=args.position_plies)
         else:
-            path, _ = run_mcts(sims=args.sims, games=args.games, opponent=args.opponent, ruleset=args.ruleset,
-                               seed=args.seed, run_id=args.run_id, out_root=args.out_root,
-                               alphabeta_depth=args.alphabeta_depth)
+            path, payload = run_mcts(sims=args.sims, games=args.games, opponent=args.opponent, ruleset=args.ruleset,
+                                     seed=args.seed, run_id=args.run_id, db_path=args.db,
+                                     alphabeta_depth=args.alphabeta_depth)
     except (FileExistsError, ValueError, RuntimeError) as exc:
         parser.error(str(exc))
     if args.plot:
-        plot(path)
+        plot(payload)
     return 0
 
 

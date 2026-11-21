@@ -1,4 +1,6 @@
-# Ngân sách 5000 ván cho `az_v0b`, 10000 ván chỉ khi đường cong còn dốc
+# Lịch sử (đã supersede): đề xuất ngân sách 5000 ván cho `az_v0b`
+
+**Trạng thái:** quyết định lịch sử, không còn là pipeline hiện hành. Checkpoint hợp lệ mới nhất đã được chuyển vào `az_v0`; các lần chạy mới dùng duy nhất model ID `az_v0`. Giữ tài liệu này để truy vết quyết định cũ.
 
 Sau khi `az_v0` chạy xong 1000 ván, `az_v0b` được huấn luyện tiếp tới 5000 ván (100 vòng × 50 ván), khởi động từ `checkpoints/last.pt` và `checkpoints/buffer_last.npz`, ghi ra `checkpoints/az_v0b/`. `train_steps_per_iter` nâng 200 → 1000. Mốc 10000 ván chỉ mở nếu win rate ở khoảng 3000–5000 ván vẫn còn tăng.
 
