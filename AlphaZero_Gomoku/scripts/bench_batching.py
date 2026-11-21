@@ -1,6 +1,6 @@
 """Measure GD5 batching: batch size and throughput for parallel_games = 1, 4, 16.
 
-Uses the trained checkpoint when it exists (throughput is the same either way).
+Uses the selected validated checkpoint for throughput measurements.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import torch
@@ -17,7 +18,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from az.model import AZNet, load_checkpoint
+from az.logging_v2 import SELFPLAY_DB, connect, initialize, record_selfplay_run, write_event
+
+from az.model import load_checkpoint
 from az.selfplay import run_games
 from config import load_config
 from gomoku.rules.normal import NormalRules
@@ -28,21 +31,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default="configs/normal.yaml")
     parser.add_argument("--games", type=int, default=16)
     parser.add_argument("--parallel", type=int, nargs="+", default=[1, 4, 16])
-    parser.add_argument("--checkpoint", default="checkpoints/last.pt")
+    parser.add_argument("--checkpoint", default="checkpoints/best.json")
     parser.add_argument("--device", default=None, help="cuda/cpu; default: cuda when available")
-    parser.add_argument("--out", default="logs/bench_batching.json")
+    parser.add_argument("--db", default=str(SELFPLAY_DB), help="SQLite self-play database.")
     args = parser.parse_args(argv)
+    initialize(args.db, "selfplay")
 
     cfg = load_config(args.config)
     device = torch.device(args.device) if args.device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if Path(args.checkpoint).is_file():
-        model, _ = load_checkpoint(args.checkpoint, device=device)
-    else:
-        print(f"warning: {args.checkpoint} missing, using a random-init model")
-        model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"]).to(device)
+    from az.model import resolve_checkpoint_path
+    args.checkpoint = str(resolve_checkpoint_path(args.checkpoint))
+    model, _ = load_checkpoint(args.checkpoint, device=device)
     print(f"device: {device}")
     rules = NormalRules()
 
+    run_id = f"bench_batching_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
+    created_at = datetime.now(timezone.utc).isoformat()
     rows = []
     for parallel in args.parallel:
         started = time.perf_counter()
@@ -61,10 +65,17 @@ def main(argv: list[str] | None = None) -> int:
         rows.append(row)
         print(json.dumps(row), flush=True)
 
-    out_path = Path(args.out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
-    print(f"wrote {out_path}")
+
+    with connect(args.db) as connection:
+        record_selfplay_run(connection, run_id=run_id, started_at=created_at, backend="benchmark",
+                             rule_set="normal", seed=0,
+                             config={"games": args.games, "parallel": args.parallel, **cfg},
+                             metadata={"kind": "bench_batching", "device": str(device),
+                                       "checkpoint": args.checkpoint})
+        for row in rows:
+            write_event(connection, run_id=run_id, event="batching_result", payload=row,
+                        recorded_at=created_at)
+    print(f"wrote {args.db} ({run_id})")
     return 0
 
 

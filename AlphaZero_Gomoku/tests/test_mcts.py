@@ -256,6 +256,13 @@ def test_request_returns_none_when_budget_exhausted():
     # Budget exhausted -> request() must return None
     assert mcts.request() is None
 
+def test_select_move_rejects_zero_visit_counts():
+    mcts = MCTS(rules=MockRules(), n_simulations=1)
+    mcts.reset(MockBoard())
+
+    with pytest.raises(ValueError, match="0 visit counts"):
+        mcts.select_move(temperature=0.0)
+
 
 # Gate Test 6: Dirichlet noise perturbs the root priors only
 def test_dirichlet_noise_only_at_root():

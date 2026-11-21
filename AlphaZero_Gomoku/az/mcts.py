@@ -37,6 +37,7 @@ class Node:
         return self.value_sum / self.visit_count
 
 
+
 class MCTS:
     """AlphaZero Monte Carlo Tree Search with step-by-step request/receive API."""
 
@@ -191,8 +192,6 @@ class MCTS:
         assert np.isfinite(value) and -1.0 <= value <= 1.0, f"leaf value out of range: {value}"
         node.visit_count += 1
         node.value_sum += value
-
-        # Walk up path, alternating perspective
         v = value
         if self.pending_path:
             for parent, _, child in reversed(self.pending_path):
@@ -211,6 +210,20 @@ class MCTS:
             for move, child in self.root.children.items():
                 counts[move] = child.visit_count
         return counts
+    def root_statistics(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Return root visits, priors, root-perspective Q, and expanded legal moves."""
+        counts = np.zeros(121, dtype=np.int32)
+        priors = np.zeros(121, dtype=np.float64)
+        q_values = np.zeros(121, dtype=np.float64)
+        legal_mask = np.zeros(121, dtype=bool)
+        if self.root is not None:
+            for move, child in self.root.children.items():
+                counts[move] = child.visit_count
+                priors[move] = child.prior
+                q_values[move] = -child.q_value
+                legal_mask[move] = True
+        return counts, priors, q_values, legal_mask
+
 
     def select_move(self, temperature: float = 1.0) -> int:
         """Select a move based on root visit counts and temperature."""
@@ -313,3 +326,118 @@ class MCTS:
         mask[self.rules.legal_moves(board)] = True
         mask[self.rules.forbidden_moves(board)] = False
         return mask
+
+class NativeMCTS(MCTS):
+    """Python rules/inference adapter over the arena-owned C++ search tree."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        try:
+            import gomoku_mcts_native
+        except (ImportError, OSError) as exc:
+            raise ImportError("Native MCTS requires a compatible gomoku_mcts_native extension") from exc
+        self._native_module = gomoku_mcts_native
+        self._tree = None
+        super().__init__(*args, **kwargs)
+
+    def reset(self, board) -> None:
+        from gomoku_mcts_native import Tree
+        self.board = board
+        self._tree = Tree(float(self.c_puct))
+        self.simulations_done = 0
+        self.pending_request = None
+        self.pending_path = None
+        if hasattr(self.rules, "is_terminal") and self.rules.is_terminal(board):
+            self._tree.mark_root_terminal(-1.0 if self.rules.is_win(board) else 0.0)
+
+    def request(self) -> LeafRequest | None:
+        if self.pending_request is not None:
+            raise RuntimeError("Cannot request() while a LeafRequest is already pending. Call receive() first.")
+        if self.board is None or self._tree is None:
+            raise RuntimeError("MCTS must be reset(board) before calling request().")
+        while True:
+            node, moves = self._tree.request(
+                int(self.n_simulations), lambda n: int(self.rng.integers(n)))
+            self.simulations_done = self._tree.simulations_done
+            if node is None:
+                return None
+            played = 0
+            try:
+                for move in moves:
+                    self.board.play(*divmod(int(move), SIZE))
+                    played += 1
+                is_win = hasattr(self.rules, "is_win") and self.rules.is_win(self.board)
+                is_terminal = hasattr(self.rules, "is_terminal") and self.rules.is_terminal(self.board)
+                if is_win or is_terminal:
+                    self._tree.set_terminal(int(node), -1.0 if is_win else 0.0)
+                    self.simulations_done = self._tree.simulations_done
+                    continue
+                legal_mask = self._get_legal_mask(self.board)
+                if not np.any(legal_mask):
+                    self._tree.set_terminal(int(node), 0.0)
+                    self.simulations_done = self._tree.simulations_done
+                    continue
+                planes = self._get_planes(self.board)
+            finally:
+                for _ in range(played):
+                    self.board.undo()
+            self._pending_node = int(node)
+            self._pending_legal_mask = legal_mask
+            req = LeafRequest(node=int(node), planes=planes, legal_mask=legal_mask)
+            self.pending_request = req
+            return req
+
+    def receive(self, policy: np.ndarray, value: float) -> None:
+        if self.pending_request is None:
+            raise RuntimeError("No pending LeafRequest to receive().")
+        value = float(value)
+        if not np.isfinite(value) or not -1.0 <= value <= 1.0:
+            raise ValueError(f"leaf value out of range: {value}")
+        mask = self._pending_legal_mask
+        masked = np.asarray(policy) * mask
+        total = float(np.sum(masked))
+        if total > 1e-8:
+            priors = masked / total
+        else:
+            count = int(np.sum(mask))
+            priors = np.where(mask, 1.0 / count, 0.0) if count else np.zeros_like(masked)
+        legal = np.flatnonzero(mask)
+        if self._pending_node == 0 and self.root_noise and len(legal):
+            noise = self.rng.dirichlet([self.dirichlet_alpha] * len(legal))
+            priors[legal] = (1.0 - self.dirichlet_eps) * priors[legal] + self.dirichlet_eps * noise
+        self._tree.receive(self._pending_node, legal.tolist(), priors[legal].astype(float).tolist(), value)
+        self.nn_calls += 1
+        self.simulations_done = self._tree.simulations_done
+        self.pending_request = None
+        self.pending_path = None
+
+    def visit_counts(self) -> np.ndarray:
+        return np.asarray(self._tree.visit_counts(), dtype=np.int32)
+    def root_statistics(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        return tuple(np.asarray(values) for values in self._tree.root_statistics())
+
+
+    def select_move(self, temperature: float = 1.0) -> int:
+        counts = self.visit_counts()
+        if int(np.sum(counts)) == 0:
+            raise ValueError("Cannot select_move with 0 visit counts.")
+        if temperature == 0.0:
+            return int(self.rng.choice(np.flatnonzero(counts == np.max(counts))))
+        probs = counts.astype(np.float64) ** (1.0 / float(temperature))
+        total = float(np.sum(probs))
+        if total > 0:
+            return int(self.rng.choice(len(probs), p=probs / total))
+        return int(self.rng.choice(np.flatnonzero(counts > 0)))
+
+    def root_value(self) -> float:
+        return float(self._tree.root_value) if self._tree is not None else 0.0
+
+    def tree_size(self) -> int:
+        return int(self._tree.size) if self._tree is not None else 0
+    @property
+    def root(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(is_terminal=bool(self._tree.root_terminal)) if self._tree is not None else None
+    @root.setter
+    def root(self, value):
+        self._root_terminal = bool(getattr(value, "is_terminal", False))
+
