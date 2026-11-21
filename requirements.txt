@@ -1,0 +1,13 @@
+# Shared environment for labs and AlphaZero_Gomoku (Python 3.12)
+torch
+numpy
+matplotlib
+pandas
+scipy
+gymnasium[classic-control]
+numba
+ipython
+jupyterlab
+pyyaml
+pytest
+pygame
