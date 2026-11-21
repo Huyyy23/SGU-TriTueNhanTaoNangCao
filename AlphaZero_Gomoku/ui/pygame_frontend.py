@@ -64,7 +64,9 @@ class PygameFrontend:
         self._rects: dict[str, pygame.Rect] = {}
 
     def _default_checkpoint(self):
-        return str(Path(__file__).resolve().parents[1] / "checkpoints" / "normal" / "latest.json")
+        if self.checkpoint_options:
+            return self.checkpoint_options[0]
+        return str(Path(__file__).resolve().parents[1] / "models" / "az_normal_weights.pt")
 
     @staticmethod
     def _discover_checkpoints():
@@ -73,12 +75,16 @@ class PygameFrontend:
         except ModuleNotFoundError:
             return []
 
-        root = Path(__file__).resolve().parents[1] / "checkpoints"
-        candidates = [root / "normal" / "latest.json"]
+        root = Path(__file__).resolve().parents[1]
+        candidates = [
+            root / "checkpoints" / "normal" / "latest.json",
+            root / "models" / "az_normal_weights.pt",
+        ]
         valid = []
-        for path in sorted(candidates):
+        for path in candidates:
             try:
-                if resolve_checkpoint_path(path).is_file():
+                resolved = resolve_checkpoint_path(path) if path.suffix.lower() == ".json" else path
+                if resolved.is_file():
                     valid.append(str(path))
             except (OSError, ValueError, KeyError, TypeError):
                 continue

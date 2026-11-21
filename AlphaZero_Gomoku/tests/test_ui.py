@@ -107,6 +107,45 @@ def test_frontend_discovers_valid_checkpoint_pointers():
     assert app.checkpoints[BLACK] in app.checkpoint_options
 
 
+def test_frontend_prefers_local_checkpoint_to_weights(monkeypatch, tmp_path):
+    import ui.pygame_frontend as frontend
+
+    root = tmp_path
+    monkeypatch.setattr(frontend, "__file__", str(root / "ui" / "pygame_frontend.py"))
+    pointer = root / "checkpoints" / "normal" / "latest.json"
+    pointer.parent.mkdir(parents=True)
+    pointer.write_text("{}")
+    local_checkpoint = pointer.parent / "generations" / "local" / "checkpoint.pt"
+    local_checkpoint.parent.mkdir(parents=True)
+    local_checkpoint.write_bytes(b"checkpoint")
+    weights = root / "models" / "az_normal_weights.pt"
+    weights.parent.mkdir()
+    weights.write_bytes(b"weights")
+    monkeypatch.setattr(
+        "az.model.resolve_checkpoint_path",
+        lambda path: local_checkpoint if path == pointer else path,
+    )
+
+    app = PygameFrontend()
+
+    assert app.checkpoints[BLACK] == str(pointer)
+    assert str(weights) in app.checkpoint_options
+
+
+def test_frontend_falls_back_to_weights_only_without_local_checkpoint(monkeypatch, tmp_path):
+    import ui.pygame_frontend as frontend
+
+    root = tmp_path
+    monkeypatch.setattr(frontend, "__file__", str(root / "ui" / "pygame_frontend.py"))
+    weights = root / "models" / "az_normal_weights.pt"
+    weights.parent.mkdir()
+    weights.write_bytes(b"weights")
+
+    app = PygameFrontend()
+
+    assert app.checkpoints[BLACK] == str(weights)
+
+
 def test_frontend_real_az_loads_and_makes_legal_move():
     app = PygameFrontend()
     pointer = app.checkpoints[BLACK]

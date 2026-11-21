@@ -105,6 +105,23 @@ def test_checkpoint_roundtrip(tmp_path):
     np.testing.assert_allclose(v_orig, v_load, atol=1e-5)
 
 
+def test_weights_only_checkpoint_loads_for_normal_inference(tmp_path):
+    model = AZNet()
+    checkpoint = tmp_path / "az_normal_weights.pt"
+    torch.save(model.state_dict(), checkpoint)
+
+    loaded_model, meta = load_checkpoint(checkpoint, device="cpu")
+    features = np.zeros((1, 4, 11, 11), dtype=np.uint8)
+    probs, values = loaded_model.predict(features)
+    expected_probs, expected_values = model.predict(features)
+    np.testing.assert_allclose(probs, expected_probs)
+    np.testing.assert_allclose(values, expected_values)
+
+    assert probs.shape == (1, 121)
+    assert values.shape == (1,)
+    assert meta["rule_set"] == "normal"
+
+
 def test_predict_leaves_model_in_eval():
     """predict() switches to eval and stays there; train_on_batch() restores train mode itself."""
     model = AZNet(n_blocks=1, n_filters=16)

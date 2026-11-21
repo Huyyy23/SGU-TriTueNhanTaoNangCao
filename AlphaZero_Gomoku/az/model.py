@@ -156,7 +156,12 @@ def load_checkpoint(
         device = torch.device(device)
 
     checkpoint_data = torch.load(path, map_location=device, weights_only=False)
-    meta = checkpoint_data.get("meta", {})
+    if "model_state_dict" in checkpoint_data:
+        meta = checkpoint_data.get("meta", {})
+        state_dict = checkpoint_data["model_state_dict"]
+    else:
+        meta = {"rule_set": "normal"}
+        state_dict = checkpoint_data
     # Older checkpoints may lack these keys; keep the six-key contract on load.
     meta.setdefault("format_version", CHECKPOINT_FORMAT_VERSION)
     meta.setdefault("n_iter", 0)
@@ -166,7 +171,7 @@ def load_checkpoint(
     n_filters = meta.get("n_filters", 64)
 
     model = AZNet(n_blocks=n_blocks, n_filters=n_filters)
-    model.load_state_dict(checkpoint_data["model_state_dict"])
+    model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
     return model, meta
