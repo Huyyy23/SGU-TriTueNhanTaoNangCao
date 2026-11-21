@@ -1,15 +1,11 @@
-"""Balanced round-robin evaluation with raw telemetry and reproducible manifests."""
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import json
 import math
-import os
 import sys
 from datetime import datetime, timezone
-from itertools import combinations
 from numbers import Integral
 from pathlib import Path
 
@@ -17,8 +13,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from az.evaluator import play_game, summarise
-from az.game_log import GameLogger, GameRecord, MoveRecord
+from az.evaluator import play_game
+from az.logging_v2 import (
+    TOURNAMENT_DB,
+    connect as connect_tournament_db,
+    initialize as initialize_tournament_db,
+    record_tournament_experiment,
+    record_tournament_game,
+    tournament_agent_id,
+    write_event,
+)
 from config import load_config
 from gomoku.rules import get_rules
 from players.factory import AGENT_CHOICES, create_player
@@ -201,15 +205,19 @@ def default_builder(settings: dict, rules, seed: int):
 class Probe:
     """Wrap a player: time every move and read its search counters without changing it."""
 
-    def __init__(self, player, label: str, opening: list[int] | None = None) -> None:
+    def __init__(self, player, label: str, opening: list[int] | None = None,
+                 collect_telemetry: bool = True) -> None:
         self.player = player
         self.name = label
         self.rules = getattr(player, "rules", None)
         self.opening = opening or []
         self.moves: list[dict] = []
+        self.collect_telemetry = collect_telemetry
         self._nn_calls = 0
         self._base_time = 0.0
         self._threat: dict | None = None
+        if not collect_telemetry:
+            return
 
         base = getattr(player, "base", None)
         owner = base if base is not None else player
@@ -254,6 +262,11 @@ class Probe:
         ply = len(board.history)
         if ply < len(self.opening):
             return divmod(self.opening[ply], SIZE)  # shared random opening, not timed
+        if not self.collect_telemetry:
+            move = self.player.select_move(board)
+            if not isinstance(move, tuple) or len(move) != 2 or not all(isinstance(value, Integral) for value in move):
+                raise IllegalMoveError(f"{self.name} returned malformed move {move!r}")
+            return move
         self._nn_calls, self._base_time, self._threat = 0, 0.0, None
         started = time.perf_counter()
         move = self.player.select_move(board)
@@ -279,7 +292,6 @@ class Probe:
                          "nn_calls": record.get("nn_calls"), "override_applied": bool(record.get("override")),
                          "override_reason": record.get("override")}
         return move
-
 
 def _move_stats(moves: list[dict], time_budget: float | None) -> dict:
     times = [m["t"] for m in moves]
@@ -358,8 +370,11 @@ def play_game_task(task: dict, builder: Callable | None = None) -> dict:
     rules = get_rules(task["ruleset"])
     opening = task["opening"]
     black_label, white_label = task["black"], task["white"]
-    black = Probe(builder(task["settings"][black_label], rules, task["seeds"]["black"]), black_label, opening)
-    white = Probe(builder(task["settings"][white_label], rules, task["seeds"]["white"]), white_label, opening)
+    collect_telemetry = task.get("collect_telemetry", True)
+    black = Probe(builder(task["settings"][black_label], rules, task["seeds"]["black"]), black_label, opening,
+                  collect_telemetry)
+    white = Probe(builder(task["settings"][white_label], rules, task["seeds"]["white"]), white_label, opening,
+                  collect_telemetry)
 
     started = time.perf_counter()
     moves: list[int] = []
@@ -399,7 +414,8 @@ def play_game_task(task: dict, builder: Callable | None = None) -> dict:
         "error": error,
         "moves_count": len(moves),
         "moves": moves,
-        "raw_moves": sorted([m["raw"] for m in black.moves + white.moves], key=lambda m: m["move_index"]),
+        **({"raw_moves": sorted([m["raw"] for m in black.moves + white.moves], key=lambda m: m["move_index"])}
+           if collect_telemetry else {}),
         "opening_plies": len(opening),
         "duration_sec": round(time.perf_counter() - started, 4),
         "seeds": task["seeds"],
@@ -619,52 +635,6 @@ def aggregate(records: list[dict], labels: list[str], time_budget: float | None)
     return {"pairs": pairs, "agents": agents, "matrix": matrix}
 
 
-# -- output files --------------------------------------------------------------
-
-
-def write_matrix_csv(path: Path, labels: list[str], result: dict) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f, lineterminator="\n")
-        writer.writerow(["agent"] + labels + ["overall_score"])
-        for row in labels:
-            cells = ["" if col == row else _fmt(result["matrix"][row][col]) for col in labels]
-            writer.writerow([row] + cells + [_fmt(result["agents"][row]["score"])])
-
-
-PAIR_COLUMNS = [
-    "agent_a", "agent_b", "games", "wins_a", "draws", "wins_b", "score_a", "wilson95_low_a", "wilson95_high_a",
-    "score_a_black", "score_a_white", "score_b_black", "score_b_white", "games_a_black", "games_a_white",
-    "distinct_games_a_black", "distinct_games_b_black", "illegal_moves_a", "illegal_moves_b", "mean_moves_per_game",
-    "mean_time_a_sec", "p95_time_a_sec", "mean_time_b_sec", "p95_time_b_sec",
-    "mean_nodes_a", "mean_nodes_b", "nn_calls_per_move_a", "nn_calls_per_move_b",
-]
-
-
-def write_pairs_csv(path: Path, result: dict) -> None:
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=PAIR_COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        for row in result["pairs"]:
-            sa, sb = row["stats_a"], row["stats_b"]
-            ci = row["wilson95_a"] or [None, None]
-            writer.writerow({
-                **{k: _fmt(row[k]) for k in PAIR_COLUMNS if k in row},
-                "wilson95_low_a": _fmt(ci[0]), "wilson95_high_a": _fmt(ci[1]),
-                "mean_time_a_sec": _fmt(sa["mean_time_per_move_sec"]), "p95_time_a_sec": _fmt(sa["p95_time_per_move_sec"]),
-                "mean_time_b_sec": _fmt(sb["mean_time_per_move_sec"]), "p95_time_b_sec": _fmt(sb["p95_time_per_move_sec"]),
-                "mean_nodes_a": _fmt(sa.get("mean_nodes_per_move")), "mean_nodes_b": _fmt(sb.get("mean_nodes_per_move")),
-                "nn_calls_per_move_a": _fmt(sa.get("mean_nn_calls_per_move")),
-                "nn_calls_per_move_b": _fmt(sb.get("mean_nn_calls_per_move")),
-            })
-
-
-def _fmt(value) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, float):
-        return f"{value:.4f}" if abs(value) >= 1e-3 or value == 0 else f"{value:.6f}"
-    return str(value)
-
 
 def _sha256(path: str) -> str:
     digest = hashlib.sha256()
@@ -705,7 +675,6 @@ def run_tournament(
     budget: Budget,
     ruleset: str = "normal",
     seed: int = 0,
-    out_root: str | Path = "logs/tournament",
     run_id: str | None = None,
     workers: int = 1,
     opening_plies: int = 0,
@@ -715,12 +684,18 @@ def run_tournament(
     log: Callable[[str], None] | None = None,
     resume: bool = False,
     pair: str | None = None,
-    out_dir: str | Path | None = None,
     seed_scheme: str = "paired-crc32",
     backends: dict | None = None,
+    db_path: str | Path = TOURNAMENT_DB,
+    logging_level: str = "standard",
 ) -> tuple[Path, dict]:
-    """Play the round-robin for `entries` (label -> resolved settings) and write all files."""
-    log = log or (lambda message: print(message, flush=True))
+    """Play a round-robin; NONE returns in-memory results without durable output."""
+    if logging_level not in {"none", "standard"}:
+        raise ValueError("logging_level must be 'none' or 'standard'")
+    if resume and logging_level == "none":
+        raise ValueError("resume requires STANDARD logging")
+    if log is None:
+        log = (lambda message: print(message, flush=True)) if logging_level == "standard" else (lambda _message: None)
     kinds = {settings["factory"]["agent"] for settings in entries.values()}
     if backends is None:
         from az.backend import configure_backends
@@ -746,10 +721,9 @@ def run_tournament(
         raise ValueError("a custom builder only works with workers=1")
     if opening_plies < 0:
         raise ValueError("--random-opening must be >= 0")
-    run_id = run_id or f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}_{ruleset}_{budget.label}_s{seed}"
-    run_dir = Path(out_dir) if out_dir is not None else Path(out_root) / run_id
-    if run_dir.exists() and not resume:
-        raise FileExistsError(f"{run_dir} already exists; logs are never overwritten")
+    if resume and not run_id:
+        raise ValueError("--resume requires an explicit --run-id")
+    run_id = run_id or f"{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S-%f')}_{ruleset}_{budget.label}_s{seed}"
     tasks = schedule(labels, games, seed, ruleset, opening_plies)
     if seed_scheme == "legacy-v1":
         if opening_plies:
@@ -766,6 +740,15 @@ def run_tournament(
         for index, task in enumerate(tasks):
             task["game_id"] = index
     time_budget = budget.value if budget.mode == "time" else None
+    from az.model import resolve_checkpoint_path
+    entries = {
+        label: {**settings, "factory": {
+            **settings["factory"],
+            **({"checkpoint": str(resolve_checkpoint_path(settings["factory"]["checkpoint"]))}
+               if settings["factory"].get("checkpoint") else {}),
+        }}
+        for label, settings in entries.items()
+    }
     checkpoints = sorted({s["factory"]["checkpoint"] for s in entries.values() if s["factory"].get("checkpoint")})
     hashes_before = {path: _sha256(path) for path in checkpoints}
 
@@ -780,7 +763,6 @@ def run_tournament(
         except Exception as exc:
             raise ValueError(f"agent {label!r} could not be created: {type(exc).__name__}: {exc}") from exc
 
-    run_dir.mkdir(parents=True, exist_ok=True)
     config = {
         "run_id": run_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -803,23 +785,90 @@ def run_tournament(
         "workers": workers,
         "torch_threads_per_game": torch_threads,
         "checkpoint_sha256": hashes_before,
-        "git": _git_state(),
-        "versions": _versions(),
+        "git": _git_state() if logging_level == "standard" else None,
+        "versions": _versions() if logging_level == "standard" else None,
         **(extra_config or {}),
         "backends": backends,
         "components_used": components_used,
+        "logging_level": logging_level,
     }
+    database_config = config
+    database_metadata = {"pair": pair}
+    db_path = Path(db_path)
+    agent_ids = {}
+    if logging_level == "standard":
+        initialize_tournament_db(db_path, "tournament")
+        with connect_tournament_db(db_path) as connection:
+            saved = connection.execute(
+                "SELECT started_at, backend, rule_set, seed, config_json, metadata_json "
+                "FROM experiments WHERE experiment_id=?", (run_id,)
+            ).fetchone()
+            if saved is not None and not resume:
+                raise FileExistsError(f"experiment {run_id!r} already exists in {db_path}")
+            if resume:
+                if saved is None:
+                    raise ValueError(f"resume requires an existing SQLite experiment: {run_id}")
+                database_config = json.loads(saved["config_json"])
+                database_metadata = json.loads(saved["metadata_json"])
+                resume_fields = (
+                    "agents", "agent_settings", "games_per_pair", "budget", "ruleset", "seed", "seed_scheme",
+                    "pair", "random_opening_plies", "checkpoint_sha256", "torch_threads_per_game",
+                    "algorithm_version", "loaded_config", "backends", "components_used",
+                )
+                if any(database_config.get(key) != config.get(key) for key in resume_fields):
+                    raise ValueError("resume configuration or checkpoint does not match saved SQLite experiment")
+                config = database_config
+                database_metadata = json.loads(saved["metadata_json"])
+            record_tournament_experiment(
+                connection, experiment_id=run_id, started_at=database_config["created_at"],
+                backend=backends.get("requested_backend", "auto"), rule_set=ruleset, seed=seed,
+                config=database_config, metadata=database_metadata,
+            )
+            for label, settings in entries.items():
+                factory = settings["factory"]
+                agent_ids[label] = tournament_agent_id(
+                    label=label, algorithm=factory["agent"],
+                    checkpoint_sha256=hashes_before.get(factory.get("checkpoint")),
+                    backend=json.dumps(backends, sort_keys=True), rule_set=ruleset, config=settings,
+                )
+                from az.logging_v2 import record_tournament_agent, record_tournament_match
+                record_tournament_agent(
+                    connection, agent_id=agent_ids[label], label=label, algorithm=factory["agent"],
+                    checkpoint_sha256=hashes_before.get(factory.get("checkpoint")),
+                    backend=json.dumps(backends, sort_keys=True), rule_set=ruleset, config=settings,
+                )
+            for task in tasks:
+                pair_id = f"{task['agent_a']}|{task['agent_b']}:{task['pair_game'] // 2}"
+                record_tournament_match(
+                    connection, match_id=f"{run_id}:{pair_id}", experiment_id=run_id,
+                    agent_a_id=agent_ids[task["agent_a"]], agent_b_id=agent_ids[task["agent_b"]],
+                    pair_id=pair_id, rule_set=ruleset, seed=task["seeds"]["opening"], metadata={"games": 2},
+                )
+
+    def persist_game(record: dict) -> None:
+        if logging_level != "standard":
+            return
+        with connect_tournament_db(db_path) as connection:
+            pair_id = f"{record['pair'][0]}|{record['pair'][1]}:{record['pair_game'] // 2}"
+            record_tournament_game(
+                connection,
+                experiment_id=run_id,
+                local_game_id=record["game_id"],
+                match_id=f"{run_id}:{pair_id}",
+                black_agent_id=agent_ids[record["first_player"]],
+                white_agent_id=agent_ids[record["second_player"]],
+                record=record,
+            )
     records = []
-    saved_path = run_dir / "config.json"
     if resume:
-        if not saved_path.exists():
-            raise ValueError("resume requires a config.json from the unified runner; historical manifests are read separately")
-        saved = json.loads(saved_path.read_text(encoding="utf-8"))
-        fields = ("agents", "agent_settings", "games_per_pair", "budget", "ruleset", "seed", "seed_scheme",
-                  "pair", "random_opening_plies", "checkpoint_sha256", "torch_threads_per_game", "algorithm_version", "loaded_config", "backends", "components_used")
-        if any(saved.get(key) != config.get(key) for key in fields):
-            raise ValueError("resume configuration or checkpoint does not match saved manifest")
-        records = [json.loads(line) for line in (run_dir / "games.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()] if (run_dir / "games.jsonl").exists() else []
+        with connect_tournament_db(db_path) as connection:
+            records = [
+                json.loads(row["payload_json"])
+                for row in connection.execute(
+                    "SELECT payload_json FROM games WHERE experiment_id=? ORDER BY CAST(local_game_id AS INTEGER)",
+                    (run_id,),
+                )
+            ]
         expected = {task["game_id"]: task for task in tasks}
         seen = set()
         for record in records:
@@ -835,34 +884,33 @@ def run_tournament(
             if record.get("winner") not in {"black", "white", "draw"} or len(record.get("moves", [])) != record["moves_count"]:
                 raise ValueError("invalid resume result or moves")
             seen.add(record["game_id"])
-        config = saved
+        for record in records:
+            persist_game(record)
         tasks = [task for task in tasks if task["game_id"] not in seen]
-    else:
-        saved_path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
-    from az.backend_logging import log_backend_selection
-    log_backend_selection(
-        run_id=run_id,
-        workload="tournament",
-        requested_backend=backends.get("requested_backend", "auto"),
-        backends=backends,
-        components_used=components_used,
-    )
-    log(f"run {run_id}: {len(labels)} agents, {config['pairs']} pairs, {len(tasks)} games -> {run_dir}")
+
+    if logging_level == "standard":
+        from az.backend_logging import log_backend_selection
+        log_backend_selection(
+            run_id=run_id,
+            workload="tournament",
+            requested_backend=backends.get("requested_backend", "auto"),
+            backends=backends,
+            components_used=components_used,
+            primary_path=db_path,
+        )
+    log(f"run {run_id}: {len(labels)} agents, {config['pairs']} pairs, {len(tasks)} games -> {db_path}")
 
     for task in tasks:
         task["backends"] = backends
-        task.update(run_id=run_id, settings={label: {**settings, "backend": backends} for label, settings in entries.items()}, time_budget=time_budget, torch_threads=torch_threads)
+        task.update(run_id=run_id, settings={label: {**settings, "backend": backends} for label, settings in entries.items()},
+                    time_budget=time_budget, torch_threads=torch_threads,
+                    collect_telemetry=logging_level == "standard")
 
     started = time.perf_counter()
-    # Existing records remain byte-for-byte; only unfinished IDs are appended.
-    games_path = run_dir / "games.jsonl"
 
     def store(record: dict) -> None:
         records.append(record)
-        with open(games_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-            f.flush()
-            os.fsync(f.fileno())
+        persist_game(record)
         result = "draw" if record["winner"] == "draw" else f"{record['winner_agent']} wins"
         if record["illegal_by"]:
             result += f" (illegal move by {record['illegal_by']})"
@@ -887,7 +935,7 @@ def run_tournament(
     if changed:
         warnings.append(f"checkpoint changed during the run: {changed}")
     if illegal_total:
-        warnings.append(f"{illegal_total} game(s) ended on an illegal move; see games.jsonl")
+        warnings.append(f"{illegal_total} game(s) ended after an illegal move; inspect the SQLite game payloads")
     for row in result["pairs"]:
         if row["games_a_black"] != row["games_a_white"]:
             warnings.append(f"colours not split evenly for {row['agent_a']} vs {row['agent_b']}")
@@ -907,16 +955,34 @@ def run_tournament(
         "agents_summary": result["agents"],
         "pairs_summary": result["pairs"],
     }
-    write_matrix_csv(run_dir / "matrix.csv", labels, result)
-    write_pairs_csv(run_dir / "pairs.csv", result)
-    (run_dir / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    if logging_level == "standard":
+        with connect_tournament_db(db_path) as connection:
+            existing = connection.execute(
+                "SELECT payload_json FROM events WHERE experiment_id=? AND event='tournament_summary'",
+                (run_id,),
+            ).fetchone()
+            if existing is not None:
+                saved_summary = json.loads(existing["payload_json"])
+                keys = ("games_played", "matrix", "agents_summary", "pairs_summary", "warnings")
+                if any(saved_summary.get(key) != summary.get(key) for key in keys):
+                    raise ValueError(f"completed tournament summary conflicts with SQLite experiment {run_id}")
+            else:
+                for warning in warnings:
+                    write_event(
+                        connection, experiment_id=run_id, recorded_at=summary["finished_at"],
+                        level="warning", event="tournament_warning", payload={"message": warning},
+                    )
+                write_event(
+                    connection, experiment_id=run_id, recorded_at=summary["finished_at"],
+                    event="tournament_summary", payload=summary,
+                )
     for warning in warnings:
         log(f"WARNING: {warning}")
-    log(f"done in {summary['wall_time_sec']:.1f}s -> {run_dir}")
-    return run_dir, summary
+    log(f"done in {summary['wall_time_sec']:.1f}s -> {db_path}")
+    return db_path, summary
 
 
-ALIASES = {"mcts_pure": "mcts-pure", "az_renju": "az_v0"}
+ALIASES = {"az": "az_v1_threat", "mcts_pure": "mcts-pure", "az_renju": "az_v0"}
 
 
 def resolve_agent(agent: str) -> str:
@@ -934,6 +1000,8 @@ def checkpoint_manifest(checkpoints: dict[str, str]) -> dict:
     result = {}
     for name, path in checkpoints.items():
         digest = hashlib.sha256()
+        from az.model import resolve_checkpoint_path
+        path = str(resolve_checkpoint_path(path))
         with Path(path).open("rb") as stream:
             for block in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(block)
@@ -941,10 +1009,6 @@ def checkpoint_manifest(checkpoints: dict[str, str]) -> dict:
     return result
 
 
-def prepare_output(path: Path) -> None:
-    if path.exists() and (not path.is_dir() or any(path.iterdir())):
-        raise ValueError(f"output directory must be empty: {path}")
-    path.mkdir(parents=True, exist_ok=True)
 
 
 def checkpoint_mapping(entries: list[str], agents: list[str], rule_set: str) -> dict[str, str]:
@@ -965,161 +1029,28 @@ def checkpoint_mapping(entries: list[str], agents: list[str], rule_set: str) -> 
     result = {}
     for agent in agents:
         if resolve_agent(agent).startswith("az"):
-            default = "checkpoints/renju_last.pt" if rule_set == "renju" or agent == "az_renju" else "checkpoints/last.pt"
+            default = "checkpoints/renju_latest.json" if rule_set == "renju" or agent == "az_renju" else "checkpoints/normal/latest.json"
             result[agent] = mapping.get(agent, mapping.get(resolve_agent(agent), default))
     return result
 
 
 def make_named_player(agent: str, rules, *, config: str, checkpoint: str | None,
-                      seed: int, budget: tuple[str, int | float], depth: int):
+                      seed: int, budget: tuple[str, int | float], depth: int,
+                      backends: dict | None = None):
     kind, amount = budget
+    mcts_backend = backends.get("mcts", "auto") if backends else "auto"
+    patterns_backend = backends.get("patterns", "auto") if backends else "auto"
     player = create_player(
         resolve_agent(agent), rules, config=config, checkpoint=checkpoint, seed=seed,
         rollouts=int(amount) if kind == "sims" else 50, depth=depth,
         n_simulations=int(amount) if kind == "sims" else None,
         time_budget_sec=float(amount) if kind == "time" else None,
+        mcts_backend=mcts_backend, patterns_backend=patterns_backend,
     )
     player.name = agent
     return player
 
 
-def merge_shards(root: Path, out: Path) -> int:
-    """Freeze a complete set of pair shards, deriving every result from JSONL."""
-    unified = sorted(root.glob("*/config.json"))
-    if unified:
-        configs = [json.loads(path.read_text(encoding="utf-8")) for path in unified]
-        reference = configs[0]
-        labels = reference["agents"]
-        expected_pairs = list(combinations(labels, 2))
-        fields = ("agents", "agent_settings", "games_per_pair", "budget", "ruleset", "seed", "seed_scheme",
-                  "random_opening_plies", "checkpoint_sha256", "torch_threads_per_game", "algorithm_version", "loaded_config")
-        records, seen_pairs, provenance = [], set(), []
-        for path, config in zip(unified, configs):
-            if any(config.get(key) != reference.get(key) for key in fields):
-                raise ValueError(f"incompatible shard configuration: {path}")
-            pair = next((p for p in expected_pairs if set(p) == set((config.get("pair") or "").split(","))), None)
-            if pair is None or pair in seen_pairs:
-                raise ValueError(f"invalid or duplicate pair shard: {path}")
-            raw_path = path.parent / "games.jsonl"
-            shard = [json.loads(line) for line in raw_path.read_text(encoding="utf-8").splitlines() if line.strip()]
-            tasks = schedule(labels, config["games_per_pair"], config["seed"], config["ruleset"], config["random_opening_plies"])
-            tasks = [task for task in tasks if (task["agent_a"], task["agent_b"]) == pair]
-            if len(shard) != len(tasks):
-                raise ValueError(f"wrong game count: {path}")
-            shard.sort(key=lambda record: record["game_id"])
-            for index, (record, task) in enumerate(zip(shard, tasks)):
-                seeds = task["seeds"]
-                if config["seed_scheme"] == "legacy-v1":
-                    base = config["seed"] + task["pair_index"] * 100000 + index * 2
-                    seeds = {"black": base if index % 2 == 0 else base + 1,
-                             "white": base + 1 if index % 2 == 0 else base, "opening": None}
-                if (record["game_id"] != index or record["pair"] != list(pair)
-                        or record["pair_game"] != index or record["seeds"] != seeds
-                        or record["first_player"] != task["black"] or record["second_player"] != task["white"]
-                        or record["rule_set"] != config["ruleset"] or record["opening_plies"] != len(task["opening"])
-                        or record["winner"] not in {"black", "white", "draw"}
-                        or len(record.get("moves", [])) != record["moves_count"]):
-                    raise ValueError(f"invalid game identity, colors or seeds: {path}, game {index}")
-                record["game_id"] = len(records)
-                records.append(record)
-            seen_pairs.add(pair)
-            provenance.append({"path": str(path.parent.resolve()), "games_sha256": _sha256(str(raw_path)),
-                               "config_sha256": _sha256(str(path))})
-        if seen_pairs != set(expected_pairs):
-            raise ValueError("missing pair shards")
-        prepare_output(out)
-        config = {**reference, "pair": None, "sources": provenance, "total_games": len(records)}
-        (out / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
-        (out / "games.jsonl").write_text("".join(json.dumps(record) + "\n" for record in records), encoding="utf-8")
-        result = aggregate(records, labels, reference["budget"]["value"] if reference["budget"]["mode"] == "time" else None)
-        summary = {**config, "games_played": len(records), "matrix": result["matrix"],
-                   "agents_summary": result["agents"], "pairs_summary": result["pairs"]}
-        write_matrix_csv(out / "matrix.csv", labels, result)
-        write_pairs_csv(out / "pairs.csv", result)
-        (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-        return 0
-    sources = sorted(path.parent for path in root.glob("*/manifest.json"))
-    if not sources:
-        raise ValueError("merge root contains no pair manifests")
-    manifests = [json.loads((path / "manifest.json").read_text(encoding="utf-8")) for path in sources]
-    reference = manifests[0]
-    config = reference["config"]
-    agents = config["agents"]
-    expected = list(combinations(agents, 2))
-    fields = ("agents", "rules", "budget", "depth", "seed", "games", "loaded_config", "threads")
-    checkpoints = {name: item["sha256"] for name, item in reference["checkpoints"].items()}
-    games = config["games"]
-    if games <= 0 or games % 2:
-        raise ValueError("shard games must be positive and even")
-    by_pair = {}
-    provenance = []
-    for source, manifest in zip(sources, manifests):
-        cfg = manifest["config"]
-        if any(cfg.get(key) != config.get(key) for key in fields):
-            raise ValueError(f"incompatible shard configuration: {source}")
-        if {name: item["sha256"] for name, item in manifest["checkpoints"].items()} != checkpoints:
-            raise ValueError(f"incompatible checkpoint hashes: {source}")
-        selected = (cfg.get("pair") or "").split(",")
-        pair = next((pair for pair in expected if set(pair) == set(selected)), None)
-        if pair is None or pair in by_pair:
-            raise ValueError(f"invalid or duplicate pair shard: {source}")
-        raw = GameLogger.read_records(source / "games.jsonl")
-        if len(raw) != games:
-            raise ValueError(f"wrong game count in {source}: {len(raw)}, expected {games}")
-        pair_seed = config["seed"] + expected.index(pair) * 100000
-        records = []
-        for index, item in enumerate(raw):
-            a, b = pair
-            black, white = (a, b) if index % 2 == 0 else (b, a)
-            settings = item.get("config", {})
-            seed = pair_seed + index * 2
-            if (item["game_id"] != index or item["first_player"] != black or item["second_player"] != white
-                    or item["rule_set"] != config["rules"] or item["winner"] not in {"black", "white", "draw"}
-                    or settings.get("pair") != list(pair) or settings.get("pair_seed") != pair_seed
-                    or settings.get("seed_a") != seed or settings.get("seed_b") != seed + 1
-                    or settings.get("budget") != config["budget"] or settings.get("depth") != config["depth"]):
-                raise ValueError(f"invalid game identity, colors or seeds: {source}, game {index}")
-            if item.get("moves") is None:
-                raise ValueError(f"missing raw moves: {source}, game {index}")
-            item["moves"] = [MoveRecord(**move) for move in item["moves"]]
-            record = GameRecord(**item)
-            record.validate()
-            records.append(record)
-        by_pair[pair] = records
-        provenance.append({"path": str(source.resolve()),
-                           "games_sha256": hashlib.sha256((source / "games.jsonl").read_bytes()).hexdigest(),
-                           "manifest_sha256": hashlib.sha256((source / "manifest.json").read_bytes()).hexdigest()})
-    if set(by_pair) != set(expected):
-        raise ValueError(f"missing pair shards: {sorted(set(expected) - set(by_pair))}")
-    prepare_output(out)
-    merged_manifest = {**reference, "created_at": datetime.now(timezone.utc).isoformat(),
-                       "config": {**config, "pair": None, "out_dir": str(out)}, "sources": provenance}
-    (out / "manifest.json").write_text(json.dumps(merged_manifest, indent=2), encoding="utf-8")
-    logger = GameLogger(out / "games.jsonl", log_moves=True)
-    matrix = {a: {} for a in agents}
-    pairs = []
-    count = 0
-    for pair in expected:
-        records = by_pair[pair]
-        for record in records:
-            record.game_id = count
-            logger.log_game(record)
-            count += 1
-        a, b = pair
-        result = summarise(records, a, b)
-        result["seed"] = config["seed"] + expected.index(pair) * 100000
-        pairs.append(result)
-        matrix[a][b], matrix[b][a] = result["score"], 1 - result["score"]
-    summary = {"agents": agents, "total_games": count, "pairs": pairs, "matrix": matrix,
-               "manifest": "manifest.json", "latency_percentile": "nearest-rank p95",
-               "score_interval": "95% Wilson; draws count as half a success"}
-    (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    with (out / "matrix.csv").open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.writer(stream)
-        writer.writerow(["agent", *agents])
-        for agent in agents:
-            writer.writerow([agent, *(matrix[agent].get(other, "") for other in agents)])
-    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1133,11 +1064,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--threads", "--torch-threads", type=int, default=1)
-    parser.add_argument("--out-dir")
-    parser.add_argument("--out-root", default="logs/tournament")
     parser.add_argument("--run-id")
+    parser.add_argument("--db", type=Path, default=TOURNAMENT_DB, help="Tournament SQLite database.")
+    parser.add_argument("--logging-level", choices=("none", "standard"), default="standard",
+                        help="NONE disables telemetry and durable logs for baselines; STANDARD persists tournament data.")
     parser.add_argument("--pair")
-    parser.add_argument("--merge-root")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--random-opening", type=int, default=0)
@@ -1156,12 +1087,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        if args.merge_root:
-            if not args.out_dir:
-                raise ValueError("--merge-root requires --out-dir")
-            return merge_shards(Path(args.merge_root), Path(args.out_dir))
         if not args.agents:
-            raise ValueError("--agents is required unless merging shards")
+            raise ValueError("--agents is required")
         specs = parse_agents(args.agents)
         labels = [spec.label for spec in specs]
         if "az_renju" in labels and args.rules != "renju":
@@ -1199,7 +1126,8 @@ def main(argv: list[str] | None = None) -> int:
             patterns_backend=patterns_backend,
             allow_build=not args.dry_run,
         )
-        print(json.dumps({"backends": backends}, sort_keys=True))
+        if args.logging_level == "standard":
+            print(json.dumps({"backends": backends}, sort_keys=True))
         if args.dry_run:
             for label, settings in entries.items():
                 print(label, settings["budget_note"])
@@ -1207,11 +1135,10 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{pairs} pairs x {args.games} games = {pairs * args.games} games (dry run, nothing played)")
             return 0
         _, summary = run_tournament(entries, games=args.games, budget=budget, ruleset=args.rules, seed=args.seed,
-                                    out_root=args.out_root, run_id=args.run_id, out_dir=args.out_dir,
+                                    run_id=args.run_id,
                                     workers=args.workers, opening_plies=args.random_opening,
                                     torch_threads=args.threads or None, resume=args.resume, pair=args.pair,
-                                    seed_scheme=args.seed_scheme, extra_config={"loaded_config": loaded_config},
-                                    backends=backends)
+                                    backends=backends, db_path=args.db, logging_level=args.logging_level)
         return 0 if summary["illegal_moves_total"] == 0 and summary["checkpoint_unchanged"] else 2
     except (ImportError, RuntimeError, ValueError, OSError, KeyError, TypeError) as exc:
         parser.error(str(exc))

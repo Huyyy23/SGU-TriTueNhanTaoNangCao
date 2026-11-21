@@ -49,7 +49,7 @@ def base_of(player):
 def test_feature_flags_default_to_false():
     assert DEFAULT_CONFIG["tactical"] == {"enabled": False}
     assert DEFAULT_CONFIG["threat_space"] == {"enabled": False}
-    for name in ("normal.yaml", "renju.yaml", "normal_5000.yaml"):
+    for name in ("normal.yaml", "renju.yaml"):
         cfg = load_config(CONFIGS / name)
         assert cfg["tactical"]["enabled"] is False, name
         assert cfg["threat_space"]["enabled"] is False, name
@@ -93,6 +93,14 @@ def test_n_simulations_override_is_optional(tiny_checkpoint):
     assert default.cfg["n_simulations"] == load_config(CONFIGS / "normal.yaml")["n_simulations"]
     with pytest.raises(ValueError):
         create_player("az_v0", rules, checkpoint=tiny_checkpoint, n_simulations=0)
+
+def test_factory_preserves_independent_native_backend_choices(tiny_checkpoint):
+    from gomoku import patterns
+
+    player = create_player("az_v0", get_rules("normal"), checkpoint=tiny_checkpoint,
+                           n_simulations=2, mcts_backend="cpp", patterns_backend="cpp")
+    assert player.mcts_backend == "cpp"
+    assert patterns._active_backend == "cpp"
 
 
 def _play_sequence(player, rules, n_moves=6):

@@ -1,6 +1,6 @@
 """T31: round-robin tournament with fake agents (fast, no network, no checkpoint)."""
 
-import csv
+import sqlite3
 import json
 import hashlib
 
@@ -10,6 +10,7 @@ import pytest
 
 from gomoku.board import SIZE
 from scripts import tournament as T
+from az.model import AZNet, save_checkpoint
 
 
 class FirstLegal:
@@ -63,15 +64,60 @@ def entries(*names):
 
 def run(tmp_path, names=("first", "seeded"), games=20, **kwargs):
     kwargs.setdefault("budget", T.Budget.parse("sims:10"))
+    kwargs.setdefault("db_path", tmp_path / "tournament.sqlite")
     return T.run_tournament(
-        entries(*names), games=games, out_root=tmp_path, builder=fake_builder, log=lambda _msg: None, **kwargs
+        entries(*names), games=games, builder=fake_builder, log=lambda _msg: None, **kwargs
     )
+
+
+def stored_games(db_path, experiment_id):
+    with sqlite3.connect(db_path) as connection:
+        rows = connection.execute(
+            "SELECT payload_json FROM games WHERE experiment_id=? ORDER BY CAST(local_game_id AS INTEGER)",
+            (experiment_id,),
+        ).fetchall()
+    return [json.loads(row[0]) for row in rows]
+
+
+
+def test_tournament_records_completed_games_and_moves_in_sqlite(tmp_path):
+    import sqlite3
+
+    db_path = tmp_path / "explicit.sqlite"
+    run(tmp_path, games=2, run_id="db", db_path=db_path)
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute("select count(*) from experiments").fetchone()[0] == 1
+        assert connection.execute("select count(*) from agents").fetchone()[0] == 2
+        assert connection.execute("select count(*) from matches").fetchone()[0] == 1
+        assert connection.execute("select count(*) from games").fetchone()[0] == 2
+        assert connection.execute("select sum(moves_count) from games").fetchone()[0] == connection.execute(
+            "select count(*) from moves"
+        ).fetchone()[0]
+        payload, = connection.execute("select payload_json from games order by local_game_id limit 1").fetchone()
+        assert json.loads(payload)["raw_moves"]
+
+def test_tournament_none_skips_capture_and_storage_without_changing_result(tmp_path):
+    _, standard = run(tmp_path, games=2, run_id="standard", seed=19)
+    none_dir, none = run(tmp_path, games=2, run_id="none", seed=19, logging_level="none")
+
+    assert none["matrix"] == standard["matrix"]
+    assert none["games_played"] == standard["games_played"] == 2
+    assert not (tmp_path / "none").exists()
+    assert none["agents_summary"]["first"]["moves_timed"] == 0
+    import sqlite3
+    with sqlite3.connect(tmp_path / "tournament.sqlite") as connection:
+        assert connection.execute("select count(*) from experiments").fetchone()[0] == 1
+
+def test_tournament_none_cannot_resume(tmp_path):
+    with pytest.raises(ValueError, match="resume requires STANDARD"):
+        run(tmp_path, games=2, logging_level="none", resume=True)
+    assert not (tmp_path / "tournament.sqlite").exists()
 
 
 def test_twenty_games_split_ten_ten_by_colour(tmp_path):
     run_dir, summary = run(tmp_path, run_id="r1")
 
-    games = [json.loads(line) for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    games = stored_games(run_dir, "r1")
     assert len(games) == 20 == summary["games_played"]
     assert sum(g["first_player"] == "first" for g in games) == 10
     assert sum(g["first_player"] == "seeded" for g in games) == 10
@@ -88,7 +134,7 @@ def test_twenty_games_split_ten_ten_by_colour(tmp_path):
 
 def test_pairs_summary_keeps_seed_of_every_game(tmp_path):
     run_dir, summary = run(tmp_path, games=4, run_id="r_seeds", seed=7)
-    games = [json.loads(line) for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    games = stored_games(run_dir, "r_seeds")
     pair = summary["pairs_summary"][0]
     assert [s["pair_game"] for s in pair["game_seeds"]] == [0, 1, 2, 3]
     for entry, game in zip(pair["game_seeds"], sorted(games, key=lambda g: g["pair_game"])):
@@ -103,26 +149,24 @@ def test_broken_agent_fails_before_any_game_or_folder(tmp_path):
         return fake_builder(settings, rules, seed)
 
     with pytest.raises(ValueError, match="seeded"):
-        T.run_tournament(entries("first", "seeded"), games=2, out_root=tmp_path, builder=broken_builder,
-                         log=lambda _msg: None, budget=T.Budget.parse("sims:10"), run_id="broken")
-    assert not (tmp_path / "broken").exists()
+        T.run_tournament(entries("first", "seeded"), games=2, builder=broken_builder,
+                         log=lambda _msg: None, budget=T.Budget.parse("sims:10"), run_id="broken",
+                         db_path=tmp_path / "broken.sqlite")
+    assert not (tmp_path / "broken.sqlite").exists()
 
 
 def test_matrix_is_full_and_wilson_ci_inside_unit_interval(tmp_path):
     names = ("first", "seeded", "cheater")
     run_dir, summary = run(tmp_path, names=names, games=4, run_id="r2")
 
-    with open(run_dir / "matrix.csv", newline="") as f:
-        rows = list(csv.reader(f))
-    assert rows[0] == ["agent", *names, "overall_score"]
-    assert [row[0] for row in rows[1:]] == list(names)
-    for i, row in enumerate(rows[1:]):
-        for j, cell in enumerate(row[1:4]):
+    matrix = summary["matrix"]
+    for i, row in enumerate(names):
+        for j, col in enumerate(names):
             if i == j:
-                assert cell == ""
+                assert col not in matrix[row]
             else:
-                assert 0.0 <= float(cell) <= 1.0
-                assert float(cell) + float(rows[j + 1][i + 1]) == pytest.approx(1.0)
+                assert 0.0 <= matrix[row][col] <= 1.0
+                assert matrix[row][col] + matrix[col][row] == pytest.approx(1.0)
 
     for pair in summary["pairs_summary"]:
         for side in ("a", "b"):
@@ -136,9 +180,12 @@ def test_matrix_is_full_and_wilson_ci_inside_unit_interval(tmp_path):
 
 def test_summary_has_required_fields(tmp_path):
     run_dir, summary = run(tmp_path, games=2, run_id="r3", seed=42)
-    for name in ("config.json", "games.jsonl", "matrix.csv", "pairs.csv", "summary.json"):
-        assert (run_dir / name).is_file(), name
-    on_disk = json.loads((run_dir / "summary.json").read_text())
+    with sqlite3.connect(run_dir) as connection:
+        payload, = connection.execute(
+            "select payload_json from events where experiment_id=? and event='tournament_summary'",
+            ("r3",),
+        ).fetchone()
+    on_disk = json.loads(payload)
     for key in ("seed", "budget", "ruleset", "agents", "agent_settings", "games_per_pair", "matrix",
                 "agents_summary", "pairs_summary", "checkpoint_unchanged", "git", "versions"):
         assert key in on_disk, key
@@ -155,16 +202,16 @@ def test_same_seed_reproduces_the_same_games(tmp_path):
     second_dir, _ = run(tmp_path, games=4, run_id="b", seed=5, opening_plies=2)
     other_dir, _ = run(tmp_path, games=4, run_id="c", seed=6, opening_plies=2)
 
-    def moves(run_dir):
-        return [json.loads(line)["moves"] for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    def moves(db_path, experiment_id):
+        return [game["moves"] for game in stored_games(db_path, experiment_id)]
 
-    assert moves(first_dir) == moves(second_dir)
-    assert moves(first_dir) != moves(other_dir)
+    assert moves(first_dir, "a") == moves(second_dir, "b")
+    assert moves(first_dir, "a") != moves(other_dir, "c")
 
 
 def test_colour_swapped_games_share_opening(tmp_path):
     run_dir, _ = run(tmp_path, games=4, run_id="open", seed=1, opening_plies=3)
-    games = [json.loads(line) for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    games = stored_games(run_dir, "open")
     assert games[0]["moves"][:3] == games[1]["moves"][:3]
     assert games[0]["first_player"] != games[1]["first_player"]
     assert games[0]["seeds"]["opening"] == games[1]["seeds"]["opening"]
@@ -246,6 +293,18 @@ def test_cli_dry_run(capsys):
         T.main(["--agents", "random,heuristic", "--games", "5"])
 
 
+def test_direct_tournament_run_uses_default_logger(tmp_path, capsys):
+    run_dir, summary = T.run_tournament(
+        entries("first", "seeded"), games=2, budget=T.Budget.parse("sims:1"),
+        builder=fake_builder, db_path=tmp_path / "tournament.sqlite",
+    )
+    assert summary["games_played"] == 2
+    assert "run" in capsys.readouterr().out
+    with sqlite3.connect(run_dir) as connection:
+        assert connection.execute(
+            "select count(*) from events where event='tournament_summary'"
+        ).fetchone()[0] == 1
+
 @pytest.mark.parametrize("budget", ["sims:0", "sims:1.5", "time:0", "time:nan", "time:inf", "other:1"])
 def test_invalid_budgets_rejected(budget):
     with pytest.raises(ValueError):
@@ -254,14 +313,13 @@ def test_invalid_budgets_rejected(budget):
         parse_budget(budget)
 
 
-def test_nonempty_output_and_odd_games_rejected_without_overwrite(tmp_path):
+def test_tournament_dry_run_does_not_touch_existing_output_path(tmp_path):
     sentinel = tmp_path / "keep.txt"
     sentinel.write_text("user data")
-    with pytest.raises(SystemExit):
-        T.main(["--agents", "random,heuristic", "--out-dir", str(tmp_path)])
+    assert T.main(["--agents", "random,heuristic", "--games", "2", "--dry-run"]) == 0
     assert sentinel.read_text() == "user data"
     with pytest.raises(SystemExit):
-        T.main(["--agents", "random,heuristic", "--games", "3", "--out-dir", str(tmp_path / "odd")])
+        T.main(["--agents", "random,heuristic", "--games", "3", "--dry-run"])
     assert not (tmp_path / "odd").exists()
 
 
@@ -269,6 +327,7 @@ def test_checkpoint_hash_and_aliases(tmp_path):
     checkpoint = tmp_path / "renju.pt"
     checkpoint.write_bytes(b"checkpoint bytes")
     assert T.resolve_agent("mcts_pure") == "mcts-pure"
+    assert T.resolve_agent("az") == "az_v1_threat"
     assert T.resolve_agent("az_renju") == "az_v0"
     with pytest.raises(ValueError):
         T.resolve_agent("az_v1")
@@ -278,7 +337,7 @@ def test_checkpoint_hash_and_aliases(tmp_path):
 
 def test_raw_telemetry_matches_integer_moves(tmp_path):
     run_dir, _ = run(tmp_path, games=2, run_id="raw")
-    records = [json.loads(line) for line in (run_dir / "games.jsonl").read_text().splitlines()]
+    records = stored_games(run_dir, "raw")
     for record in records:
         assert len(record["raw_moves"]) == len(record["moves"]) == record["moves_count"]
         assert all(isinstance(move, int) for move in record["moves"])
@@ -302,8 +361,8 @@ def test_filtered_pair_keeps_full_lineup_seeds(tmp_path, scheme):
     full_dir, _ = run(tmp_path, names=names, games=2, run_id="full", seed=7, seed_scheme=scheme)
     pair_dir, summary = run(tmp_path, names=names, games=2, run_id="pair", seed=7,
                             pair="seeded,cheater", seed_scheme=scheme)
-    full = [json.loads(line) for line in (full_dir / "games.jsonl").read_text().splitlines()]
-    pair = [json.loads(line) for line in (pair_dir / "games.jsonl").read_text().splitlines()]
+    full = stored_games(full_dir, "full")
+    pair = stored_games(pair_dir, "pair")
     expected = [record for record in full if record["pair"] == ["seeded", "cheater"]]
     assert [r["game_id"] for r in pair] == [0, 1]
     assert [(r["seeds"], r["moves"]) for r in pair] == [
@@ -322,9 +381,8 @@ def test_resume_preserves_prefix_and_skips_logged_games(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "play_game_task", interrupted)
     with pytest.raises(RuntimeError, match="interrupted"):
         run(tmp_path, games=4, run_id="resume", seed=13, pair="first,seeded")
-    out = tmp_path / "resume"
-    prefix = (out / "games.jsonl").read_bytes()
-    config = (out / "config.json").read_bytes()
+    db_path = tmp_path / "tournament.sqlite"
+    prefix = stored_games(db_path, "resume")
     seen = []
     def resumed(task, builder=None):
         seen.append(task["game_id"])
@@ -332,115 +390,131 @@ def test_resume_preserves_prefix_and_skips_logged_games(tmp_path, monkeypatch):
     monkeypatch.setattr(T, "play_game_task", resumed)
     _, summary = run(tmp_path, games=4, run_id="resume", seed=13, pair="first,seeded", resume=True)
     assert seen == [2, 3]
-    assert (out / "games.jsonl").read_bytes().startswith(prefix)
-    assert (out / "config.json").read_bytes() == config
+    assert stored_games(db_path, "resume")[:len(prefix)] == prefix
     assert summary["games_played"] == 4
     with pytest.raises(ValueError, match="configuration"):
         run(tmp_path, games=4, run_id="resume", seed=14, pair="first,seeded", resume=True)
 
 
 def test_resume_rejects_corrupted_identity(tmp_path):
-    out, _ = run(tmp_path, games=2, run_id="corrupt", pair="first,seeded")
-    records = [json.loads(line) for line in (out / "games.jsonl").read_text().splitlines()]
-    records[0]["seeds"]["black"] += 1
-    (out / "games.jsonl").write_text("\n".join(json.dumps(record) for record in records) + "\n")
-    before = (out / "games.jsonl").read_bytes()
+    db_path, _ = run(tmp_path, games=2, run_id="corrupt", pair="first,seeded")
+    with sqlite3.connect(db_path) as connection:
+        payload, = connection.execute(
+            "select payload_json from games where experiment_id='corrupt' and local_game_id='0'"
+        ).fetchone()
+        record = json.loads(payload)
+        record["seeds"]["black"] += 1
+        connection.execute(
+            "update games set payload_json=? where experiment_id='corrupt' and local_game_id='0'",
+            (json.dumps(record),),
+        )
+    before = stored_games(db_path, "corrupt")
     with pytest.raises(ValueError, match="identity|seed"):
         run(tmp_path, games=2, run_id="corrupt", pair="first,seeded", resume=True)
-    assert (out / "games.jsonl").read_bytes() == before
+    assert stored_games(db_path, "corrupt") == before
 
 
-def test_merge_uses_raw_games_and_rejects_missing_duplicate_or_mismatched_shards(tmp_path):
-    import shutil
-    from dataclasses import asdict
-    from itertools import combinations
-    from az.game_log import GameRecord, MoveRecord
-    from scripts.tournament import merge_shards
+def test_resume_requires_explicit_run_id(tmp_path):
+    db_path = tmp_path / "tournament.sqlite"
+    with pytest.raises(ValueError, match="explicit --run-id"):
+        T.run_tournament(
+            entries("first", "seeded"), games=2, budget=T.Budget.parse("sims:10"),
+            resume=True, builder=fake_builder, db_path=db_path,
+            backends={"mcts": "python", "patterns": "python"},
+        )
+    assert not db_path.exists()
+def test_resume_uses_sqlite_after_legacy_files_are_unavailable(tmp_path, monkeypatch):
+    db_path, _ = run(tmp_path, games=2, run_id="sqlite_resume", pair="first,seeded")
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute(
+            "select count(*) from events where experiment_id='sqlite_resume' and event='tournament_summary'"
+        ).fetchone()[0] == 1
+    assert db_path.is_file()
+    assert not (tmp_path / "sqlite_resume").exists()
+    seen = []
+    original = T.play_game_task
 
-    root = tmp_path / "shards"
-    agents = ["random", "heuristic", "alphabeta"]
-    config = dict(agents=agents, rules="normal", budget="sims:2", depth=2, seed=7,
-                  games=2, loaded_config={}, threads=1)
-    for pair_index, pair in enumerate(combinations(agents, 2)):
-        source = root / str(pair_index)
-        source.mkdir(parents=True)
-        manifest = {"config": {**config, "pair": ",".join(pair)}, "checkpoints": {}}
-        (source / "manifest.json").write_text(json.dumps(manifest))
-        # Deliberately false shard summary: merge must never trust it.
-        (source / "summary.json").write_text('{"total_games": 999}')
-        records = []
-        seed = 7 + pair_index * 100000
-        for index in range(2):
-            black, white = pair if index == 0 else pair[::-1]
-            record = GameRecord(index, "now", "normal", black, white, "draw", False,
-                                "board_full", 1, .1,
-                                config=dict(pair=list(pair), pair_seed=seed, seed_a=seed + index * 2,
-                                            seed_b=seed + index * 2 + 1, budget="sims:2", depth=2),
-                                moves=[MoveRecord(0, 1, 0, 0, 0.0, [], 0, latency_sec=.1)])
-            records.append(json.dumps(asdict(record)))
-        (source / "games.jsonl").write_text("\n".join(records) + "\n")
-    original = (root / "0" / "games.jsonl").read_bytes()
-    out = tmp_path / "frozen"
-    assert main(["--merge-root", str(root), "--out-dir", str(out)]) == 0
-    summary = json.loads((out / "summary.json").read_text())
-    assert summary["total_games"] == 6
-    assert all(pair["score"] == .5 and pair["draws"] == 2 for pair in summary["pairs"])
-    assert [r["game_id"] for r in map(json.loads, (out / "games.jsonl").read_text().splitlines())] == list(range(6))
-    assert len(json.loads((out / "manifest.json").read_text())["sources"]) == 3
-    assert (root / "0" / "games.jsonl").read_bytes() == original
-    with pytest.raises(ValueError, match="empty"):
-        merge_shards(root, out)
-    shutil.copytree(root / "0", root / "duplicate")
-    with pytest.raises(ValueError, match="duplicate"):
-        merge_shards(root, tmp_path / "duplicate-output")
-    shutil.rmtree(root / "duplicate")
-    manifest_path = root / "2" / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest["config"]["depth"] = 3
-    manifest_path.write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match="configuration"):
-        merge_shards(root, tmp_path / "bad-config")
-    manifest["config"]["depth"] = 2
-    manifest_path.write_text(json.dumps(manifest))
-    shutil.rmtree(root / "2")
-    with pytest.raises(ValueError, match="missing pair"):
-        merge_shards(root, tmp_path / "missing")
+    def unexpected_replay(task, builder=None):
+        seen.append(task["game_id"])
+        return original(task, builder)
+
+    monkeypatch.setattr(T, "play_game_task", unexpected_replay)
+    _, summary = run(tmp_path, games=2, run_id="sqlite_resume", pair="first,seeded", resume=True)
+    assert seen == []
+    assert summary["games_played"] == 2
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute(
+            "select count(*) from events where experiment_id='sqlite_resume' and event='tournament_summary'"
+        ).fetchone()[0] == 1
 
 
 
-def test_unified_shards_merge_raw_records_and_reject_bad_inputs(tmp_path):
-    import shutil
-    from itertools import combinations
 
-    root = tmp_path / "unified"
-    names = ("first", "seeded", "cheater")
-    for index, pair in enumerate(combinations(names, 2)):
-        source, _ = run(root, names=names, games=2, run_id=str(index), seed=9, pair=",".join(pair))
-        (source / "summary.json").write_text('{"games_played": 999}')
-    before = (root / "0" / "games.jsonl").read_bytes()
-    out = tmp_path / "merged"
-    assert T.merge_shards(root, out) == 0
-    summary = json.loads((out / "summary.json").read_text())
-    assert summary["games_played"] == 6
-    assert len(summary["pairs_summary"]) == 3
-    records = [json.loads(line) for line in (out / "games.jsonl").read_text().splitlines()]
-    assert len({record["game_id"] for record in records}) == 6
-    assert all(record["raw_moves"] for record in records)
-    assert (root / "0" / "games.jsonl").read_bytes() == before
-    with pytest.raises((ValueError, FileExistsError)):
-        T.merge_shards(root, out)
-    shutil.copytree(root / "0", root / "duplicate")
-    with pytest.raises(ValueError, match="duplicate"):
-        T.merge_shards(root, tmp_path / "duplicate-merged")
-    shutil.rmtree(root / "duplicate")
-    config_path = root / "2" / "config.json"
-    config = json.loads(config_path.read_text())
-    config["seed"] += 1
-    config_path.write_text(json.dumps(config))
-    with pytest.raises(ValueError, match="configuration|incompatible"):
-        T.merge_shards(root, tmp_path / "mismatch-merged")
-    config["seed"] -= 1
-    config_path.write_text(json.dumps(config))
-    shutil.rmtree(root / "2")
-    with pytest.raises(ValueError, match="missing"):
-        T.merge_shards(root, tmp_path / "missing-merged")
+
+
+
+def test_normal_az_variants_default_to_the_official_checkpoint():
+    normal = T.checkpoint_mapping(
+        [], ["az_v0", "az_v1_tactical", "az_v1_threat"], "normal"
+    )
+    assert set(normal.values()) == {"checkpoints/normal/latest.json"}
+    assert T.checkpoint_mapping([], ["az_renju"], "renju") == {
+        "az_renju": "checkpoints/renju_latest.json"
+    }
+
+
+def test_checkpoint_manifest_hashes_resolved_generation(tmp_path, monkeypatch):
+    import hashlib
+    import az.model
+
+    pointer = tmp_path / "best.json"
+    checkpoint = tmp_path / "checkpoint.pt"
+    pointer.write_text("{}")
+    checkpoint.write_bytes(b"model")
+    monkeypatch.setattr(az.model, "resolve_checkpoint_path", lambda path: checkpoint)
+    manifest = T.checkpoint_manifest({"az": str(pointer)})
+    assert manifest["az"] == {
+        "path": str(checkpoint.resolve()),
+        "sha256": hashlib.sha256(b"model").hexdigest(),
+    }
+def _az_entries(checkpoint, config):
+    return {
+        "az_a": {"factory": {"agent": "az_v0", "checkpoint": str(checkpoint), "config": str(config)}},
+        "az_b": {"factory": {"agent": "az_v0", "checkpoint": str(checkpoint), "config": str(config)}},
+    }
+
+
+def test_tournament_az_normal_cpp_records_components_used(tmp_path):
+    import az.backend
+
+    checkpoint = tmp_path / "model.pt"
+    save_checkpoint(AZNet(n_blocks=1, n_filters=4), checkpoint)
+    config = tmp_path / "normal.yaml"
+    config.write_text("n_simulations: 2\ntemp_moves: 0\nrule_set: normal\n", encoding="utf-8")
+    backends = az.backend.configure_backends("cpp", mcts_backend="cpp", patterns_backend="python",
+                                             allow_build=False)
+    _, summary = T.run_tournament(
+        _az_entries(checkpoint, config), games=2, budget=T.Budget.parse("sims:2"),
+        ruleset="normal", seed=1, builder=T.default_builder,
+        backends=backends, db_path=tmp_path / "tournament.sqlite", logging_level="standard",
+    )
+    assert summary["components_used"]["mcts"] == "cpp"
+    assert summary["backends"]["mcts"] == "cpp"
+
+
+def test_tournament_az_renju_cpp_records_components_used(tmp_path):
+    import az.backend
+
+    checkpoint = tmp_path / "model.pt"
+    save_checkpoint(AZNet(n_blocks=1, n_filters=4), checkpoint)
+    config = tmp_path / "renju.yaml"
+    config.write_text("n_simulations: 2\ntemp_moves: 0\nrule_set: renju\n", encoding="utf-8")
+    backends = az.backend.configure_backends("cpp", mcts_backend="cpp", patterns_backend="python",
+                                             allow_build=False)
+    _, summary = T.run_tournament(
+        _az_entries(checkpoint, config), games=2, budget=T.Budget.parse("sims:2"),
+        ruleset="renju", seed=1, builder=T.default_builder,
+        backends=backends, db_path=tmp_path / "tournament_renju.sqlite", logging_level="standard",
+    )
+    assert summary["components_used"]["mcts"] == "cpp"
+    assert summary["backends"]["mcts"] == "cpp"

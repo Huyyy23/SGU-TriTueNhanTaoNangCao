@@ -40,6 +40,8 @@ def create_player(
 
     n_simulations overrides the AlphaZero YAML search budget when supplied.
     """
+    if agent == "az":
+        agent = "az_v1_threat"
     if time_budget_sec is not None and (not math.isfinite(time_budget_sec) or time_budget_sec <= 0):
         raise ValueError("time_budget_sec must be finite and positive")
     if n_simulations is not None and (isinstance(n_simulations, bool) or not isinstance(n_simulations, int) or n_simulations <= 0):
@@ -63,7 +65,9 @@ def create_player(
     if agent not in _AZ_AGENTS:
         raise ValueError(f"unknown agent {agent!r}; choose from {AGENT_CHOICES}")
     if checkpoint is None:
-        raise ValueError(f"agent {agent!r} requires --checkpoint")
+        if rules.name != "normal":
+            raise ValueError(f"agent {agent!r} requires --checkpoint for {rules.name}")
+        checkpoint = Path(__file__).resolve().parents[1] / "checkpoints" / "normal" / "latest.json"
 
     from az.player_factory import wrap_az_player
     from config import load_config
