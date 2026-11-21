@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from az.mcts import MCTS
+from az.mcts import MCTS, NativeMCTS
 from az.model import load_checkpoint
 from config import DEFAULT_CONFIG
 from gomoku.board import SIZE
@@ -21,6 +21,7 @@ class AZPlayer:
         self.rules = rules
         self.cfg = {**DEFAULT_CONFIG, **(cfg or {})}
         self.time_budget_sec = time_budget_sec
+        self.mcts_backend = self.cfg.get("mcts_backend", "python")
         self.rng = np.random.default_rng(seed)
         self.nn_calls = 0
         self.simulations_run = 0
@@ -36,7 +37,8 @@ class AZPlayer:
         self.last_override_applied = False
         self.last_override_reason = None
         deadline = None if self.time_budget_sec is None else time.monotonic() + float(self.time_budget_sec)
-        mcts = MCTS(
+        mcts_cls = NativeMCTS if self.mcts_backend == "cpp" else MCTS
+        mcts = mcts_cls(
             rules=self.rules,
             n_simulations=int(self.cfg["n_simulations"]),
             c_puct=float(self.cfg["c_puct"]),

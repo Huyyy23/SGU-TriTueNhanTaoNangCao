@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import sys
 import warnings
@@ -120,24 +121,29 @@ def test_worker_resolution_never_builds(monkeypatch):
     assert calls == [("mcts", False), ("patterns", False)]
 
 
-def test_backend_selection_is_recorded_in_sqlite(tmp_path):
-    path = tmp_path / "logs" / "backend_runs.sqlite3"
-    log_backend_selection(
-        run_id="train-001",
-        workload="selfplay",
-        requested_backend="auto",
-        backends={"mcts": "cpp", "patterns": "cpp", "compiler": "g++"},
-        components_used={"mcts": "cpp", "patterns": "not_used"},
-        db_path=path,
-    )
+def test_backend_selection_is_recorded_once_in_primary_sqlite(tmp_path):
+    path = tmp_path / "selfplay.sqlite"
+    for _ in range(2):
+        log_backend_selection(
+            run_id="train-001",
+            workload="selfplay",
+            requested_backend="auto",
+            backends={"mcts": "cpp", "patterns": "cpp", "compiler": "g++"},
+            components_used={"mcts": "cpp", "patterns": "not_used"},
+            primary_path=path,
+        )
 
     with sqlite3.connect(path) as connection:
-        row = connection.execute(
-            "SELECT run_id, workload, requested_backend, mcts_backend, patterns_backend, components_used, compiler "
-            "FROM backend_runs"
-        ).fetchone()
+        rows = connection.execute(
+            "SELECT event, payload_json FROM events WHERE event='backend_selected'"
+        ).fetchall()
 
-    assert row == ("train-001", "selfplay", "auto", "cpp", "cpp", '{"mcts":"cpp","patterns":"not_used"}', "g++")
+    assert len(rows) == 1
+    assert rows[0][0] == "backend_selected"
+    payload = json.loads(rows[0][1])
+    assert payload["run_id"] == "train-001"
+    assert payload["backends"]["compiler"] == "g++"
+
 def test_selfplay_and_tournament_cli_default_to_auto():
     from scripts.tournament import build_parser as tournament_parser
     from scripts.train import build_parser as train_parser

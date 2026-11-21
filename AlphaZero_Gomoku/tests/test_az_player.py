@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from az.game_log import GameLogger, GameRecord
+from az.game_log import GameRecord
 from az.model import AZNet, save_checkpoint
 from config import load_config
 from gomoku.board import BLACK, SIZE, WHITE, Board
@@ -14,7 +14,7 @@ from gomoku.rules.normal import NormalRules
 from players.az_player import AZPlayer
 
 RUN_SLOW = os.environ.get("RUN_SLOW") == "1"
-GATE_CHECKPOINT = Path("checkpoints/last.pt")
+GATE_CHECKPOINT = Path("checkpoints/best.json")
 
 
 def tiny_checkpoint(path) -> str:
@@ -67,11 +67,11 @@ def test_time_budget_still_returns_a_legal_move(tmp_path):
 
 
 @pytest.mark.skipif(not RUN_SLOW, reason="GD4 gate check; set RUN_SLOW=1 to run 20 games")
-def test_twenty_games_against_random_are_valid_and_logged(tmp_path):
+def test_twenty_games_against_random_produce_valid_records(tmp_path):
     rules = NormalRules()
     az = AZPlayer(tiny_checkpoint(tmp_path / "model.pt"), rules, cfg={"n_simulations": 8}, seed=0)
     random_player = RandomOpponent(rules, seed=1)
-    logger = GameLogger(tmp_path / "games.jsonl")
+    records = []
 
     for game_id in range(20):
         board = Board()
@@ -82,28 +82,27 @@ def test_twenty_games_against_random_are_valid_and_logged(tmp_path):
             board.play(r, c)
 
         winner = int(board.grid[board.history[-1]]) if rules.is_win(board) else None
-        logger.log_game(
-            GameRecord(
-                game_id=game_id,
-                timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                rule_set=rules.name,
-                first_player="az" if az_is_black else "random",
-                second_player="random" if az_is_black else "az",
-                winner="draw" if winner is None else ("black" if winner == BLACK else "white"),
-                first_player_won=winner == BLACK,
-                end_reason="five_in_row" if winner is not None else "board_full",
-                moves_count=len(board.history),
-                duration_sec=0.0,
-            )
+        record = GameRecord(
+            game_id=game_id,
+            timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            rule_set=rules.name,
+            first_player="az" if az_is_black else "random",
+            second_player="random" if az_is_black else "az",
+            winner="draw" if winner is None else ("black" if winner == BLACK else "white"),
+            first_player_won=winner == BLACK,
+            end_reason="five_in_row" if winner is not None else "board_full",
+            moves_count=len(board.history),
+            duration_sec=0.0,
         )
+        record.validate()
+        records.append(record)
 
-    records = GameLogger.read_records(tmp_path / "games.jsonl")
     assert len(records) == 20
-    assert all(record["moves_count"] > 0 for record in records)
+    assert all(record.moves_count > 0 for record in records)
 
 
 @pytest.mark.skipif(not RUN_SLOW, reason="GD5 gate check; set RUN_SLOW=1 to run 20 games")
-@pytest.mark.skipif(not GATE_CHECKPOINT.is_file(), reason="needs checkpoints/last.pt from the GD5 run")
+@pytest.mark.skipif(not GATE_CHECKPOINT.is_file(), reason="needs checkpoints/best.json after promotion")
 def test_az_beats_random_in_at_least_18_of_20_games():
     cfg = load_config()
     rules = NormalRules()

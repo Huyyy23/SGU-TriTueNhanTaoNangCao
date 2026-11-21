@@ -47,6 +47,32 @@ def test_three_variants_share_checkpoint_and_simulation_budget(monkeypatch):
     assert [base.cfg["n_simulations"] for base in bases] == [7, 7, 7]
 
 
+def test_normal_factory_defaults_to_official_pointer_and_preserves_explicit_checkpoint(monkeypatch):
+    from pathlib import Path
+    from players.factory import create_player
+    from gomoku.rules import get_rules
+    import players.az_player as module
+
+    loaded = []
+    monkeypatch.setattr(module, "load_checkpoint", lambda path, device=None: (loaded.append(path) or object(), {}))
+    player = create_player("az", get_rules("normal"))
+    create_player("az", get_rules("normal"), checkpoint="baseline.pt")
+    assert Path(loaded[0]).as_posix().endswith("/checkpoints/normal/latest.json")
+    assert loaded[1] == "baseline.pt"
+    assert isinstance(player, ThreatSpaceAZPlayer)
+    assert player.base.cfg["tactical"]["enabled"]
+    assert player.base.cfg["threat_space"]["enabled"]
+
+
+def test_renju_factory_requires_explicit_checkpoint():
+    import pytest
+    from players.factory import create_player
+    from gomoku.rules import get_rules
+
+    with pytest.raises(ValueError, match="requires --checkpoint"):
+        create_player("az", get_rules("renju"))
+
+
 def test_time_budget_runs_beyond_configured_simulation_ceiling(monkeypatch):
     import numpy as np
     import players.az_player as module

@@ -174,10 +174,10 @@ class PygameApp:
             button_font = pygame.font.SysFont("segoeui", 14, bold=True)
             clock = pygame.time.Clock()
 
-            wood = (222, 177, 112)
-            ink = (67, 45, 28)
-            background = (38, 43, 49)
-            shadow = (112, 84, 55)
+            wood = (232, 181, 79)
+            ink = (107, 70, 30)
+            background = (246, 242, 231)
+            shadow = (143, 100, 46)
             stone_radius = max(5, self.cell // 2 - 4)
             grid_width = 1 if self.cell < 38 else 2
             board_surface = pygame.Surface((board_size, board_size))
@@ -236,7 +236,7 @@ class PygameApp:
                 else:
                     smooth_circle((250, 248, 239), center, stone_radius)
                     pygame.gfxdraw.aacircle(
-                        surface, x, y, stone_radius, (214, 211, 199)
+                        surface, x, y, stone_radius, (164, 148, 112)
                     )
                     highlight = (255, 255, 255)
                 smooth_circle(
@@ -280,19 +280,19 @@ class PygameApp:
                         )
 
                 screen.blit(
-                    title_font.render("GOMOKU", True, (244, 241, 234)),
+                    title_font.render("GOMOKU", True, (55, 50, 42)),
                     (self.margin, panel_y + 12),
                 )
                 if self.result is not None:
                     status = self.result
-                    status_color = (130, 224, 164)
+                    status_color = (58, 121, 75)
                 elif self.paused:
                     status = "AI game paused"
-                    status_color = (236, 205, 143)
+                    status_color = (142, 101, 35)
                 else:
                     side = self.board.current_player
                     status = f"{'Black' if side == BLACK else 'White'} to move"
-                    status_color = (236, 205, 143)
+                    status_color = (142, 101, 35)
                 screen.blit(
                     status_font.render(status, True, status_color),
                     (self.margin, panel_y + 46),
@@ -302,26 +302,28 @@ class PygameApp:
                     small_font.render(
                         f"11x11 | {rule_name} rules | "
                         f"{'AI vs AI' if self.human_color is None else 'Human vs AI'}",
-                        True, (184, 190, 197),
+                        True, (91, 99, 92),
                     ),
                     (self.margin, panel_y + 76),
                 )
                 if self.message:
                     screen.blit(
-                        small_font.render(self.message, True, (245, 144, 126)),
+                        small_font.render(self.message, True, (173, 49, 37)),
                         (self.margin, panel_y + 28),
                     )
 
-                pygame.draw.rect(screen, (77, 89, 104), self._restart_rect, border_radius=5)
-                restart = button_font.render("New game", True, (244, 241, 234))
+                pygame.draw.rect(screen, (255, 252, 244), self._restart_rect, border_radius=5)
+                pygame.draw.rect(screen, (125, 112, 84), self._restart_rect, 1, border_radius=5)
+                restart = button_font.render("New game", True, (55, 50, 42))
                 screen.blit(
                     restart,
                     restart.get_rect(center=self._restart_rect.center),
                 )
                 if self.human_color is None:
-                    pygame.draw.rect(screen, (77, 89, 104), self._pause_rect, border_radius=5)
+                    pygame.draw.rect(screen, (255, 252, 244), self._pause_rect, border_radius=5)
+                    pygame.draw.rect(screen, (125, 112, 84), self._pause_rect, 1, border_radius=5)
                     label = "Resume" if self.paused else "Pause"
-                    pause = button_font.render(label, True, (244, 241, 234))
+                    pause = button_font.render(label, True, (55, 50, 42))
                     screen.blit(pause, pause.get_rect(center=self._pause_rect.center))
                 pygame.display.flip()
                 clock.tick(60)
@@ -331,6 +333,13 @@ class PygameApp:
 
 def main(argv: list[str] | None = None) -> None:
     import argparse
+    import sys
+
+    if argv is None and len(sys.argv) == 1:
+        from ui.pygame_frontend import PygameFrontend
+
+        PygameFrontend().run()
+        return
 
     parser = argparse.ArgumentParser(description="Play Gomoku with a Pygame UI.")
     parser.add_argument("--mode", choices=("human-vs-ai", "ai-vs-ai"), default="human-vs-ai")
