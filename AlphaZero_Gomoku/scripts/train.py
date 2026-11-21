@@ -25,6 +25,7 @@ from az.model import AZNet
 from az.replay_buffer import ReplayBuffer
 from az.selfplay import run_games, run_games_parallel
 from az.trainer import Trainer, _write_pointer, resolve_generation
+from az import generation_retention
 from az import training_recovery
 from config import load_config
 from gomoku.rules.normal import NormalRules
@@ -610,6 +611,13 @@ def main(argv: list[str] | None = None) -> int:
                     db, run_id=run_id, iteration=trainer.n_iter, global_step=trainer.global_step,
                     recorded_at=metrics["recorded_at"], metrics=row,
                 )
+        # Conservative retention: only delete after the new generation is committed.
+        try:
+            retention = generation_retention.apply(out_dir, dry_run=False)
+            if retention.get("deleted"):
+                print(json.dumps({"retention": retention}, sort_keys=True))
+        except Exception as exc:  # fail closed: never affect training on cleanup error
+            print(json.dumps({"retention_error": str(exc)}))
         promotion = _evaluate_promotion(
             trainer, checkpoint_path, best_path, pointer_path, config_path=args.config,
             tournament_db=tournament_db_path, run_id=run_id, seed=args.seed,
