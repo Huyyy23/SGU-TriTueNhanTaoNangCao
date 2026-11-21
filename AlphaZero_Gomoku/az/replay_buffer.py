@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import tempfile
 from pathlib import Path
+import warnings
 
 import numpy as np
 import torch
@@ -8,6 +12,14 @@ import torch
 from gomoku.features import N_ACTIONS, N_PLANES, N_SYMMETRIES, SIZE, symmetry_transform
 
 RULE_SET_IDS: dict[str, int] = {"normal": 0, "renju": 1}
+
+def _file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
 
 
 class ReplayBuffer:
@@ -24,9 +36,12 @@ class ReplayBuffer:
         self.pi = np.zeros((self.capacity, N_ACTIONS), dtype=np.float16)
         self.z = np.zeros(self.capacity, dtype=np.float32)
         self.rule_set = np.zeros(self.capacity, dtype=np.uint8)
+        self.game_ids = np.full(self.capacity, "", dtype="U64")
         self._size = 0
         self._cursor = 0
         self._label: int | None = None
+        self._source_sha256: str | None = None
+        self._cursor_known = True
         # Fixed eval batch (features, pi, z) persisted next to the buffer so the metric survives resume.
         self.eval_batch: tuple[np.ndarray, np.ndarray, np.ndarray] | None = None
         self.eval_indices: np.ndarray | None = None
@@ -35,7 +50,7 @@ class ReplayBuffer:
         """Number of stored samples, before augmentation."""
         return self._size
 
-    def add(self, features: np.ndarray, pi: np.ndarray, z: float, rule_set: str) -> None:
+    def add(self, features: np.ndarray, pi: np.ndarray, z: float, rule_set: str, game_id: str = "") -> None:
         """Store one sample, overwriting the oldest when full."""
         if rule_set not in RULE_SET_IDS:
             raise ValueError(f"Unknown rule_set '{rule_set}'. Expected one of {sorted(RULE_SET_IDS)}")
@@ -49,11 +64,15 @@ class ReplayBuffer:
         pi = np.asarray(pi, dtype=np.float32)
         if pi.shape != (N_ACTIONS,):
             raise ValueError(f"pi must have shape {(N_ACTIONS,)}, got {pi.shape}")
+        if not isinstance(game_id, str) or len(game_id) > 64:
+            raise ValueError("game_id must be a string of at most 64 characters.")
 
         self.features[self._cursor] = features
         self.pi[self._cursor] = pi
         self.z[self._cursor] = float(z)
         self.rule_set[self._cursor] = label
+        self.game_ids[self._cursor] = game_id
+        self._source_sha256 = None
         self._label = label
         self._cursor = (self._cursor + 1) % self.capacity
         self._size = min(self._size + 1, self.capacity)
@@ -110,10 +129,18 @@ class ReplayBuffer:
             "pi": self.pi[: self._size],
             "z": self.z[: self._size],
             "rule_set": self.rule_set[: self._size],
+            "game_ids": self.game_ids[: self._size],
             "capacity": np.array(self.capacity),
+            "cursor": np.array(self._cursor),
         }
         arrays.update(extra or {})
-        np.savez(path, **arrays)
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", suffix=".npz", delete=False) as stream:
+            temp_path = Path(stream.name)
+        try:
+            np.savez(temp_path, **arrays)
+            os.replace(temp_path, path)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
     @classmethod
     def load_npz(cls, path: str | Path) -> ReplayBuffer:
@@ -125,12 +152,26 @@ class ReplayBuffer:
             buffer.pi[:n] = data["pi"]
             buffer.z[:n] = data["z"]
             buffer.rule_set[:n] = data["rule_set"]
+            if "game_ids" in data.files:
+                ids = data["game_ids"]
+                if ids.shape != (n,) or ids.dtype.kind not in "US" or any(len(str(x)) > 64 for x in ids):
+                    raise ValueError("Invalid replay game identities.")
+                buffer.game_ids[:n] = ids
             buffer._size = n
-            buffer._cursor = n % buffer.capacity
+            if "cursor" in data.files:
+                buffer._cursor = int(data["cursor"])
+                if not 0 <= buffer._cursor < buffer.capacity or (n < buffer.capacity and buffer._cursor != n):
+                    raise ValueError("Invalid replay buffer cursor.")
+            else:
+                buffer._cursor = n % buffer.capacity
+                if n == buffer.capacity:
+                    buffer._cursor_known = False
+                    warnings.warn("Legacy full replay buffer has unknown oldest sample; overwrite order may differ.", stacklevel=2)
             if n:
                 buffer._label = int(data["rule_set"][0])
             if "eval_features" in data.files:
                 buffer.eval_batch = (data["eval_features"], data["eval_pi"], data["eval_z"])
             if "eval_indices" in data.files:
                 buffer.eval_indices = data["eval_indices"]
+        buffer._source_sha256 = _file_sha256(path)
         return buffer

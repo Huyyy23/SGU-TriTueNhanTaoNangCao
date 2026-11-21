@@ -79,6 +79,57 @@ def test_capacity_overwrites_oldest():
     assert sorted(buffer.z[:2].tolist()) == [2.0, 3.0]
 
 
+def test_resume_full_buffer_preserves_oldest_sample_order(tmp_path):
+    buffer = ReplayBuffer(capacity=2)
+    for col in range(3):
+        features, pi = make_sample(1, col)
+        buffer.add(features, pi, 1.0, "normal")
+    path = tmp_path / "buffer.npz"
+    buffer.save_npz(path)
+    resumed = ReplayBuffer.load_npz(path)
+
+    features, pi = make_sample(1, 3)
+    buffer.add(features, pi, -1.0, "normal")
+    resumed.add(features, pi, -1.0, "normal")
+
+    np.testing.assert_array_equal(resumed.features, buffer.features)
+    np.testing.assert_array_equal(resumed.pi, buffer.pi)
+    np.testing.assert_array_equal(resumed.z, buffer.z)
+
+
+def test_failed_replay_save_preserves_previous_file(tmp_path, monkeypatch):
+    buffer = ReplayBuffer(capacity=2)
+    features, pi = make_sample()
+    buffer.add(features, pi, 1.0, "normal")
+    path = tmp_path / "buffer.npz"
+    buffer.save_npz(path)
+    original = path.read_bytes()
+
+    def interrupted_save(target, **arrays):
+        with open(target, "wb") as stream:
+            stream.write(b"incomplete")
+        raise OSError("interrupted write")
+
+    monkeypatch.setattr(np, "savez", interrupted_save)
+    with pytest.raises(OSError, match="interrupted"):
+        buffer.save_npz(path)
+    assert path.read_bytes() == original
+
+
+def test_loading_legacy_full_buffer_warns_age_order_unknown(tmp_path):
+    buffer = ReplayBuffer(capacity=2)
+    features, pi = make_sample()
+    buffer.add(features, pi, 1.0, "normal")
+    buffer.add(features, pi, -1.0, "normal")
+    path = tmp_path / "legacy.npz"
+    np.savez(path, features=buffer.features, pi=buffer.pi, z=buffer.z,
+             rule_set=buffer.rule_set, capacity=np.array(buffer.capacity))
+
+    with pytest.warns(UserWarning, match="oldest"):
+        loaded = ReplayBuffer.load_npz(path)
+    np.testing.assert_array_equal(loaded.features, buffer.features)
+
+
 def test_empty_buffer_cannot_sample():
     with pytest.raises(ValueError):
         ReplayBuffer(capacity=4).sample(1, "normal")
@@ -110,3 +161,27 @@ def test_augmentation_keeps_policy_and_features_in_the_same_cell():
         seen.add(feature_cell)
 
     assert len(seen) == 8
+
+
+def test_game_lineage_survives_ring_save_load_and_symmetry(tmp_path):
+    buffer = ReplayBuffer(capacity=2)
+    features, pi = make_sample()
+    for game_id in ("old", "game-a", "game-b"):
+        buffer.add(features, pi, 1.0, "normal", game_id=game_id)
+    path = tmp_path / "replay.npz"
+    buffer.save_npz(path)
+    restored = ReplayBuffer.load_npz(path)
+    assert set(restored.game_ids[:len(restored)]) == {"game-a", "game-b"}
+    _, _, _, indices = restored.sample(20, "normal", np.random.default_rng(7), return_indices=True)
+    assert set(restored.game_ids[indices]) == {"game-a", "game-b"}
+    restored.add(features, pi, 0.0, "normal", game_id="game-c")
+    assert set(restored.game_ids[:len(restored)]) == {"game-b", "game-c"}
+
+
+def test_legacy_replay_has_unknown_game_lineage(tmp_path):
+    features, pi = make_sample()
+    path = tmp_path / "legacy.npz"
+    np.savez(path, features=features[None], pi=pi[None], z=np.array([1.0]),
+             rule_set=np.array([0], dtype=np.uint8), capacity=np.array(2))
+    restored = ReplayBuffer.load_npz(path)
+    assert restored.game_ids[0] == ""
