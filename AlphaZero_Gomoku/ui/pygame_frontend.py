@@ -65,7 +65,10 @@ class PygameFrontend:
 
     def _default_checkpoint(self):
         if self.checkpoint_options:
-            return self.checkpoint_options[0]
+            return next(
+                (path for path in self.checkpoint_options if Path(path).name == f"az_{self.ruleset}_weights.pt"),
+                self.checkpoint_options[0],
+            )
         return str(Path(__file__).resolve().parents[1] / "models" / "az_normal_weights.pt")
 
     @staticmethod
@@ -78,6 +81,7 @@ class PygameFrontend:
         root = Path(__file__).resolve().parents[1]
         candidates = [
             root / "checkpoints" / "normal" / "latest.json",
+            root / "checkpoints" / "renju" / "az_renju_weights.pt",
             root / "models" / "az_normal_weights.pt",
         ]
         valid = []
@@ -262,8 +266,12 @@ class PygameFrontend:
         elif self.page == "setup":
             if self._rects.get("normal") and self._rects["normal"].collidepoint(pos):
                 self.ruleset = "normal"
+                default = self._default_checkpoint()
+                self.checkpoints = {side: default for side in (BLACK, WHITE)}
             elif self._rects.get("renju") and self._rects["renju"].collidepoint(pos):
                 self.ruleset = "renju"
+                default = self._default_checkpoint()
+                self.checkpoints = {side: default for side in (BLACK, WHITE)}
             elif self._rects.get("deterministic") and self._rects["deterministic"].collidepoint(pos):
                 self.spectator_mode = "deterministic"
             elif self._rects.get("exploration") and self._rects["exploration"].collidepoint(pos):

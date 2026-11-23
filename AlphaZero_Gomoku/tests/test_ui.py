@@ -132,6 +132,34 @@ def test_frontend_prefers_local_checkpoint_to_weights(monkeypatch, tmp_path):
     assert str(weights) in app.checkpoint_options
 
 
+def test_frontend_discovers_renju_weights_and_uses_them_for_renju(monkeypatch, tmp_path):
+    import ui.pygame_frontend as frontend
+
+    root = tmp_path
+    monkeypatch.setattr(frontend, "__file__", str(root / "ui" / "pygame_frontend.py"))
+    renju_weights = root / "checkpoints" / "renju" / "az_renju_weights.pt"
+    renju_weights.parent.mkdir(parents=True)
+    renju_weights.write_bytes(b"renju weights")
+    normal_weights = root / "models" / "az_normal_weights.pt"
+    normal_weights.parent.mkdir()
+    normal_weights.write_bytes(b"normal weights")
+
+    app = PygameFrontend()
+
+    assert str(renju_weights) in app.checkpoint_options
+    assert app.checkpoints[BLACK] == str(renju_weights)
+    app.ruleset = "normal"
+    assert app._default_checkpoint() == str(normal_weights)
+    app.ruleset = "renju"
+    assert app._default_checkpoint() == str(renju_weights)
+    assert app.checkpoint_options.index(str(renju_weights)) < app.checkpoint_options.index(str(normal_weights))
+    app._rects = {"normal": pygame.Rect(0, 0, 1, 1), "renju": pygame.Rect(2, 0, 1, 1)}
+    app._event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(0, 0)))
+    assert app.checkpoints[BLACK] == str(normal_weights)
+    app._event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(2, 0)))
+    assert app.checkpoints[BLACK] == str(renju_weights)
+
+
 def test_frontend_falls_back_to_weights_only_without_local_checkpoint(monkeypatch, tmp_path):
     import ui.pygame_frontend as frontend
 

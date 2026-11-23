@@ -1,4 +1,7 @@
-checkpoints/
+checkpoints/*
+!checkpoints/renju/
+checkpoints/renju/*
+!checkpoints/renju/az_renju_weights.pt
 logs/
 __pycache__/
 *.pt
@@ -44,3 +47,4 @@ docs/performance/raw-*.json
 # Runtime logs under data/
 data/*.log
 !models/az_normal_weights.pt
+!checkpoints/renju/az_renju_weights.pt
