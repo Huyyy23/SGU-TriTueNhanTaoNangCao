@@ -1,13 +1,13 @@
 # Tóm tắt
 
-Đồ án xây dựng và đánh giá hệ thống Gomoku 11×11 theo phương pháp AlphaZero, kết hợp mạng nơ-ron chính sách–giá trị, tìm kiếm cây Monte Carlo, tự chơi và cập nhật mô hình từ kết quả ván. Hệ thống tách luật Normal và Renju, hỗ trợ các tác tử đối chứng Random, Heuristic, Alpha-Beta, MCTS thuần, bộ máy tìm kiếm Python/C++ và giao diện Pygame. Báo cáo tổng hợp kiến trúc, cơ sở thuật toán và thực nghiệm từ log, cơ sở dữ liệu cùng tài liệu dự án. Bằng chứng ghi nhận pipeline huấn luyện và đánh giá trên cả hai bộ luật; một số ứng viên đạt kết quả tốt hơn trong các đối chiếu hoặc thế cờ cố định, còn C++ tăng thông lượng ở workload đã đo. Kết quả được diễn giải theo đúng luật và giao thức; số liệu hiện có chưa xác nhận ưu thế tổng quát của AlphaZero trước Heuristic. Đóng góp chính là hệ thống tích hợp và quy trình đối chiếu thực nghiệm có thể kiểm toán.
+Đồ án xây dựng hệ thống Gomoku 11×11 theo AlphaZero, tích hợp mạng chính sách–giá trị, MCTS, tự chơi, luật Normal/Renju và các tác tử đối chứng. Báo cáo đối chiếu mã nguồn, lịch sử Git, log, SQLite và checkpoint để tái dựng thực nghiệm. Ở lần chạy lại T35 ngày 24/11/2026 (2.400 ván), `az_v1_threat` có tỷ lệ điểm cao nhất trong hai nhóm Normal (81,4%; 77,8%), còn Heuristic dẫn đầu Renju (83,3%). Kết quả AZ thuần `az_v0` và biến thể chiến thuật được tách riêng; T35 không chứng minh ưu thế tổng quát hay quan hệ nhân quả do can thiệp. Đóng góp chính là hệ thống tích hợp và hồ sơ thực nghiệm có thể kiểm tra.
 
 ## Từ khóa
 
 Gomoku; AlphaZero; học tăng cường; tìm kiếm cây Monte Carlo; tự chơi; Renju; đánh giá thực nghiệm.
 ## Abstract
 
-This project implements and evaluates an 11×11 Gomoku system based on AlphaZero, combining a policy–value neural network, Monte Carlo tree search, self-play, and outcome-based optimization. The system separates Normal and Renju rules, provides Random, Heuristic, Alpha-Beta, and pure MCTS opponents, and includes Python/C++ search backends and a Pygame interface. This report describes the architecture and analyzes historical experiments using saved logs, databases, and project records. The evidence confirms that the training and evaluation pipelines operated under both rule sets. Some candidates performed better in specific checkpoint comparisons or fixed tactical positions, while C++ increased throughput in measured workloads. These results are limited to their recorded protocols and do not establish a general playing-strength advantage over the Heuristic agent. The principal contribution is an integrated system and an auditable experimental record.
+This project implements an 11×11 AlphaZero Gomoku system with a policy–value network, MCTS, self-play, Normal/Renju rules, and baseline agents. The report reconstructs experiments from source, Git history, logs, SQLite, and checkpoints. In the 24 November 2026 T35 rerun (2,400 games), tactical `az_v1_threat` had the highest score in the two Normal groups (81.4%, 77.8%); Heuristic led Renju (83.3%). Pure `az_v0` and the tactical variant are distinguished; T35 establishes neither general superiority nor a causal tactical effect. The contribution is the integrated system and auditable experimental record.
 
 ## Keywords
 
@@ -76,7 +76,7 @@ Mạng policy-value học hai phép dự đoán trên một biểu diễn trạn
 
 Chính sách sắp thứ tự ưu tiên khi mở rộng cây; giá trị ước lượng các nút chưa đến trạng thái kết thúc. MCTS dùng nhiều lượt duyệt cây để cải thiện phân phối chính sách ban đầu. Lượt thăm ở nút gốc tạo phân phối mục tiêu `π`; hành động thực tế được lấy mẫu hoặc chọn theo số lượt thăm cao nhất. Kết quả cuối ván tạo nhãn `z`. Một dạng hàm mục tiêu lý thuyết là:
 
-$$L(θ) = (z − v_θ(s))² − ∑ₐ π(a|s) log p_θ(a|s) + c‖θ‖²$$
+L(θ) = (z − vθ(s))² − Σₐ π(a|s) ln pθ(a|s) + c‖θ‖²
 
 Số hạng giá trị hồi quy kết quả; số hạng chính sách khớp phân phối lượt thăm của tìm kiếm; số hạng chính quy hóa giới hạn độ lớn tham số. Nghiên cứu [7] khảo sát mối liên hệ giữa lựa chọn hàm mất mát và sức chơi trong tự chơi kiểu AlphaZero. Trong implementation của đồ án, loss gồm cross-entropy cho chính sách và MSE cho giá trị; weight decay thuộc Adam, không được cộng thêm vào loss (`az/trainer.py`, dòng 99–124).
 
@@ -86,7 +86,7 @@ MCTS xây dựng một phần cây bằng bốn bước lặp: chọn đường 
 
 UCT (Upper Confidence bounds applied to Trees) cân bằng khai thác và khám phá bằng cách cộng điểm giá trị trung bình vào một hạng thưởng cho nhánh ít được thăm. Một dạng thường dùng là:
 
-$$UCT(s,a) = Q(s,a) + c · √(ln N(s) / N(s,a))$$
+UCT(s, a) = Q(s, a) + c · √(ln N(s) / N(s, a))
 
 Trong đó `Q` là giá trị trung bình ước lượng, `N(s)` là số lượt thăm nút cha, `N(s,a)` là số lượt thăm nhánh; `c` điều chỉnh mức khám phá. UCT áp dụng cận tin cậy vào cây tìm kiếm [2]. AlphaZero giữ nguyên nguyên tắc cân bằng khai thác–khám phá nhưng dùng xác suất ưu tiên từ mạng trong PUCT.
 
@@ -96,20 +96,24 @@ Trong trò chơi đối kháng, giá trị cần có quy ước góc nhìn nhấ
 
 PUCT kết hợp giá trị ước lượng với xác suất ưu tiên từ mạng chính sách. Điểm lựa chọn trong implementation là:
 
-$$score(s,a) = −Q(sₐ) + c_{puct} · P(s,a) · √(max(1,N(s))) / (1 + N(sₐ))$$
+score(s, a) = −Q(child) + c-puct · P(s, a) · √(max(1, N(s))) / (1 + N(child))
 
 Ở đây, `P(s,a)` là xác suất ưu tiên, `N(s)` và `N(sₐ)` là số lượt thăm của nút cha và nút con; `Q(sₐ)` là giá trị trung bình theo góc nhìn người chơi tới lượt ở nút con. Dấu âm đưa giá trị về góc nhìn nút cha. `c_puct` điều chỉnh ảnh hưởng của xác suất ưu tiên. Công thức và mặc định `c_puct=1.5` nằm trong SPEC; cấu trúc nút và quy ước `q_value` ở `az/mcts.py` (`SPEC.md`, mục 7.1, dòng 180–194; `az/mcts.py`, dòng 18–37).
 
 Khi mở rộng lá, mạng trả về phân phối softmax; MCTS nhân phân phối này với mặt nạ hợp lệ rồi chuẩn hóa trên các nước còn lại. Nếu tổng xác suất không vượt ngưỡng `1e−8`, chương trình dùng phân phối đều trên nước hợp lệ; nước cấm có xác suất ưu tiên bằng 0. Mã thực hiện bước lọc sau softmax (`az/mcts.py`, dòng 158–174; `az/model.py`, dòng 86–105).
 
 Trong huấn luyện, nhiễu Dirichlet có thể được trộn vào prior tại nút gốc để khuyến khích khám phá:
-$$P′(s,a) = (1−ε)P(s,a) + εη(a),  η ∼ Dirichlet(α)$$
+
+P′(s, a) = (1 − ε)P(s, a) + εη(a), η ∼ Dirichlet(α)
+
 Nhiễu chỉ được lấy trên nước hợp lệ; đây là cơ chế dành cho tự chơi/huấn luyện, còn đánh giá giải đấu mặc định tắt nhiễu tại nút gốc (`SPEC.md`, mục 7.1 và 10.2).
 
 ## 2.5. Mạng ResNet và mạng policy-value
 
 Mạng tích chập khai thác quan hệ không gian cục bộ giữa các ô. ResNet bổ sung nhánh tắt để mỗi khối học phần dư thay vì phải tái tạo toàn bộ phép biến đổi. Với đầu vào `x`, đầu ra của khối là:
-$$y = ReLU(F(x) + x)$$
+
+y = ReLU(F(x) + x)
+
 Trong đó `F` gồm các lớp tích chập và chuẩn hóa; nhánh tắt hỗ trợ truyền tín hiệu qua mạng sâu [3].
 
 AZNet dùng một lớp tích chập đầu vào, tiếp đó là các khối phần dư và hai đầu ra. Đầu chính sách tạo 121 logit tương ứng 121 giao điểm; đầu giá trị tổng hợp đặc trưng thành một số vô hướng qua `tanh`, thuộc `[-1,1]`. Theo cấu hình mặc định, mạng có 6 khối phần dư, mỗi khối 64 bộ lọc (`az/model.py`, dòng 14–40, 68–84; `config.py`, dòng 28–30; `SPEC.md`, mục 6, dòng 159–178).
@@ -135,7 +139,9 @@ Repo có cấu hình và trình điều khiển tinh chỉnh Renju; sự hiện 
 Các tác tử đối chứng biểu diễn những mức độ khác nhau của lập kế hoạch. Random chọn đều trong tập nước hợp lệ, tạo mốc tối thiểu để kiểm tra luật và điều phối ván; nó không đánh giá chiến thuật. Heuristic dự án ưu tiên thắng ngay, chặn thắng ngay, tạo hoặc chặn các mẫu bốn và ba quân, sau đó dùng vị trí gần trung tâm để phá hòa. Đây là quy tắc chiến thuật xác định, không phải mô hình học từ dữ liệu.
 
 Minimax mô hình hóa trò chơi tổng bằng không bằng đệ quy trên các nước hợp lệ:
-$$V_d(s) = max_{a∈A(s)}[−V_{d−1}(T(s,a))]$$
+
+V(d, s) = max over a ∈ A(s) of −V(d − 1, T(s, a))
+
 Hàm đánh giá heuristic ước lượng trạng thái ở độ sâu giới hạn. Thuật toán chọn nước tối đa hóa kết quả với giả định đối thủ đáp trả tối ưu; chất lượng phụ thuộc độ sâu, số nhánh và hàm đánh giá. Alpha-Beta duy trì hai cận `α` và `β`, loại bỏ nhánh không thể cải thiện lựa chọn hiện tại mà vẫn giữ kết quả minimax. Thứ tự duyệt tốt có thể tăng số nhánh bị cắt [5], [6].
 
 MCTS thuần dùng UCT để chọn nhánh và rollout ngẫu nhiên để ước lượng kết quả, không dùng prior chính sách hay mạng giá trị. AlphaZero thay bằng prior policy trong PUCT và giá trị mạng khi đánh giá lá [2], [1]. Hai cách đều tìm kiếm trên cây; cùng số mô phỏng không bảo đảm cùng chi phí hoặc chất lượng.
@@ -180,9 +186,13 @@ Luật Renju trong đồ án bất đối xứng theo màu. Với Đen, tạo đ
 
 Để tìm nước cấm, mã xét các giao điểm cách quân Đen hiện có tối đa bốn bước theo các hướng thẳng. Với mỗi ứng viên, nó tạm đặt quân, kiểm tra quá năm, nhóm bộ bốn và bộ ba mở, rồi phục hồi bàn. Bộ ba mở được xác định qua nước nối thành bộ bốn mở; các nước nối cũng được kiểm tra tính hợp lệ theo quy tắc nội bộ. Đây là mô tả implementation, không khẳng định đã bao phủ mọi diễn giải Renju quốc tế (`gomoku/rules/renju.py`, dòng 32–57, 75–90, 129–229; `SPEC.md`, mục 5.2–5.3, dòng 147–157).
 ![Minh họa Renju: đúng năm quân và thắng hợp lệ](renju_exact_five.png)
+Hình này đánh dấu nước tạo đúng năm quân: nước đi hợp lệ và thắng ngay cho Đen theo luật hiện thực.
 ![Minh họa Renju: quá năm quân liên tiếp bị cấm](renju_overline.png)
+Dấu × tạo quá năm quân liên tiếp; trường hợp này bị cấm với Đen.
 ![Minh họa Renju: nước tạo 3–3 bị cấm](renju_double_three.png)
+Dấu × đồng thời tạo hai bộ ba mở; trường hợp này bị cấm với Đen.
 ![Minh họa Renju: nước tạo 4–4 bị cấm](renju_double_four.png)
+Dấu × đồng thời tạo hai bộ bốn; trường hợp này bị cấm với Đen.
 
 Luật Renju chi phối mặt nạ hợp lệ tại mỗi lá MCTS, plane nước cấm trong tensor, nhãn ruleset của replay và việc tách riêng nhóm đánh giá. Các lớp phải cùng dùng một định nghĩa luật để chính sách không phân bổ xác suất lên nước cấm và dữ liệu không mâu thuẫn với trạng thái kết thúc.
 
@@ -200,6 +210,7 @@ Hàm `board_to_planes(board, rules, player)` tạo tensor `uint8` kích thước
 Tám phép đối xứng của hình vuông (quay và phản chiếu) được áp dụng đồng bộ lên tensor bàn và chính sách 121 phần tử. `ReplayBuffer.sample` chọn ngẫu nhiên một phép cho mỗi mẫu; nhãn kết quả `z` không đổi vì phép biến đổi chỉ thay đổi hướng nhìn bàn (`gomoku/features.py`, dòng 11–20, 38–57; `az/replay_buffer.py`, dòng 80–118).
 ![Bàn cờ và bốn plane đầu vào của mô hình](tensor_planes.png)
 ![Các phép đối xứng áp dụng đồng bộ cho bàn và chính sách](augmentation_board.png)
+Biến đổi hình học được áp dụng đồng thời lên bàn và vector hành động; nhãn kết quả không đổi.
 
 ## 4.2. AZNet: thân ResNet và hai đầu ra
 
@@ -215,18 +226,19 @@ Mạng dự đoán trên cả 121 ô; MCTS mới áp dụng mặt nạ nước h
 ## 4.3. Một lượt mô phỏng MCTS và suy luận mạng
 
 Mỗi nút MCTS lưu nút cha, nước đi, xác suất ưu tiên, lượt thăm `N`, tổng giá trị `W`, các nút con và trạng thái kết thúc/đã mở rộng. Giá trị trung bình là `Q=W/N`, bằng 0 trước lượt thăm đầu tiên. Với mỗi nước đi, MCTS khởi tạo nút gốc theo trạng thái hiện tại rồi thực hiện ngân sách mô phỏng đã định (`az/mcts.py`, dòng 18–37, 41–79; `SPEC.md`, mục 7.2, dòng 196–217).
+![Các bước của một lượt mô phỏng MCTS dùng PUCT](mcts_puct.png)
 
 Mỗi mô phỏng đi từ gốc xuống theo điểm PUCT. Khi gặp nút kết thúc, kết quả được truyền ngược mà không gọi mạng. Với lá chưa kết thúc, MCTS lấy tensor và mặt nạ hợp lệ từ Rules; yêu cầu suy luận được gom lại, các nước tạm được hoàn tác, rồi kết quả chính sách/giá trị được dùng để mở rộng nút và truyền giá trị ngược (`az/mcts.py`, dòng 88–183; `SPEC.md`, mục 7.2, dòng 196–217).
 
 Trong trò chơi đối kháng, mỗi cạnh đổi bên đi nên giá trị được đảo dấu qua từng nước khi truyền ngược. Ở nút kết thúc sau một nước thắng, người tới lượt kế tiếp có giá trị `−1`. Quy ước này tương ứng với `−Q(child)` khi nút cha đánh giá nút con (`az/mcts.py`, dòng 32–37, 115–134; `SPEC.md`, mục 7.1, dòng 184–194).
-![Các bước của một lượt mô phỏng MCTS dùng PUCT](mcts_puct.png)
 
 API `request/receive` cho phép xen kẽ nhiều ván: các yêu cầu đánh giá lá đang chờ được gom thành một lô suy luận rồi trả về từng bộ tìm kiếm. `run_games` tiến các ván chưa kết thúc và gọi `model.predict` cho các lá đang chờ (`az/selfplay.py`, dòng 69–88). Số ván đồng thời phục vụ gom lô, không làm thay đổi ngân sách mô phỏng mỗi nước.
 
 ## 4.4. Từ thống kê root tới nước đi và target policy
 
 Phân phối mục tiêu được suy ra từ lượt thăm các hành động ở nút gốc:
-$$π(a|s) ∝ N(s,a)^{1/τ}$$
+
+π(a|s) ∝ N(s, a)^(1/τ)
 
 Mặc định trong SPEC: nước đi dùng nhiệt độ 1 trong 15 nước đầu rồi chuyển về 0; nhiệt độ tạo chính sách mục tiêu được cấu hình riêng bằng `pi_target_temp`. Nhiễu Dirichlet, nếu bật, chỉ tác động lên prior ở nút gốc (`config.py`, dòng 13–17, 43; `SPEC.md`, mục 7.1–7.2, dòng 188–217).
 
@@ -257,10 +269,11 @@ Mỗi bước tối ưu lấy một lô từ buffer, tính loss, lan truyền gr
 Trainer có thể theo dõi một lô cố định lấy từ replay và tránh dùng trực tiếp các vị trí đó trong bước tối ưu. Vì lô này vẫn xuất phát từ dữ liệu tự chơi, nó không phải tập kiểm tra độc lập và không đo sức chơi (`az/trainer.py`, dòng 192–225; `az/replay_buffer.py`, dòng 45–47; `SPEC.md`, mục 6.2, dòng 178).
 
 ## 4.9. Tóm tắt luồng end-to-end
+![Lưu đồ từ tìm kiếm MCTS tới việc tạo mẫu tự chơi](flow.png)
+Sơ đồ khái quát luồng tự chơi từ mã hóa trạng thái, tìm kiếm và lưu mẫu đến bước cập nhật mạng.
 
 Từ trạng thái bàn, Rules tạo mặt nạ hợp lệ và bộ mã hóa tạo bốn plane. AZNet dự đoán chính sách–giá trị; MCTS dùng PUCT để tìm kiếm và tích lũy lượt thăm. Lượt thăm tạo chính sách mục tiêu, kết quả ván tạo nhãn `z`, replay cung cấp mẫu đã biến đổi đối xứng và trainer cập nhật mạng. Vòng lặp được dùng cho thế hệ tự chơi tiếp theo.
 
-![Lưu đồ từ tìm kiếm MCTS tới việc tạo mẫu tự chơi](flow.png)
 
 
 # Chương 5. Quá trình thực nghiệm và cải tiến hệ thống
@@ -497,7 +510,7 @@ Trong bảng, W/D/L là số ván thắng/hòa/thua của tác tử A; tỷ lệ
 
 Đợt T35 ban đầu hoàn tất ngày 14/11/2026 với 2.400 ván: 1.500 Normal và 600 Renju theo ngân sách cố định, cùng 300 Normal theo giới hạn thời gian. Mỗi cặp có 100 ván, mỗi tác tử cầm Đen 50 ván; seed gốc `20261113`; không có ván hòa trong tập được chọn. Alpha-Beta cố định được đổi từ độ sâu 2 sang độ sâu 1 và tám cặp liên quan được chạy lại; các cặp còn lại giữ nguyên. AZ và MCTS thuần dùng 200 mô phỏng; Alpha-Beta dùng độ sâu 1. Nhóm Normal một giây mỗi nước dùng tìm kiếm tăng dần độ sâu. Ba nhóm luật/ngân sách được giữ riêng (`docs/report.md`, dòng 225–233).
 
-#### W/D/L đợt T35 ban đầu với ngân sách cố định
+### W/D/L đợt T35 ban đầu với ngân sách cố định
 
 **Bảng: Kết quả T35 ban đầu theo bộ luật và cặp tác tử, với ngân sách cố định**
 | Luật | Tác tử A so với B | Thắng/hòa/thua; điểm A | A thắng khi cầm Đen/Trắng | Wilson 95% |
@@ -537,9 +550,42 @@ Lần chạy lại hoàn tất 2.400 ván ở 24 cặp, 100 ván/cặp và đổ
 | Renju, 200 mô phỏng | 6 | 600 | heuristic (100,0%) | heuristic (83,3%) | 0 / 0 | 4.579,2 |
 | Normal, 1 giây/nước | 3 | 300 | az_v1_threat (93,5%) | az_v1_threat (77,8%) | 3 / 0 | 1.671,8 |
 
-Điểm là `(thắng + 0,5 × hòa) / số ván`. Trong pool lần chạy lại, AZ v1 threat dẫn đầu hai nhóm Normal; Heuristic dẫn đầu Renju. Kết quả không cô lập tác động của checkpoint: môi trường và backend có khác biệt so với đợt ban đầu. Các khoảng Wilson theo cặp và bootstrap Elo mô tả kết quả trong mẫu đã chạy; bàn trống cùng tác tử tất định có thể làm các ván phụ thuộc nhau. Không diễn giải các khoảng này như bằng chứng khái quát ngoài pool T35. Run ID, checkpoint SHA-256, bảng W/D/L từng cặp và phương pháp tính được lưu tại `docs/t35-rerun-20261124.md`.
+**Bảng: Kết quả W/D/L từng cặp đấu trong lần chạy lại T35 ngày 24/11/2026**
+| Luật và ngân sách | Tác tử A – B | W/D/L của A | A thắng Đen/Trắng |
+|---|---|---:|---:|
+| Normal, 200 mô phỏng | Random – Heuristic | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Random – Alpha-Beta | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Random – MCTS thuần | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Random – AZ v0 | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Random – AZ v1 threat | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Heuristic – Alpha-Beta | 100/0/0 | 50/50 |
+| Normal, 200 mô phỏng | Heuristic – MCTS thuần | 100/0/0 | 50/50 |
+| Normal, 200 mô phỏng | Heuristic – AZ v0 | 50/0/50 | 50/0 |
+| Normal, 200 mô phỏng | Heuristic – AZ v1 threat | 50/0/50 | 50/0 |
+| Normal, 200 mô phỏng | Alpha-Beta – MCTS thuần | 2/0/98 | 0/2 |
+| Normal, 200 mô phỏng | Alpha-Beta – AZ v0 | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | Alpha-Beta – AZ v1 threat | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | MCTS thuần – AZ v0 | 2/0/98 | 2/0 |
+| Normal, 200 mô phỏng | MCTS thuần – AZ v1 threat | 0/0/100 | 0/0 |
+| Normal, 200 mô phỏng | AZ v0 – AZ v1 threat | 43/0/57 | 19/24 |
+| Renju, 200 mô phỏng | Random – Heuristic | 0/0/100 | 0/0 |
+| Renju, 200 mô phỏng | Random – Alpha-Beta | 3/0/97 | 1/2 |
+| Renju, 200 mô phỏng | Random – AZ Renju | 0/0/100 | 0/0 |
+| Renju, 200 mô phỏng | Heuristic – Alpha-Beta | 100/0/0 | 50/50 |
+| Renju, 200 mô phỏng | Heuristic – AZ Renju | 50/0/50 | 0/50 |
+| Renju, 200 mô phỏng | Alpha-Beta – AZ Renju | 0/0/100 | 0/0 |
+| Normal, 1 giây/nước | AZ v0 – Alpha-Beta | 100/0/0 | 50/50 |
+| Normal, 1 giây/nước | AZ v0 – AZ v1 threat | 43/3/54 | 29/14 |
+| Normal, 1 giây/nước | AZ v1 threat – Alpha-Beta | 100/0/0 | 50/50 |
+
+Mỗi cặp gồm 100 ván, mỗi tác tử cầm Đen 50 ván; W/D/L tính theo A, cột màu ghi số ván A thắng. Nguồn: `docs/t35-rerun-20261124.md`.
+
+
+Ở hai cặp trực tiếp, AZ thuần `az_v0` đạt 43/0/57 (43,0% điểm) so với `az_v1_threat` ở ngân sách cố định và 43/3/54 (44,5%) ở giới hạn một giây. Tỷ lệ điểm là (W + 0,5D)/N. Với 100 ván mỗi cặp và giao thức khác nhau, đây là mô tả trong pool, không phải bằng chứng nhân quả về can thiệp. Run ID, SHA checkpoint và phương pháp tính tại `docs/t35-rerun-20261124.md`.
+Theo cột màu, Heuristic thắng cả 50 ván cầm Đen trước AZ v0 và AZ v1 threat ở Normal; trước AZ Renju, Heuristic thắng 50 ván đều khi cầm Trắng. Kết quả này cho thấy cần đọc thống kê theo luật và màu, không gộp các cặp thành một tỷ lệ chung.
 
 ![So sánh điểm T35 ban đầu và lần chạy lại theo từng cặp, tách theo luật và ngân sách](../docs/t35-rerun-20261124-score.png)
+Mỗi điểm biểu diễn tỷ lệ điểm của một cặp tác tử; các đường nối so sánh hai đợt chạy, không hàm ý checkpoint hay điều kiện thực nghiệm hoàn toàn tương đương.
 
 ![Thời gian trung bình mỗi ván của T35 ban đầu và lần chạy lại](../docs/t35-rerun-20261124-runtime.png)
 
@@ -673,7 +719,7 @@ Các giới hạn dưới đây chi phối phạm vi kết luận của toàn b�
 
 Đồ án xây dựng hệ thống Gomoku 11×11 với luật Normal/Renju tách biệt, các tác tử đối chứng, ResNet chính sách–giá trị 6×64, MCTS/PUCT, tự chơi, replay, huấn luyện, đánh giá, MCTS C++ tùy chọn và giao diện Pygame. Đóng góp kỹ thuật là tích hợp các mô-đun thành chu trình có ghi nhận dữ liệu; đồng thời lưu vết checkpoint, kết quả đối kháng, kiểm thử và hiệu năng để phân biệt cấu hình dự kiến với bằng chứng đã có.
 
-Các DB hiện có ghi 75.000 ván Normal và 1.500 ván Renju. Thực nghiệm xác nhận checkpoint 50k tốt hơn 40k trong một giao thức đã kiểm soát; MCTS C++ tăng thông lượng ở tải đo; checkpoint Renju 1.500 ván chọn đúng nước chặn trong 10/10 thế cố định. Đây là các đóng góp kỹ thuật có giá trị vì được gắn với dữ liệu và điều kiện đo cụ thể.
+Lần chạy lại T35 ngày 24/11/2026 gồm 2.400 ván: `az_v1_threat` đạt tỷ lệ điểm cao nhất trong hai nhóm Normal (81,4% với 200 mô phỏng; 77,8% ở giới hạn một giây/nước), còn Heuristic dẫn đầu nhóm Renju (83,3%). Ở hai cặp trực tiếp giữa AZ thuần `az_v0` và AZ có can thiệp chiến thuật `az_v1_threat`, `az_v0` đạt W/D/L 43/0/57 với ngân sách cố định và 43/3/54 ở nhóm một giây; điểm tương ứng là 43,0% và 44,5%. Đây là kết quả trong pool T35, không chứng minh hiệu quả nhân quả của can thiệp chiến thuật hay ưu thế khái quát. Các thí nghiệm checkpoint 50k, thông lượng C++ và các thế chặn Renju vẫn có giá trị trong phạm vi điều kiện đã đo.
 
 Đóng góp nghiên cứu nằm ở việc đối chiếu log, SQLite, checkpoint, cấu hình và Git history; phân biệt loss, sức chơi, chiến thuật và tốc độ; đồng thời khôi phục trình tự và kết quả các phép thử kể cả những phép thử không đạt tiêu chí. Bằng chứng đủ để mô tả tiến trình, kết quả theo từng pool và giới hạn suy luận; các hạn chế được tổng hợp riêng tại mục 7.4. Phạm vi phát triển đã đóng băng; báo cáo không bổ sung lần chạy huấn luyện hay giải đấu (`SPEC.md`, mục 1–2, 10, 14; `report/bang_doi_chieu.md`).
 ## 8.2. Hướng nghiên cứu đề xuất
@@ -691,25 +737,25 @@ Các hướng sau chỉ là đề xuất nghiên cứu cho công việc tương 
 
 ## Tài liệu học thuật
 
-[1] D. Silver et al., “A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play,” *Science*, vol. 362, no. 6419, pp. 1140–1144, 2018, doi: 10.1126/science.aar6404.
+[1] D. Silver et al., “A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play,” Science, vol. 362, no. 6419, pp. 1140–1144, 2018, doi: 10.1126/science.aar6404.
 
-[2] L. Kocsis and C. Szepesvári, “Bandit based Monte-Carlo planning,” in *Proc. Eur. Conf. Mach. Learn. (ECML)*, 2006, pp. 282–293, doi: 10.1007/11871842_29.
+[2] L. Kocsis and C. Szepesvári, “Bandit based Monte-Carlo planning,” in Proc. Eur. Conf. Mach. Learn. (ECML), 2006, pp. 282–293, doi: 10.1007/11871842_29.
 
-[3] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in *Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2016, pp. 770–778, doi: 10.1109/CVPR.2016.90.
+[3] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR), 2016, pp. 770–778, doi: 10.1109/CVPR.2016.90.
 
-[4] S. J. Pan and Q. Yang, “A survey on transfer learning,” *IEEE Trans. Knowl. Data Eng.*, vol. 22, no. 10, pp. 1345–1359, 2010, doi: 10.1109/TKDE.2009.191.
+[4] S. J. Pan and Q. Yang, “A survey on transfer learning,” IEEE Trans. Knowl. Data Eng., vol. 22, no. 10, pp. 1345–1359, 2010, doi: 10.1109/TKDE.2009.191.
 
-[5] C. E. Shannon, “XXII. Programming a computer for playing chess,” *The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science*, vol. 41, no. 314, pp. 256–275, 1950, doi: 10.1080/14786445008521796.
+[5] C. E. Shannon, “XXII. Programming a computer for playing chess,” The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science, vol. 41, no. 314, pp. 256–275, 1950, doi: 10.1080/14786445008521796.
 
-[6] D. E. Knuth and R. W. Moore, “An analysis of alpha-beta pruning,” *Artif. Intell.*, vol. 6, no. 4, pp. 293–326, 1975, doi: 10.1016/0004-3702(75)90019-3.
+[6] D. E. Knuth and R. W. Moore, “An analysis of alpha-beta pruning,” Artif. Intell., vol. 6, no. 4, pp. 293–326, 1975, doi: 10.1016/0004-3702(75)90019-3.
 
-[7] H. Wang, M. Emmerich, M. Preuss, and A. Plaat, “Alternative loss functions in AlphaZero-like self-play,” in *2019 IEEE Symposium Series on Computational Intelligence (SSCI)*, Xiamen, China, 2019, pp. 155–162, doi: 10.1109/SSCI44817.2019.9002814.
+[7] H. Wang, M. Emmerich, M. Preuss, and A. Plaat, “Alternative loss functions in AlphaZero-like self-play,” in 2019 IEEE Symposium Series on Computational Intelligence (SSCI), Xiamen, China, 2019, pp. 155–162, doi: 10.1109/SSCI44817.2019.9002814.
 
-[8] W. Liang, C. Yu, B. Whiteaker, I. Huh, H. Shao, and Y. Liang, “AlphaZero Gomoku,” *arXiv:2309.01294* [cs.AI, cs.LG], 2023. [Online]. Available: https://arxiv.org/abs/2309.01294.
+[8] W. Liang, C. Yu, B. Whiteaker, I. Huh, H. Shao, and Y. Liang, “AlphaZero Gomoku,” arXiv:2309.01294 [cs.AI, cs.LG], 2023. [Online]. Available: https://arxiv.org/abs/2309.01294.
 
-[9] R. S. Sutton and A. G. Barto, *Reinforcement Learning: An Introduction*, 2nd ed. Cambridge, MA, USA: MIT Press, 2018.
+[9] R. S. Sutton and A. G. Barto, Reinforcement Learning: An Introduction, 2nd ed. Cambridge, MA, USA: MIT Press, 2018.
 
-[10] D. Silver et al., “Mastering the game of Go without human knowledge,” *Nature*, vol. 550, pp. 354–359, 2017, doi: 10.1038/nature24270.
+[10] D. Silver et al., “Mastering the game of Go without human knowledge,” Nature, vol. 550, pp. 354–359, 2017, doi: 10.1038/nature24270.
 
 ## Nguồn dữ liệu và mã nguồn của dự án
 
