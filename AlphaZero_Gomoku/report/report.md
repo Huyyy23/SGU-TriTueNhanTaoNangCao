@@ -279,10 +279,11 @@ Một số mốc mang nhãn “25k”, “40k”, “50k”, “60k” là tên 
 | Mốc | Mục tiêu / cấu hình ghi nhận | Kết quả và ý nghĩa |
 |---|---|---|
 | 28-10-2026 · Normal 1.000 ván | 20×50 ván; 200 mô phỏng/nước; mạng 6×64; lô 128; 200 bước tối ưu/vòng | Ghi nhận ván, chỉ số và checkpoint; loss huấn luyện giảm nhưng loss trên lô cố định không giảm tương ứng |
-| 14-11-2026 · T35 | 2.400 ván; 100 ván mỗi cặp, đổi màu; Normal/Renju và ngân sách cố định/theo thời gian tách riêng | Heuristic thắng AZ v0 và AZ Renju trong các cặp ngân sách cố định |
+| 14-11-2026 · T35 ban đầu | 2.400 ván; 24 cặp; Normal/Renju; ngân sách cố định/theo thời gian tách riêng | AZ v0 thua Heuristic ở các cặp cố định; AZ có tìm kiếm đe dọa đạt kết quả tốt hơn ở một số cặp Normal |
 | 20-11-2026 · Sàng lọc 60k | 100 ván Normal, 50 cặp đổi màu, 4 nước khai cuộc | AZ đạt 55,5% điểm; khoảng Elo chứa 0, chưa xác nhận ưu thế |
 | 21-11-2026 · Đo hiệu năng | RTX 4060; 200 mô phỏng; Python/C++ và số tiến trình đo riêng | C++ đạt 2,54× trên tải 8 ván; với lô 50, hai tiến trình đạt trung vị 129,59 ván/phút |
 | 23-11-2026 · Kiểm toán checkpoint | Đối chiếu Normal 1.500 và Renju 500/1.500 | Renju có 1.500/1.500 ván do Đen thắng; sức chơi và chiến thuật phụ thuộc tập đánh giá |
+| 24-11-2026 · T35 chạy lại | 2.400 ván; giữ 24 cặp, luật, màu và giao thức; dùng checkpoint hiện hành | AZ v1 threat đứng đầu nhóm Normal cố định và Normal 1 giây/nước; Heuristic đứng đầu Renju |
 
 Các mục tiếp theo giải thích từng động lực, phương pháp, kết quả và quyết định. Ngày ghi trên tài liệu được giữ nguyên khi không có nhật ký xác nhận ngày chạy.
 
@@ -336,7 +337,7 @@ Loss huấn luyện giảm từ 5,19370 xuống 4,09124; loss trên lô cố đ�
 
 Mốc 1.000 ván xác nhận chu trình có thể tạo checkpoint và ghi nhật ký, đồng thời loss huấn luyện biến đổi theo tối ưu. Nó không xác lập hội tụ hoặc ưu thế trước đối thủ. Nhật ký ngày 1/11 chỉ ghi một vòng, hai ván và 95 mẫu; cấu hình lịch sử đặt mục tiêu 5.000 ván cũng không chứng minh đã chạy đủ ngân sách (`docs/report.md`, mục 8.1, dòng 148–149).
 
-## 5.3. T35: đánh giá đối kháng theo giao thức xác định
+## 5.3. T35: đợt ban đầu và lần chạy cập nhật
 
 ### Bối cảnh và thiết kế
 
@@ -349,6 +350,18 @@ Sau các lần chạy thử chu trình, T35 chuyển trọng tâm sang đánh gi
 Ở Normal với ngân sách cố định, Heuristic thắng `az_v0` 100–0 và `az_v1_threat` 100–0. Trong đội hình này, `az_v0` đạt 149/500 = 29,8% điểm; `az_v1_threat` đạt 369/500 = 73,8%. Đây là biến thể có tìm kiếm đe dọa, nên không thể quy kết quả cho riêng trọng số mạng. Ở Renju, Heuristic thắng `az_renju` 100–0; AZ Renju hòa 50–50 với Alpha-Beta độ sâu 1, nhưng Alpha-Beta thắng toàn bộ ván khi cầm Đen. Ở Normal với giới hạn một giây, `az_v1_threat` đạt 87/100 trước Alpha-Beta. Hai giao thức được giữ tách biệt (`docs/report.md`, mục 10.2–10.3, dòng 241–298).
 
 Trong các cặp đã đo, AZ v0 thua Heuristic; biến thể có tìm kiếm đe dọa đạt kết quả tốt hơn ở một số cặp Normal. Kết quả không thiết lập thứ hạng tổng quát: ngân sách khác nhau, tập khai cuộc cụ thể và biến thể không cô lập riêng trọng số mạng. T35 dẫn tới việc khảo sát lỗi chiến thuật và dữ liệu; kết quả các đợt sàng lọc sau không được gộp thành một đợt đấu duy nhất.
+### Chạy lại T35 ngày 24/11/2026
+
+Để cập nhật kết quả cuối kỳ bằng các checkpoint đã xác minh, nhóm chạy lại đúng ma trận T35: 24 cặp, mỗi cặp 100 ván, đổi màu cân bằng 50/50. Tổng cộng có 1.500 ván Normal với ngân sách cố định, 600 ván Renju với ngân sách cố định và 300 ván Normal giới hạn một giây mỗi nước. Kết quả được ghi dưới ba run ID mới trong SQLite; dữ liệu T35 ngày 14/11 được giữ nguyên. Hai đợt dùng cùng đối thủ, luật, cặp đấu và quy tắc sinh seed; checkpoint mới cùng một số khác biệt môi trường và bộ máy khiến đây là đối chiếu giữa hai lần ghi nhận, không phải thí nghiệm cô lập tác động của checkpoint.
+
+Run ID, cấu hình checkpoint và kết quả chi tiết từng cặp được lập thành bảng đối chiếu có thể tái lập; phần tổng hợp và biểu đồ được trình bày tại mục 6.2.1. Bộ dữ liệu cũ được giữ nguyên để đối chiếu. Tạo tác Renju không có con trỏ `best.json`; bản 1.500 ván được chọn vì là checkpoint tốt nhất còn truy xuất được, không phải vì đã chứng minh đạt mục tiêu sức chơi.
+
+Checkpoint Normal là generation `7c43f06544a045be8ef1292486a06c15` (SHA-256 bắt đầu `af6337abf4fe`); checkpoint Renju là bản tinh chỉnh 1.500 ván (SHA-256 bắt đầu `5e2e45d5a952`). Renju chưa có con trỏ checkpoint tốt nhất chính thức, nên báo cáo dùng tạo tác tốt nhất còn truy xuất được, không khẳng định đã đạt mục tiêu sức chơi. Chi tiết SHA-256, run ID, kết quả từng cặp, W/D/L, khoảng Wilson, Elo và phương pháp bootstrap được lưu tại `docs/t35-rerun-20261124.md`.
+
+Trong lần chạy lại, nhóm ngân sách mô phỏng dùng bộ máy C++; nhóm một giây/nước dùng Python để giữ giao thức thời gian. Nhóm Normal cố định tiếp tục từ cùng run ID với hai tiến trình sau lỗi cấp phát bộ nhớ; thời lượng tính từ lúc bắt đầu đến khi hoàn tất, kể cả khoảng gián đoạn. Kết quả và hình minh họa được trình bày tại mục 6.2.1; bảng W/D/L, khoảng tin cậy, Elo và nguồn dữ liệu đầy đủ nằm tại `docs/t35-rerun-20261124.md`.
+
+
+
 
 ## 5.4. Chẩn đoán mốc 25k: dữ liệu tự chơi và tìm kiếm chiến thuật
 
@@ -459,7 +472,7 @@ Báo cáo readiness ghi một cặp tự chơi bốn ván cho cùng mẫu ở m�
 | Giai đoạn | Giả thuyết/động lực | Quan sát quan trọng | Quyết định có thể bảo vệ |
 |---|---|---|---|
 | Normal 1.000 | Kiểm tra toàn chu trình và thay đổi loss | Loss huấn luyện giảm; loss trên lô cố định tăng | Xác nhận vận hành, không kết luận về sức chơi |
-| T35 | Đo tác tử trước các đối thủ tham chiếu | Heuristic thắng AZ v0 và AZ Renju 100/100 trong từng nhóm luật | Giữ riêng luật và giao thức |
+| T35 | Đo tác tử trước các đối thủ tham chiếu | Đợt đầu: Heuristic dẫn các cặp cố định; chạy lại: AZ v1 threat dẫn hai nhóm Normal, Heuristic dẫn Renju | Giữ luật/ngân sách tách biệt; giới hạn kết luận trong pool đã đo |
 | Thăm dò ε tại 25k | Tăng khám phá có thể cải thiện dữ liệu/chiến thuật | Kết quả biến động theo seed; đối kháng chỉ 12 ván/nhánh | Giữ ε=0,25; không chọn ε=0,50 |
 | Quét nước thắng ngay | Can thiệp hẹp có thể xử lý lỗi MCTS | 6/6 thế cũ; 11/12 ở thế mới cho cả hai; 0/4 ván đối kháng | Không tích hợp do chưa có bằng chứng cải thiện sức chơi |
 | 40k–50k | Huấn luyện tiếp tục có thể tăng sức chơi | 50k hơn 40k trong giao thức đã đo; chưa chứng minh vượt Heuristic | Giới hạn kết luận theo phép đo |
@@ -478,13 +491,15 @@ Chương này tổng hợp số liệu đã lưu trong báo cáo, nhật ký, SQ
 
 Trong bảng, W/D/L là số ván thắng/hòa/thua của tác tử A; tỷ lệ điểm là `(W + 0,5D)/N`. Khoảng Wilson 95% của T35 xấp xỉ tỷ lệ điểm khi hòa tính nửa điểm; nó không phải khoảng chính xác cho phân phối ba kết quả, cũng không hiệu chỉnh sự phụ thuộc giữa các ván đổi màu hoặc nhiều phép so sánh. Bootstrap ở các báo cáo sau lấy mẫu theo cặp khai cuộc; khoảng này chỉ phản ánh biến thiên trong các cụm và giao thức đã dùng. Khoảng chứa 0,5 không chứng minh hai tác tử tương đương (`docs/report.md`, dòng 203–209; `SPEC.md`, dòng 298).
 
-## 6.2. Đánh giá đối kháng lịch sử T35
+## 6.2. Đánh giá đối kháng T35: đợt ban đầu và lần chạy lại
 
-T35 hoàn tất ngày 14/11/2026 với 2.400 ván: 1.500 Normal và 600 Renju theo ngân sách cố định, cùng 300 Normal theo giới hạn thời gian. Mỗi cặp có 100 ván, mỗi tác tử cầm Đen 50 ván; seed gốc `20261113`; không có ván hòa trong tập được chọn. Alpha-Beta cố định được đổi từ độ sâu 2 sang độ sâu 1 và tám cặp liên quan được chạy lại; các cặp còn lại giữ nguyên. AZ và MCTS thuần dùng 200 mô phỏng; Alpha-Beta dùng độ sâu 1. Nhóm Normal một giây mỗi nước dùng tìm kiếm tăng dần độ sâu. Ba nhóm luật/ngân sách được giữ riêng (`docs/report.md`, dòng 225–233).
+### Đợt ban đầu (14/11/2026)
 
-### W/D/L T35 với ngân sách cố định
+Đợt T35 ban đầu hoàn tất ngày 14/11/2026 với 2.400 ván: 1.500 Normal và 600 Renju theo ngân sách cố định, cùng 300 Normal theo giới hạn thời gian. Mỗi cặp có 100 ván, mỗi tác tử cầm Đen 50 ván; seed gốc `20261113`; không có ván hòa trong tập được chọn. Alpha-Beta cố định được đổi từ độ sâu 2 sang độ sâu 1 và tám cặp liên quan được chạy lại; các cặp còn lại giữ nguyên. AZ và MCTS thuần dùng 200 mô phỏng; Alpha-Beta dùng độ sâu 1. Nhóm Normal một giây mỗi nước dùng tìm kiếm tăng dần độ sâu. Ba nhóm luật/ngân sách được giữ riêng (`docs/report.md`, dòng 225–233).
 
-**Bảng: Kết quả T35 theo bộ luật và cặp tác tử, với ngân sách cố định**
+#### W/D/L đợt T35 ban đầu với ngân sách cố định
+
+**Bảng: Kết quả T35 ban đầu theo bộ luật và cặp tác tử, với ngân sách cố định**
 | Luật | Tác tử A so với B | Thắng/hòa/thua; điểm A | A thắng khi cầm Đen/Trắng | Wilson 95% |
 |---|---|---:|---:|---:|
 | Normal | Random vs Heuristic | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
@@ -509,7 +524,25 @@ T35 hoàn tất ngày 14/11/2026 với 2.400 ván: 1.500 Normal và 600 Renju th
 | Renju | AlphaBeta vs AZ Renju | 50/0/50; 50,00% | 50 / 0 | [0,404; 0,596] |
 Ghi chú: Các cặp Normal một giây mỗi nước được tách khỏi bảng vì dùng giao thức khác: AZ v0–Alpha-Beta 50/0/50, AZ v0–AZ v1 threat 0/0/100, AZ v1 threat–Alpha-Beta 87/0/13 (`docs/report.md`, dòng 237–279).
 
-Bảng cho thấy trong pool T35 được khảo sát, Heuristic thắng 100/100 trước AZ v0 ở Normal fixed và 100/100 trước AZ Renju ở Renju fixed; AZ v0 và AlphaBeta chia đều 50/50, trong đó AZ v0 thắng 50 ván khi cầm Trắng và 0 khi cầm Đen. Đây là mô tả kết quả của các cặp được đánh giá, không chứng minh thứ hạng tổng quát ngoài pool đó. Điểm số agent gộp ở các đội hình không thể so trực tiếp vì số đối thủ, luật và ngân sách khác nhau. (`docs/report.md:241-298`)
+Trong đợt ban đầu, Heuristic thắng toàn bộ 100 ván trước `az_v0` ở Normal và `az_renju` ở Renju; AZ v0 và Alpha-Beta chia đều 50–50. Đây là kết quả trong pool đã đánh giá, không xác lập thứ hạng tổng quát. Các nhóm luật và ngân sách khác nhau không được gộp thành một bảng xếp hạng chung (`docs/report.md`, mục 10.2–10.3).
+
+### 6.2.1. Lần chạy lại (24/11/2026)
+
+Lần chạy lại hoàn tất 2.400 ván ở 24 cặp, 100 ván/cặp và đổi màu cân bằng. Trong đó có 1.500 Normal và 600 Renju với ngân sách 200 mô phỏng; nhóm Normal còn lại có 300 ván, giới hạn một giây mỗi nước. Tất cả ba nhóm có 0 nước sai luật; ba ván hòa nằm trong nhóm Normal theo thời gian.
+
+**Bảng: So sánh kết quả T35 ban đầu và lần chạy lại**
+| Luật và ngân sách | Số cặp | Số ván | Tác tử dẫn đầu ban đầu (điểm) | Tác tử dẫn đầu lần chạy lại (điểm) | Hòa / sai luật | Thời gian tổng lần chạy lại (giây) |
+|---|---:|---:|---|---|---:|---:|
+| Normal, 200 mô phỏng | 15 | 1.500 | heuristic (100,0%) | az_v1_threat (81,4%) | 0 / 0 | 2.713,2 |
+| Renju, 200 mô phỏng | 6 | 600 | heuristic (100,0%) | heuristic (83,3%) | 0 / 0 | 4.579,2 |
+| Normal, 1 giây/nước | 3 | 300 | az_v1_threat (93,5%) | az_v1_threat (77,8%) | 3 / 0 | 1.671,8 |
+
+Điểm là `(thắng + 0,5 × hòa) / số ván`. Trong pool lần chạy lại, AZ v1 threat dẫn đầu hai nhóm Normal; Heuristic dẫn đầu Renju. Kết quả không cô lập tác động của checkpoint: môi trường và backend có khác biệt so với đợt ban đầu. Các khoảng Wilson theo cặp và bootstrap Elo mô tả kết quả trong mẫu đã chạy; bàn trống cùng tác tử tất định có thể làm các ván phụ thuộc nhau. Không diễn giải các khoảng này như bằng chứng khái quát ngoài pool T35. Run ID, checkpoint SHA-256, bảng W/D/L từng cặp và phương pháp tính được lưu tại `docs/t35-rerun-20261124.md`.
+
+![So sánh điểm T35 ban đầu và lần chạy lại theo từng cặp, tách theo luật và ngân sách](../docs/t35-rerun-20261124-score.png)
+
+![Thời gian trung bình mỗi ván của T35 ban đầu và lần chạy lại](../docs/t35-rerun-20261124-runtime.png)
+
 
 
 ## 6.3. Thử nghiệm ứng viên trên checkpoint Normal 50k
@@ -568,9 +601,7 @@ Kiểm toán checkpoint vòng 1500 ghi 400 ván Normal trước Heuristic: 295 t
 
 Kiểm toán độ đa dạng chỉ tìm thấy **ba quỹ đạo ván đầy đủ khác nhau**: một khi AZ cầm Đen và hai khi Heuristic cầm Đen. Vì vậy, khoảng tin cậy/Elo lưu trong báo cáo là thống kê theo giao thức đó, chưa hiệu chỉnh theo ba quỹ đạo và không thể xem 400 bản ghi ván là 400 mẫu độc lập. So sánh vòng 1400 không thực hiện do thiếu checkpoint; phép đo cũ 100 ván với bốn nước khai cuộc không thay thế cho phép đo 400 ván không khai cuộc (`.audit/az-checkpoint-strength-20261123.tsv`, dòng 3, 8, 10–11).
 
-![Kết quả T35, phân bố thắng thua theo màu và thông lượng benchmark](results_dashboard.png)
 
-Biểu đồ tổng hợp chỉ gồm các cặp T35, tách Normal khỏi Renju. Phân bố kết quả lấy từ hai cơ sở dữ liệu; thông lượng là phép đo tải 50 ván trên một máy, không phải sức chơi.
 
 
 

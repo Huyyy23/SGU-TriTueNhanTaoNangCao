@@ -206,6 +206,7 @@ def build(indexes) -> None:
             if path.suffix.lower() != ".png" or not path.is_file():
                 raise FileNotFoundError(f"Ảnh PNG không tồn tại hoặc không hỗ trợ: {path}")
             image_width = Cm(9.0) if path.stem.startswith("renju_") else Cm(15.5)
+            p = doc.add_paragraph()
             p.add_run().add_picture(str(path), width=image_width)
             figures += 1
             add_caption(doc, "Hình", caption or path.stem, figures)
