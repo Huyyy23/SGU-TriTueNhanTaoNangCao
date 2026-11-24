@@ -165,10 +165,77 @@ def flow():
 
 
 
+def architecture_detail():
+    fig, axes = plt.subplots(2, 2, figsize=(13, 8))
+    fig.suptitle("Các thành phần cốt lõi của AlphaZero Gomoku", fontsize=17,
+                 fontweight="bold", color=COLORS["text"])
+    for ax in axes.flat:
+        ax.set_xlim(0, 10)
+        ax.set_ylim(0, 5)
+        ax.axis("off")
+
+    ax = axes[0, 0]
+    ax.set_title("(a) Biểu diễn và ResNet 6×64", loc="left", fontsize=12, fontweight="bold")
+    box(ax, (0.25, 2.45), (2.15, 1.0), "4 plane đầu vào\nTa · đối thủ · cấm · màu lượt", fontsize=8)
+    box(ax, (3.2, 2.45), (1.45, 1.0), "Stem\nConv 3×3", color="search", fontsize=8)
+    box(ax, (5.25, 2.25), (1.8, 1.4), "6 residual blocks\n64 filters", color="search", fontsize=8)
+    box(ax, (8.0, 3.4), (1.6, 0.8), "Policy\n121 logits", color="data", fontsize=8)
+    box(ax, (8.0, 1.45), (1.6, 0.8), "Value\n[-1, 1]", color="data", fontsize=8)
+    arrow(ax, (2.43, 2.95), (3.17, 2.95))
+    arrow(ax, (4.67, 2.95), (5.22, 2.95))
+    arrow(ax, (7.08, 3.2), (7.97, 3.78))
+    arrow(ax, (7.08, 2.7), (7.97, 1.88))
+
+    ax = axes[0, 1]
+    ax.set_title("(b) Một vòng MCTS dùng PUCT", loc="left", fontsize=12, fontweight="bold")
+    nodes = [
+        ((0.25, 2.5), "Chọn nhánh\nPUCT"),
+        ((2.7, 2.5), "Mở rộng\nnước hợp lệ"),
+        ((5.1, 2.5), "Đánh giá lá\npolicy + value"),
+        ((7.55, 2.5), "Backup\nđổi dấu"),
+    ]
+    for (x, y), label in nodes:
+        box(ax, (x, y), (1.85, 1.05), label, color="search", fontsize=8)
+    for i in range(len(nodes) - 1):
+        arrow(ax, (nodes[i][0][0] + 1.88, 3.02), (nodes[i + 1][0][0] - 0.03, 3.02))
+    ax.text(1.0, 1.45, "−Q(child) + cₚᵤcₜ · P · √N / (1 + Nₐ)",
+            ha="center", fontsize=9, color=COLORS["text"])
+    arrow(ax, (8.4, 2.42), (1.15, 2.42), "lặp đến đủ lượt mô phỏng", curve=-0.25,
+          label_offset=(0, -0.6))
+
+    ax = axes[1, 0]
+    ax.set_title("(c) Tăng cường dữ liệu theo 8 đối xứng", loc="left", fontsize=12, fontweight="bold")
+    box(ax, (0.35, 2.4), (2.15, 1.0), "4-plane tensor\n+ policy (121)", color="data", fontsize=8)
+    box(ax, (3.9, 2.4), (2.15, 1.0), "8 đối xứng\nD₄: quay / lật", color="search", fontsize=8)
+    box(ax, (7.45, 2.4), (2.15, 1.0), "tensor′ + policy′\nz giữ nguyên", color="data", fontsize=8)
+    arrow(ax, (2.53, 2.9), (3.86, 2.9))
+    arrow(ax, (6.08, 2.9), (7.42, 2.9))
+    ax.text(5.0, 1.45, "Cùng phép biến đổi cho bàn và phân phối hành động",
+            ha="center", fontsize=8, color=COLORS["text"])
+
+    ax = axes[1, 1]
+    ax.set_title("(d) Sơ đồ luật Renju theo implementation", loc="left", fontsize=12, fontweight="bold")
+    box(ax, (0.25, 2.45), (1.45, 0.9), "Màu quân?", color="interface", fontsize=8)
+    box(ax, (2.2, 3.45), (2.25, 0.8), "Trắng: ≥5 thắng;\nkhác: nước hợp lệ", color="data", fontsize=7.5)
+    box(ax, (2.2, 1.35), (2.25, 0.95), "Đen: đúng 5 thắng;\nưu tiên trước kiểm tra cấm", color="search", fontsize=7.5)
+    box(ax, (5.15, 1.35), (1.9, 0.95), "Overline hoặc\n3–3 / 4–4?", color="search", fontsize=8)
+    box(ax, (8.0, 2.65), (1.75, 0.8), "Có: nước cấm", color="optional", fontsize=8)
+    box(ax, (8.0, 0.75), (1.75, 0.8), "Không: hợp lệ", color="data", fontsize=8)
+    arrow(ax, (1.73, 3.0), (2.17, 3.85))
+    arrow(ax, (1.73, 2.8), (2.17, 1.82))
+    arrow(ax, (4.48, 1.82), (5.12, 1.82))
+    arrow(ax, (7.08, 2.0), (7.97, 3.05), "có")
+    arrow(ax, (7.08, 1.65), (7.97, 1.15), "không")
+
+    fig.tight_layout(rect=(0.02, 0.02, 0.98, 0.94))
+    fig.savefig(OUT / "architecture_detail.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     architecture()
     flow()
-
+    architecture_detail()
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,28 @@
+# Tóm tắt
+
+Đồ án xây dựng và đánh giá hệ thống Gomoku 11×11 theo phương pháp AlphaZero, kết hợp mạng nơ-ron policy–value, tìm kiếm Monte Carlo Tree Search (MCTS), tự chơi và tối ưu từ kết quả ván. Hệ thống tách luật Normal và Renju, hỗ trợ các tác tử đối chứng từ Random, Heuristic, Alpha-Beta đến MCTS thuần, cùng backend tìm kiếm Python/C++ và giao diện Pygame. Báo cáo tổng hợp kiến trúc, cơ sở thuật toán, quá trình thực nghiệm và bằng chứng lưu trong log, cơ sở dữ liệu và tài liệu dự án. Các kết quả cho thấy pipeline huấn luyện và đánh giá đã vận hành trên hai bộ luật; một số ứng viên cải thiện trên checkpoint hoặc tập thế cờ cố định, và backend C++ tăng thông lượng ở workload được đo. Tuy nhiên, kết quả đối kháng khác protocol, lineage checkpoint chưa đồng nhất, outcome Renju lệch về Đen, và một phép đo Normal có độ đa dạng trajectory thấp. Vì vậy báo cáo diễn giải từng phép đo trong đúng điều kiện, không suy luận sức chơi từ loss hoặc số ván. Đóng góp chính là hiện thực hệ thống, quy trình đối chiếu thực nghiệm và phân tích giới hạn tái lập, không phải khẳng định đạt ưu thế tổng quát trước Heuristic.
+
+## Từ khóa
+
+Gomoku; AlphaZero; học tăng cường; MCTS; PUCT; self-play; Renju; đánh giá thực nghiệm.
+
+## Danh mục từ viết tắt
+
+| Viết tắt | Nghĩa |
+|---|---|
+| AZ | AlphaZero |
+| CNN | Mạng nơ-ron tích chập |
+| CPU / GPU | Bộ xử lý trung tâm / bộ xử lý đồ họa |
+| CI | Khoảng tin cậy |
+| MCTS | Monte Carlo Tree Search |
+| PUCT | Predictor + UCT |
+| RL | Học tăng cường |
+| ResNet | Mạng nơ-ron phần dư |
+| W/D/L | Thắng / hòa / thua |
+| UCT | Upper Confidence bounds applied to Trees |
+
+Trong văn bản, “tự chơi” tương ứng self-play; “mô phỏng” là một lượt MCTS; “đợt sàng lọc” là đánh giá quy mô giới hạn; “chuỗi diễn tiến” chỉ toàn bộ trạng thái/nước đi của một ván. Các nhãn Normal, Renju và tên module được giữ nguyên khi cần định danh chính xác.
+
 # Chương 1. Giới thiệu
 
 ## 1.1. Bối cảnh
@@ -34,7 +59,7 @@ Học tăng cường (Reinforcement Learning, RL) nghiên cứu cách một tác
 
 Trong thiết lập hai người chơi có tổng bằng không, giá trị của vị trí có thể viết theo góc nhìn người đang đi: `v(s) = E[z | s, player-to-move]`, với kết quả cuối `z ∈ {−1, 0, +1}` tương ứng thua, hòa và thắng cho người chơi được quy ước. Sau khi một ply (một nước của một bên) được đi, góc nhìn đối kháng đổi bên, nên dấu giá trị đảo. Quy ước này là thiết yếu cho backpropagation trong MCTS và cho nhãn value trong dữ liệu tự chơi.
 
-Trong AlphaZero, RL không dựa vào dữ liệu gắn nhãn do con người cung cấp. Agent tự sinh các ván, dùng tìm kiếm để tạo chính sách mục tiêu giàu thông tin hơn một lần dự đoán đơn lẻ, rồi cập nhật mạng dựa trên kết quả ván. Bài báo AlphaZero trình bày phương pháp học game từ self-play kết hợp policy/value network với MCTS, và báo cáo áp dụng trên cờ vây, cờ vua và shogi (Silver và cộng sự, 2018, https://www.science.org/doi/10.1126/science.aar6404). Đây là nền tảng phương pháp; bài báo không phải bằng chứng về sức chơi của implementation Gomoku trong đồ án.
+Trong AlphaZero, học tăng cường không dựa vào dữ liệu gắn nhãn do con người cung cấp. Agent tự sinh các ván, dùng tìm kiếm để tạo chính sách mục tiêu giàu thông tin hơn một lần dự đoán đơn lẻ, rồi cập nhật mạng dựa trên kết quả ván. Công trình AlphaZero trình bày phương pháp kết hợp policy/value network, tự chơi và MCTS trên cờ vây, cờ vua và shogi [1]. Đây là nền tảng phương pháp, không phải bằng chứng về sức chơi của implementation Gomoku trong đồ án.
 
 ## 2.2. AlphaZero: policy, value và tìm kiếm
 
@@ -57,7 +82,7 @@ UCT (Upper Confidence bounds applied to Trees) cân bằng khai thác và khám 
 
 `UCT(s,a) = Q(s,a) + c √(ln N(s) / N(s,a))`.
 
-Trong đó `Q` là kết quả trung bình ước lượng, `N(s)` là số lần thăm nút cha, `N(s,a)` là số lần thăm nhánh và `c` điều chỉnh mức khám phá. Kocsis và Szepesvári phát triển UCT như phương pháp áp dụng confidence bounds vào cây tìm kiếm (2006, https://link.springer.com/chapter/10.1007/11871842_29). UCT cung cấp nền tảng cho ý tưởng chọn nhánh theo thống kê và exploration bonus; AlphaZero thay cấu trúc thưởng bằng prior policy trong PUCT.
+Trong đó `Q` là kết quả trung bình ước lượng, `N(s)` là số lần thăm nút cha, `N(s,a)` là số lần thăm nhánh và `c` điều chỉnh mức khám phá. UCT được đề xuất như phương pháp áp dụng confidence bounds vào cây tìm kiếm [2]. UCT cung cấp nền tảng cho ý tưởng chọn nhánh theo thống kê và exploration bonus; AlphaZero thay cấu trúc thưởng bằng prior policy trong PUCT.
 
 Trong cờ đối kháng, `Q` phải có hướng nhìn nhất quán. Nếu node con lưu giá trị từ góc nhìn người chơi tới lượt ở chính node con, thì parent đánh giá nhánh đó với dấu âm: một vị trí tốt cho đối thủ là không tốt cho người đang chọn ở parent. Không làm rõ quy ước này là nguồn lỗi phổ biến vì mọi số vẫn có thể hữu hạn và cây vẫn chạy, nhưng hành vi chọn nước bị đảo.
 
@@ -75,7 +100,7 @@ Trong huấn luyện, Dirichlet noise có thể được trộn vào prior tại
 
 ## 2.5. Mạng ResNet và mạng policy-value
 
-Mạng tích chập phù hợp với bàn cờ vì mỗi ô nằm trong quan hệ không gian cục bộ với các ô lân cận; các bộ lọc có thể phát hiện mẫu theo vị trí mà không cần một tham số riêng cho từng tọa độ ở mọi lớp. ResNet bổ sung kết nối tắt (skip connection) để một block học phần dư thay vì phải tái tạo trực tiếp ánh xạ đầy đủ. Với đầu vào `x`, block có dạng `y = ReLU(F(x) + x)` (có chuẩn hóa batch trong các lớp tích chập). Kết nối tắt hỗ trợ truyền tín hiệu qua nhiều lớp và là nền tảng cho mạng sâu hơn. He và cộng sự giới thiệu residual learning cho recognition thị giác quy mô lớn (2015, https://arxiv.org/abs/1512.03385).
+Mạng tích chập phù hợp với bàn cờ vì mỗi ô nằm trong quan hệ không gian cục bộ với các ô lân cận; các bộ lọc có thể phát hiện mẫu theo vị trí mà không cần một tham số riêng cho từng tọa độ ở mọi lớp. ResNet bổ sung kết nối tắt (skip connection) để một block học phần dư thay vì phải tái tạo trực tiếp ánh xạ đầy đủ. Với đầu vào `x`, block có dạng `y = ReLU(F(x) + x)` (có chuẩn hóa batch trong các lớp tích chập). Kết nối tắt hỗ trợ truyền tín hiệu qua nhiều lớp [3].
 
 AZNet trong dự án dùng một stem convolution, tiếp đó là các residual blocks và hai head. Policy head chuyển đặc trưng không gian thành 121 logits, một cho mỗi ô của bàn 11×11. Value head tổng hợp đặc trưng thành một scalar qua `tanh`, nên dự đoán bị chặn trong `[-1,1]`. Cấu trúc có thể biểu diễn khái quát là `x → trunk ResNet → {policy logits, value}`. Theo mặc định của constructor và cấu hình, model có 6 residual blocks và 64 filters; đây là giá trị cấu hình, không phải kích thước bắt buộc của lý thuyết AlphaZero (`az/model.py`, dòng 14–40, 68–84; `config.py`, dòng 28–30; `SPEC.md`, mục 6, dòng 159–178).
 
@@ -89,11 +114,33 @@ Self-play vừa tạo dữ liệu vừa xác định phân phối trạng thái 
 
 ## 2.7. Transfer learning và fine-tuning
 
-Transfer learning khai thác tri thức đã học trên một tác vụ hoặc phân phối nguồn để khởi tạo mô hình cho tác vụ đích liên quan. Trong fine-tuning, một phần hoặc toàn bộ tham số của model đã huấn luyện được tiếp tục tối ưu trên dữ liệu/tác vụ mới. Tổng quan của Pan và Yang phân loại phương pháp transfer learning theo quan hệ giữa miền nguồn, miền đích và nhiệm vụ (2010, https://ieeexplore.ieee.org/abstract/document/5288526).
+Transfer learning khai thác tri thức đã học trên một tác vụ hoặc phân phối nguồn để khởi tạo mô hình cho tác vụ đích liên quan. Trong fine-tuning, một phần hoặc toàn bộ tham số của model đã huấn luyện được tiếp tục tối ưu trên dữ liệu/tác vụ mới. Tổng quan về transfer learning phân loại các phương pháp theo quan hệ giữa miền nguồn, miền đích và nhiệm vụ [4].
 
 Trong bối cảnh Gomoku, ý tưởng có thể là khởi tạo từ checkpoint đã học trên Normal rồi tiếp tục tối ưu khi luật đích là Renju. Có thể có đặc trưng dùng chung như hình thành chuỗi quân hoặc chiến lược chiếm trung tâm, nhưng ruleset thay đổi tập hành động hợp lệ, khái niệm kết thúc và phân phối kết quả. Do đó chuyển trọng số không đồng nghĩa với chuyển nguyên vẹn policy đúng cho luật mới. Training examples, legal mask, nhãn kết quả, buffer và checkpoint phải nhất quán với ruleset đích; dữ liệu Normal không nên bị âm thầm trộn trong buffer Renju nếu pipeline đặt ràng buộc một luật mỗi buffer.
 
 Trong repo có cấu hình và driver fine-tuning Renju, nhưng sự hiện diện của chúng chỉ chứng minh có đường chạy được thiết kế/cài đặt; nó không chứng minh fine-tuning làm tăng strength. Cần thí nghiệm matched trước–sau với checkpoint nguồn, luật, ngân sách tìm kiếm, protocol, màu và seeds được kiểm soát để kết luận tác động nhân quả. SPEC cũng tách pool Normal/Renju và cảnh báo không thể suy diễn từ một loss hoặc số ván (`SPEC.md`, mục 1.2, 10.2; `az/renju_finetune.py`; `configs/renju.yaml`).
+
+## 2.8. Tác tử đối chứng và thuật toán tìm kiếm cổ điển
+
+Các tác tử đối chứng biểu diễn những mức độ khác nhau của lập kế hoạch. Random chọn đều trong tập nước hợp lệ, tạo mốc tối thiểu để kiểm tra luật và điều phối ván; nó không đánh giá chiến thuật. Heuristic dự án ưu tiên thắng ngay, chặn thắng ngay, tạo hoặc chặn các mẫu bốn và ba quân, sau đó dùng vị trí gần trung tâm để phá hòa. Đây là quy tắc chiến thuật xác định, không phải mô hình học từ dữ liệu.
+
+Minimax mô hình hóa trò chơi tổng bằng không bằng đệ quy trên các nước đi hợp lệ: `V_d(s) = max_{a∈A(s)}[-V_{d−1}(T(s,a))]`, với hàm đánh giá heuristic tại độ sâu giới hạn. Thuật toán chọn nước tối đa hóa kết quả trong giả định đối thủ đáp trả tối ưu; chất lượng phụ thuộc độ sâu, số nhánh được xét và hàm đánh giá. Alpha-Beta giữ cùng giá trị minimax nhưng duy trì hai cận `α` và `β`; khi một nhánh không thể cải thiện lựa chọn hiện tại, phần còn lại được cắt tỉa. Thứ tự duyệt tốt có thể tăng số nhánh bị cắt, song phép so sánh trong tournament không vì thế tự động cân bằng chi phí [5], [6].
+
+MCTS thuần trong hệ thống dùng UCT để chọn nhánh và rollout ngẫu nhiên để ước lượng kết quả, không dùng prior policy hay value network. Ngược lại, MCTS của AlphaZero dùng policy mạng làm prior PUCT và value mạng đánh giá lá, kết hợp thống kê tìm kiếm với tri thức đã học [2], [1]. Hai phương pháp cùng dùng cây tìm kiếm nhưng khác tín hiệu đánh giá; số simulation bằng nhau không bảo đảm thời gian tính toán hoặc chất lượng tương đương.
+
+| Tác tử | Tín hiệu lựa chọn | Đặc trưng |
+|---|---|---|
+| Random | Chọn đều nước hợp lệ | Mốc ngẫu nhiên |
+| Heuristic | Mẫu chiến thuật và vị trí | Không học; ưu tiên chiến thuật |
+| Alpha-Beta | Minimax và hàm pattern | Độ sâu hoặc giới hạn thời gian |
+| MCTS thuần | UCT và rollout ngẫu nhiên | Không dùng mạng nơ-ron |
+| AlphaZero | PUCT và policy/value | 200 simulations trong T35 fixed |
+
+Trong T35, AlphaZero và MCTS thuần dùng 200 simulations, còn Alpha-Beta fixed dùng depth 1 sau khi protocol được điều chỉnh. Đây là so sánh các agent trong cấu hình đã chọn, không phải so sánh cùng ngân sách tính toán. Random và Heuristic cũng khác mục đích, không nên gộp thành một nhóm “đối thủ yếu”.
+
+## 2.9. Trích dẫn học thuật
+
+Ký hiệu trích dẫn trong thân bài theo thứ tự số IEEE và liên kết tới danh mục ở cuối báo cáo; mã nguồn, log và database được dẫn riêng như nguồn bằng chứng dự án.
 
 # Chương 3. Kiến trúc hệ thống và luật chơi
 
@@ -102,6 +149,9 @@ Trong repo có cấu hình và driver fine-tuning Renju, nhưng sự hiện di�
 Hệ thống được chia thành các thành phần có trách nhiệm khác nhau. Lớp giao diện dòng lệnh hoặc Pygame khởi tạo game và player; `gomoku/` giữ board, rules, game/runner và feature encoding; `players/` cung cấp các loại tác tử; `az/` triển khai model, MCTS, self-play, replay, trainer và đánh giá; `native/` chứa các extension C++ tùy chọn. Kết quả training và tournament được ghi ở các kho dữ liệu khác nhau; checkpoint và replay được lưu riêng theo hợp đồng huấn luyện (`SPEC.md`, mục 3–4, dòng 68–128).
 
 ![Hình 1: Kiến trúc hệ thống](architecture.png)
+![Hình 2: Giao diện menu thực tế của ứng dụng Pygame](gomoku_ui.png)
+
+Ảnh được chụp từ ứng dụng đang chạy trong phiên biên soạn, tại menu chính; không bắt đầu ván chơi. Ảnh xác nhận một trạng thái hiển thị thực của sản phẩm, không phải đánh giá usability hoặc kiểm thử toàn diện UI.
 
 Trong luồng inference thông thường, player gọi MCTS; MCTS truy vấn Rules để xác định nước legal và trạng thái terminal, tạo tensor đặc trưng cho lá, rồi yêu cầu mạng policy-value đánh giá. Sau một ngân sách tìm kiếm, thống kê root được chuyển thành lựa chọn nước đi. Ở self-play, cùng luồng được thực hiện cho từng game; feature và visit policy được giữ lại, kết quả cuối được gán làm value target rồi mẫu được đưa vào replay. Trainer lấy batch từ replay, cập nhật tham số mạng, lưu checkpoint và metadata.
 
@@ -144,6 +194,9 @@ Tính bất biến theo hình học được khai thác bằng tám phép đối
 Policy head dùng convolution 1×1, batch normalization/ReLU, flatten và lớp fully-connected để tạo 121 logits. Value head cũng dùng convolution 1×1, batch normalization/ReLU, rồi các lớp fully-connected, ReLU và đầu ra `tanh` scalar. Forward pass trả logits và values; `predict` chuyển policy logits thành softmax probabilities và trả mảng NumPy cho phía MCTS (`az/model.py`, dòng 37–105; `SPEC.md`, mục 6.1, dòng 161–166).
 
 Policy head không nhận legal mask bên trong mạng. Mạng dự đoán trên toàn bộ 121 ô; legal filtering thuộc bước sử dụng policy trong MCTS. Vì thế, cần phân biệt hai phép toán: softmax chuyển logits thành phân phối trước; MCTS nhân phân phối với legal mask sau đó và chuẩn hóa lại trên nước hợp lệ. Cách này giữ model output dùng chung, còn tính hợp lệ phụ thuộc vào Rules của trạng thái (`az/model.py`, dòng 86–105; `az/mcts.py`, dòng 158–174).
+
+![Hình 3: Minh họa bốn plane đầu vào, ResNet 6×64, PUCT, đối xứng dữ liệu và luật Renju](architecture_detail.png)
+
 
 ## 4.3. Một simulation MCTS và giao tiếp model
 
@@ -217,6 +270,24 @@ Kết quả huấn luyện, sức chơi và tốc độ được xem là ba lo�
 Hệ thống Normal dùng bàn 11×11, mạng policy–value ResNet 6 block × 64 filters và MCTS 200 simulations cho mỗi lần tìm kiếm. Self-play sinh policy target từ phân bố visit và value target từ kết quả cuối ván; replay buffer chỉ chứa một ruleset. Do đó, các lần fine-tuning Normal và Renju không thể cộng chung thành một chuỗi dữ liệu huấn luyện duy nhất. Cấu hình trong tệp YAML cho biết điều dự định chạy, trong khi log/DB mới cho biết phần nào thực sự đã chạy. Đây là khác biệt quan trọng giữa mục tiêu nghiên cứu và bằng chứng vận hành (`SPEC.md`, §§6–8; `docs/report.md`, §§4–8).
 
 Một số mốc mang nhãn “25k”, “40k”, “50k”, “60k” là tên gọi của checkpoint hoặc lịch sử continuation được đối chiếu. Chúng không phải lúc nào cũng là tổng số ván có thể xác minh độc lập. Chẳng hạn, kiểm toán 60k mô tả mốc danh nghĩa gồm parent lịch sử 25k và 35k ván continuation; riêng lịch sử 25k không được đếm độc lập đầy đủ. Run 20k riêng có checkpoint khởi đầu khác hẳn checkpoint 60k, nên không thể cộng nó thành “80k liên tục” (`docs/az-80k-checkpoint-forensics.md`, §§1–2). DB `data/normal.sqlite` ghi 75.000 game records và 1.500 metric rows qua nhiều run; DB `data/az_25k_continuation_v1.sqlite` ghi 35.000 game records. Đây là hai snapshot không được cộng/gộp nếu chưa chứng minh identity và lineage; trường `git_commit` và `engine_version` trong metadata liên quan để trống (`report/bang_doi_chieu.md`, E19; `data/normal.sqlite`; `data/az_25k_continuation_v1.sqlite`; `docs/az-80k-checkpoint-forensics.md`, §§2–3).
+
+| Mốc | Mục tiêu / cấu hình ghi nhận | Kết quả và ý nghĩa |
+|---|---|---|
+| 28-10-2026 · Normal 1.000 ván | 20×50 ván; 200 mô phỏng/nước; mạng 6×64; batch 128; 200 bước tối ưu/vòng | Pipeline ghi nhận game, metric và checkpoint; loss train giảm, loss batch cố định không giảm tương ứng |
+| 14-11-2026 · T35 | 2.400 ván; 100 ván mỗi cặp, đổi màu; Normal/Renju và fixed/time tách riêng | Heuristic thắng AZ v0 và AZ Renju trong các cặp fixed đã chạy; trở thành mốc chẩn đoán sức chơi |
+| 20-11-2026 · Screen 60k | 100 ván Normal, 50 cặp đổi màu, 4 ply mở đầu | AZ 55,5% score; khoảng Elo chứa 0, chưa xác nhận ưu thế |
+| 21-11-2026 · Benchmark hiệu năng | RTX 4060; 200 mô phỏng; Python/C++ và cấu hình worker được đo riêng | C++ đạt 2,54× trên workload 8 ván; với batch 50, hai worker đạt median 129,59 games/min |
+| 23-11-2026 · Kiểm toán checkpoint | Đối chiếu Normal 1.500 và Renju 500/1.500 | Kết quả strength/tactical phụ thuộc tập đánh giá; Renju có 1.500/1.500 ván thắng bởi Đen |
+
+Các lần thăm dò 25k, pilot tăng exploration, sửa lỗi thắng ngay, gate value 50k và các lần kiểm toán checkpoint được kể theo quan hệ mục tiêu–phương pháp–quyết định ở các tiểu mục tiếp theo. Ngày tài liệu ghi nhận không phải lúc nào cũng là ngày chạy; bảng chỉ nêu các mốc có ngày được nguồn xác nhận.
+
+| Tham số | Giá trị đo được | Bối cảnh |
+|---|---|---|
+| ResNet | 6 block × 64 filters | Cấu hình mặc định của AZNet |
+| MCTS AlphaZero | 200 mô phỏng/nước | Mặc định và các phép so sánh fixed được dẫn |
+| Huấn luyện Normal ban đầu | Batch 128; 200 bước/vòng; 16 ván đồng thời | Run 1.000 ván ngày 28-10 |
+| Đánh giá T35 | 100 ván/cặp; 50 lượt mỗi màu | Fixed-budget, các pool Normal/Renju riêng |
+| Benchmark batch 50 | 1 / 2 / 4 worker; 3 lần mỗi cấu hình | Máy RTX 4060; throughput không suy ra sức chơi |
 
 ## 5.2. Mốc khởi đầu: Normal 1.000 ván
 
@@ -394,28 +465,28 @@ T35 hoàn tất ngày 14/11/2026 gồm 2.400 ván: Normal fixed 1.500, Renju fix
 
 ### W/D/L T35, ngân sách cố định
 
-| Luật / tác tử A | Đối thủ B | W/D/L của A | A thắng khi Đen /50 | A thắng khi Trắng /50 | Score A | Wilson 95% |
-|---|---|---:|---:|---:|---:|---:|
-| Normal / Random | Heuristic | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Normal / Random | AlphaBeta | 4/0/96 | 2 | 2 | 4,00% | [0,016; 0,098] |
-| Normal / Random | MCTS Pure | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Normal / Random | AZ v0 | 2/0/98 | 2 | 0 | 2,00% | [0,006; 0,070] |
-| Normal / Heuristic | AlphaBeta | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Normal / Heuristic | MCTS Pure | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Normal / Heuristic | AZ v0 | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Normal / Heuristic | AZ v1 threat | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Normal / AlphaBeta | MCTS Pure | 2/0/98 | 1 | 1 | 2,00% | [0,006; 0,070] |
-| Normal / AlphaBeta | AZ v0 | 50/0/50 | 50 | 0 | 50,00% | [0,404; 0,596] |
-| Normal / AlphaBeta | AZ v1 threat | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Normal / MCTS Pure | AZ v0 | 99/0/1 | 50 | 49 | 99,00% | [0,946; 0,998] |
-| Normal / MCTS Pure | AZ v1 threat | 31/0/69 | 12 | 19 | 31,00% | [0,228; 0,406] |
-| Normal / AZ v0 | AZ v1 threat | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Renju / Random | Heuristic | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Renju / Random | AlphaBeta | 2/0/98 | 0 | 2 | 2,00% | [0,006; 0,070] |
-| Renju / Random | AZ Renju | 0/0/100 | 0 | 0 | 0,00% | [0,000; 0,037] |
-| Renju / Heuristic | AlphaBeta | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Renju / Heuristic | AZ Renju | 100/0/0 | 50 | 50 | 100,00% | [0,963; 1,000] |
-| Renju / AlphaBeta | AZ Renju | 50/0/50 | 50 | 0 | 50,00% | [0,404; 0,596] |
+| Luật | Tác tử A vs B | W/D/L; score A | A thắng khi Đen / Trắng | Wilson 95% |
+|---|---|---:|---:|---:|
+| Normal | Random vs Heuristic | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Normal | Random vs AlphaBeta | 4/0/96; 4,00% | 2 / 2 | [0,016; 0,098] |
+| Normal | Random vs MCTS Pure | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Normal | Random vs AZ v0 | 2/0/98; 2,00% | 2 / 0 | [0,006; 0,070] |
+| Normal | Heuristic vs AlphaBeta | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Normal | Heuristic vs MCTS Pure | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Normal | Heuristic vs AZ v0 | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Normal | Heuristic vs AZ v1 threat | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Normal | AlphaBeta vs MCTS Pure | 2/0/98; 2,00% | 1 / 1 | [0,006; 0,070] |
+| Normal | AlphaBeta vs AZ v0 | 50/0/50; 50,00% | 50 / 0 | [0,404; 0,596] |
+| Normal | AlphaBeta vs AZ v1 threat | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Normal | MCTS Pure vs AZ v0 | 99/0/1; 99,00% | 50 / 49 | [0,946; 0,998] |
+| Normal | MCTS Pure vs AZ v1 threat | 31/0/69; 31,00% | 12 / 19 | [0,228; 0,406] |
+| Normal | AZ v0 vs AZ v1 threat | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Renju | Random vs Heuristic | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Renju | Random vs AlphaBeta | 2/0/98; 2,00% | 0 / 2 | [0,006; 0,070] |
+| Renju | Random vs AZ Renju | 0/0/100; 0,00% | 0 / 0 | [0,000; 0,037] |
+| Renju | Heuristic vs AlphaBeta | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Renju | Heuristic vs AZ Renju | 100/0/0; 100,00% | 50 / 50 | [0,963; 1,000] |
+| Renju | AlphaBeta vs AZ Renju | 50/0/50; 50,00% | 50 / 0 | [0,404; 0,596] |
 Ghi chú: Các dòng Normal một giây/nước không đưa vào bảng fixed vì khác protocol: AZ v0–AlphaBeta 50/0/50, AZ v0–AZ v1 threat 0/0/100, AZ v1 threat–AlphaBeta 87/0/13. (`docs/report.md:237-279`)
 
 Bảng cho thấy trong pool T35 được khảo sát, Heuristic thắng 100/100 trước AZ v0 ở Normal fixed và 100/100 trước AZ Renju ở Renju fixed; AZ v0 và AlphaBeta chia đều 50/50, trong đó AZ v0 thắng 50 ván khi cầm Trắng và 0 khi cầm Đen. Đây là mô tả kết quả của các cặp được đánh giá, không chứng minh thứ hạng tổng quát ngoài pool đó. Điểm số agent gộp ở các đội hình không thể so trực tiếp vì số đối thủ, luật và ngân sách khác nhau. (`docs/report.md:241-298`)
@@ -429,10 +500,10 @@ Bảng cho thấy trong pool T35 được khảo sát, Heuristic thắng 100/100
 Candidate được đánh giá trong hai tournament độc lập, mỗi tournament 400 ván gồm 200 cặp đổi màu; Normal, Python backend, 200 AZ simulations/move, opening bốn nước, không root noise, temperature 0. Telemetry không ghi override hoặc nước bất hợp lệ; database có `PRAGMA quick_check=ok`. Khác biệt score candidate−parent được bootstrap 10.000 lần theo opening-pair clusters, seed 508051. Hai giải không dùng cùng một tập opening được ghép chéo, nên CI là so sánh giữa các tournament riêng chứ không phải paired candidate-vs-parent game outcomes. (`docs/analysis/50k-final-submission.md:17, 23, 29-33`)
 
 
-| So sánh candidate với đối thủ | Số ván candidate | W/D/L candidate trong tournament đó | Score candidate | Khác biệt score candidate−parent 50k | CI 95% | Gate |
-|---|---:|---:|---:|---:|---:|---|
-| Candidate seed 314159 vs checkpoint 40k | 400 | 262/3/135 | 65,875% | −0,04250 | [−0,10125; +0,01750] | Cận dưới > −0,10; **không đạt** |
-| Candidate seed 314159 vs Heuristic | 400 | 193/4/203 | 48,750% | −0,04875 | [−0,11500; +0,01875] | Cận dưới > 0; **không đạt** |
+| So sánh | Số ván | Candidate W/D/L (score) | Δ score candidate−parent (CI 95%) | Gate |
+|---|---:|---:|---:|---|
+| Candidate seed 314159 vs checkpoint 40k | 400 | 262/3/135 (65,875%) | −0,04250 [−0,10125; +0,01750] | Cận dưới > −0,10; **không đạt** |
+| Candidate seed 314159 vs Heuristic | 400 | 193/4/203 (48,750%) | −0,04875 [−0,11500; +0,01875] | Cận dưới > 0; **không đạt** |
 
 W/D/L candidate trong bảng là outcome của candidate trước từng đối thủ, không phải candidate-vs-parent. Parent 50k trước 40k (278/5/117) và trước Heuristic (213/3/184) là hai tournament độc lập đã lưu ở `docs/analysis/50k-quality-validation.md:21-41`, seed 508001; đó là các W/D/L của parent trong riêng các tournament ấy. CI candidate−parent trong bảng là khác biệt score được bootstrap theo opening-pair clusters với seed 508051 trên các kết quả tournament riêng, không phải W/D/L hay tournament ghép trực tiếp giữa candidate và parent. CI này cũng không phải ΔElo từ quality-validation với seed 508001. Theo gate preregistered, cả hai cận dưới đều không đạt; kết luận là giữ parent 50k, không promote candidate. Chênh lệch không xác định nguyên nhân của kết quả, cũng không cho phép kết luận nhân quả chung về value-weighting. (`docs/analysis/50k-final-submission.md:23-25`; `docs/analysis/50k-quality-validation.md:14-19, 21-41`)
 
@@ -475,6 +546,11 @@ Audit checkpoint iteration 1500 ghi tournament Normal 400 ván trước Heuristi
 
 Audit diversity xác định chỉ **ba trajectories đầy đủ khác nhau** trong run: một với AZ cầm Đen và hai với Heuristic cầm Đen. Do đó CI/ΔElo nêu trên phải xem là thống kê có điều kiện trên tournament và quy trình tính đã lưu, không phải CI hiệu dụng đã điều chỉnh theo ba trajectories. Không trình bày 400 ván như 400 trajectories độc lập. Đây là screening lịch sử, không phải kiểm chứng ưu thế tổng quát. So sánh iteration 1400 bị chặn do checkpoint thiếu; phép 100 game cũ có bốn opening ply không thay thế được so sánh 400 game theo opening trống. (`.audit/az-checkpoint-strength-20261123.tsv:3, 8, 10-11`)
 
+![Hình 4: So sánh điểm T35, phân bố kết quả theo màu và benchmark thông lượng](results_dashboard.png)
+
+Biểu đồ đối kháng chỉ chọn các cặp T35 và không gộp Normal với Renju. Phân bố kết quả phản ánh game records trong hai DB, không phải mô hình độc lập; benchmark là throughput của workload 50 ván trên một máy cụ thể, không phải sức chơi hay hiệu năng phổ quát.
+
+
 ## 6.8. Tóm tắt giới hạn so sánh
 
 | Bằng chứng | Luật và protocol | Có thể kết luận | Không thể kết luận |
@@ -499,10 +575,37 @@ Audit Renju ghi 102 focused tests đã pass trên rules, Python/native MCTS, sel
 
 SPEC liệt kê kiểm thử cho board/rules, model, features, MCTS, self-play, replay, trainer, native backend, UI và tournament. Tồn tại của fixture không chứng minh correctness trên mọi trạng thái; riêng Renju còn cần đối chiếu reference fixtures/expert review ở biên luật. Kiểm thử differential C++/Python bao phủ các fixture đã chọn, không tương đương parity trên mọi trajectory hay sức chơi. (`SPEC.md:137-157, 219-229, 267-284`)
 
+Đối chiếu theo tầng giúp phân biệt kiểm thử hành vi với đánh giá sức mạnh. Các số dưới đây là kết quả được báo cáo tại thời điểm của tài liệu nguồn, không phải một lượt chạy lại cho bản báo cáo này.
+
+| Tầng | Nội dung được kiểm tra | Bằng chứng đã lưu | Giới hạn |
+|---|---|---|---|
+| Luật và trạng thái | Nước hợp lệ, thắng/hòa Normal; forbidden moves và ngoại lệ exact-five Renju | Unit tests và 102 focused tests trong audit Renju | Fixture hữu hạn; chưa thay thế đối chiếu toàn bộ chuẩn Renju |
+| Agent cổ điển | Lựa chọn nước legal, Alpha-Beta pruning, MCTS Pure và CLI | Unit/integration tests; ván smoke một lượt | Ván smoke không đo playing strength |
+| MCTS / backend | Terminal, backup đổi dấu, policy mask và các fixture Python/C++ | Tests MCTS/native và differential fixtures | Không chứng minh parity trên mọi vị trí hoặc trajectory |
+| Tự chơi / replay | Nhãn theo phía tới lượt, luật replay, augmentation và resume | Self-play/replay tests; recovery process-crash 4 game, 36 positions | Crash process không mô phỏng mất điện; seed đơn không chứng minh parity dài hạn |
+| Huấn luyện | Loss, optimizer/checkpoint và đường resume | Trainer tests và smoke GPU một bước được báo cáo | Không phải kiểm định khả năng phục hồi ở mọi điểm cắt |
+| Pygame / đánh giá | Bố trí nước, cấm nước, thắng, restart và cấu hình agent | `tests/test_ui.py` và tournament tests | Không có ảnh UI đã lưu; không có đánh giá trực quan hoặc usability study |
+
 ## 7.2. Đánh giá dữ liệu, tính tái lập và lưu trữ
 
 Recovery và test lịch sử cũng không tương đương kiểm tra mất điện hoặc bảo đảm khôi phục tuyệt đối. SPEC ghi nhận process-crash tests không phải power-loss tests; durability directory entry trên Windows và hardware power loss chưa được chứng minh. Những giới hạn vận hành này không làm mất giá trị của log đã lưu, nhưng cần tránh tuyên bố độ bền chưa được kiểm chứng. (`SPEC.md:255-265`)
 Các DB lịch sử cho biết rõ số records và một số cấu hình, song provenance không đồng đều: một số training run thiếu Git commit/engine version, Renju fine-tune thiếu source checkpoint hash ở log cũ. Audit nêu một Normal bootstrap SHA và một Renju manifest parent SHA thuộc cấp lineage khác nhau; cần đối chiếu chuỗi generation thay vì coi chúng là mâu thuẫn. Tournament 50k có database SHA-256 cùng checkpoint hashes trong báo cáo; tournament 1500 Normal có checkpoint SHA, nhưng các trajectories chỉ đa dạng ba ván. Số liệu DB được xác định bằng truy vấn đọc-only: `data/normal.sqlite` (bảng `games`, `training_steps`, `runs`), `data/renju_finetune_1500.sqlite` (các bảng tương ứng). (`data/normal.sqlite`; `data/renju_finetune_1500.sqlite`; `.audit/renju_diagnostic_20261123.md:5`; `docs/analysis/50k-final-submission.md:5-9, 23`; `.audit/az-checkpoint-strength-20261123.tsv:7, 10`)
+
+Đối chiếu nhật ký V2 ghi nhận 1.133/1.136 nguồn log được nhập; ba nguồn xung đột hoặc trộn lẫn bị cách ly. Audit reconciliation đánh dấu 19.274 hàng là ứng viên trùng, nhưng chưa gộp hoặc xóa vì chưa đủ căn cứ nhận dạng. Một số tiêu chí triển khai tiếp tục—như overhead sau cutover, kiểm tra crash production và một số dạng logging—chưa được xác nhận đầy đủ (`docs/logging-v2-implementation-report.md`).
+
+Trạng thái artifact hiện tại khác một số snapshot forensic lịch sử: quá trình cleanup đã loại bỏ một số cây checkpoint continuation 25k và run 20k `_2w`, trong khi log, database và bản audit lịch sử còn lại. Vì thế kết quả đã lưu vẫn có thể được phân tích, nhưng không đồng nghĩa checkpoint gốc còn khả dụng để tải hoặc tái lập đúng run (`docs/az-final-cleanup-report.md`; `docs/az-normal-migration-report.md`; `docs/az-80k-checkpoint-forensics.md`).
+
+Ứng dụng Pygame được mở và chụp tại menu chính trong phiên biên soạn (Hình 2). Đây là ảnh giao diện sản phẩm thực tế, nhưng không phải bằng chứng cho mọi trạng thái chơi hoặc usability study. `tests/test_ui.py` xác nhận một số hành vi tương tác ở chế độ headless; tài liệu intent mô tả yêu cầu thiết kế chứ không phải biên bản nghiệm thu (`docs/intent/gomoku-ui.md`; `tests/test_ui.py`; `report/bang_doi_chieu.md`, E23).
+Bảng dưới đây tóm tắt khả năng tái lập theo loại bằng chứng; trạng thái không đồng nhất giữa các đợt và không được ngoại suy sang run thiếu metadata.
+
+| Thành phần | Có thể đối chiếu | Thiếu hụt hoặc giới hạn |
+|---|---|---|
+| Mã nguồn và cấu hình | Một số run có config lưu cùng DB; báo cáo lớn ghi checkpoint hash | Một số training record thiếu commit/engine; log fine-tune Renju cũ thiếu hash checkpoint nguồn |
+| Checkpoint và dữ liệu | Database Normal/Renju, SHA ở một số tournament, manifest lineage và log còn lại | Cleanup đã xóa một số checkpoint continuation; log còn lại không khôi phục được trọng số |
+| Seed và mẫu ván | Tournament lưu W/D/L, màu, một số opening/seed và metadata theo ván | Normal 1500 có ba trajectory duy nhất; mẫu không độc lập và không đủ cho suy luận tổng quát |
+| Môi trường và hiệu năng | Báo cáo benchmark ghi GPU, backend, số worker và cấu hình workload | Các benchmark khác workload nên chỉ so sánh trong cùng protocol |
+| Độ bền | Process-crash/resume path được kiểm tra ở một số kịch bản | Chưa xác minh power loss, mọi điểm cắt, hoặc độ bền hardware |
+
 ## 7.3. Tiêu chí đánh giá phù hợp cho nghiên cứu tiếp theo
 
 Kết quả tương lai cần dùng cùng bộ luật, định danh checkpoint SHA-256, backend, ngân sách search và quy tắc mở đầu; cân bằng màu; lưu từng ván, seed, opening pair, số simulations/override và trạng thái kết thúc. Phân tích uncertainty theo opening pair hoặc cụm trajectory độc lập, không coi hai ván đổi màu hay nhiều state trong cùng game là các quan sát độc lập. Cần đăng ký trước cỡ mẫu và ngưỡng thành công, báo W/D/L theo màu, score cùng CI, và giữ fixed-simulation tách khỏi fixed-time. SPEC mô tả các tiêu chí này là protocol nghiên cứu/acceptance, không phải kết quả đã đạt. (`SPEC.md:61-66, 290-298`)
@@ -512,13 +615,11 @@ Kết quả tương lai cần dùng cùng bộ luật, định danh checkpoint S
 
 ## 8.1. Kết luận
 
-Đồ án hiện thực được một pipeline AlphaZero Gomoku có self-play, policy-value network, MCTS, replay/trainer, hai ruleset Normal/Renju, các agent baseline và công cụ giải đấu. Báo cáo kiến trúc mô tả phân tách Board/Rules, MCTS Python/native và lưu trữ dữ liệu; SPEC ghi rõ phần nào verified từ source/test/report và phần nào mới implemented/unverified. Các số liệu thực nghiệm cho thấy hệ thống đã tạo lượng dữ liệu đáng kể và đã thực hiện nhiều phép screen, nhưng số lượng ván hoặc loss không đủ thay thế phép đánh giá strength có protocol và độc lập phù hợp. (`SPEC.md:28-45, 119-129, 267-289`)
+Đồ án hiện thực một hệ thống Gomoku 11×11 gồm engine tách biệt luật Normal/Renju, các agent đối chứng, mạng policy–value ResNet 6×64, MCTS/PUCT, tự chơi, replay, huấn luyện, đánh giá, backend C++ tùy chọn và giao diện Pygame. Đóng góp kỹ thuật trọng tâm là tích hợp các thành phần này thành pipeline có khả năng ghi nhận dữ liệu và hỗ trợ kiểm toán checkpoint, kết quả đối kháng, độ đúng và thông lượng; đồ án cũng xây dựng bộ đối chiếu nguồn để phân biệt cấu hình dự kiến với kết quả đã lưu.
 
-Các kết quả đối kháng không đồng nhất: trong T35, Heuristic thắng AZ v0 và AZ Renju 100/100 ở các pool cố định đã chọn; một screen Normal ở snapshot được gọi 60k ghi AZ 55,5% nhưng CI Elo bao gồm 0; candidate value-weighting seed 314159 không qua hai gate so với 40k và Heuristic, trong khi parent 50k là artifact riêng được validation trước đó; checkpoint Normal iteration 1500 ghi score cao trong một tournament nhưng chỉ có ba trajectories khác nhau; checkpoint Renju 1500-game đạt 32/100 trong screen riêng với Heuristic. Các khác biệt về checkpoint, luật, backend, opening, seed, ngân sách và độ độc lập ngăn việc xếp các con số này thành một đường tiến bộ duy nhất. Chúng cũng không xác định vì sao kết quả khác nhau. (`docs/report.md:241-279`; `docs/analysis/60k-vs-heuristic-100-games-20261120.md:19-27`; `docs/analysis/50k-final-submission.md:23-25`; `docs/analysis/50k-quality-validation.md:21-41`; `.audit/az-checkpoint-strength-20261123.tsv:7, 10`; `.audit/renju_diagnostic_20261123.md:27-32`)
+Thực nghiệm ghi nhận 75.000 ván Normal và 1.500 ván Renju trong các DB hiện có, các vòng đánh giá đối thủ, kiểm tra khôi phục sau process crash và benchmark Python/C++. Trong một protocol cụ thể, checkpoint 50k đạt score cao hơn checkpoint 40k; native C++ tăng throughput ở workload đo; checkpoint Renju 1.500 game chọn được nước chặn trên 10/10 thế cờ cố định. Đây là các kết quả kỹ thuật hữu ích nhưng có phạm vi: snapshot khác lineage, Renju outcome lệch Đen, và screening Normal 1.500 chỉ có ba chuỗi diễn tiến khác nhau. Chúng không thay thế đánh giá sức chơi độc lập hoặc chứng minh một cải tiến đơn lẻ gây ra thay đổi.
 
-Dữ liệu Normal 75.000 game và Renju 1.500 game cho thấy mất cân bằng outcome theo màu, đặc biệt toàn bộ records Renju ghi Black thắng. Training loss dao động và value loss Renju nhỏ trên dữ liệu một phía; đây không phải bằng chứng generalization. Cần thận trọng với lineage của checkpoint và danh tính code/config, do một số metadata thiếu hoặc không khớp. (`data/normal.sqlite`, bảng `games`/`training_steps`/`runs`; `data/renju_finetune_1500.sqlite`, bảng tương ứng; `.audit/renju_diagnostic_20261123.md:5-13`)
-
-Vì vậy kết luận tổng thể là mục tiêu nghiên cứu chưa đạt: hiện chưa có matched protocol với số lượng trajectory thực sự độc lập đủ để chứng minh AZ thắng Heuristic với uncertainty được kiểm soát. Theo quyết định ngày 24/11/2026, phạm vi phát triển cho đợt này được đóng băng; không chạy thêm thí nghiệm trong quá trình hoàn thiện báo cáo. Những con số đang có được giữ lại như bằng chứng lịch sử theo từng phép đo, không bị phủ nhận nhưng cũng không mở rộng quá phạm vi nguồn. (`SPEC.md:41-66, 290-298`)
+Phân tích thực nghiệm là đóng góp nghiên cứu quan trọng của đồ án: loss, số ván, tactical probes, throughput và kết quả tournament được xem như các phép đo khác nhau; mỗi kết quả gắn với luật, checkpoint và protocol cụ thể. Bằng chứng hiện có chưa đủ để khẳng định AlphaZero vượt Heuristic một cách tổng quát, nhưng xác định được khoảng cách trong các pool đã chạy, các cải thiện hẹp có thể quan sát và những yếu tố làm giảm khả năng tái lập. Phạm vi phát triển đã được đóng băng; báo cáo giữ lại artifacts lịch sử, không chạy thêm huấn luyện hay tournament (`SPEC.md`, §§1–2, 10, 14; `report/bang_doi_chieu.md`).
 ## 8.2. Hướng nghiên cứu đề xuất
 
 Các hướng sau chỉ là đề xuất nghiên cứu cho công việc tương lai; đây không phải kế hoạch đã được phép thực thi trong đợt báo cáo:
@@ -534,32 +635,30 @@ Các hướng sau chỉ là đề xuất nghiên cứu cho công việc tương 
 
 ### Tài liệu học thuật
 
-[1] Silver, D. et al. (2017). “Mastering the game of Go without human knowledge.” *Nature*, 550, 354–359. https://doi.org/10.1038/nature24270. Nền tảng self-play, policy/value network và tree search; trích dẫn phương pháp chung, không phải bằng chứng cho kết quả Gomoku của đồ án.
+[1] D. Silver et al., “A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play,” *Science*, vol. 362, no. 6419, pp. 1140–1144, 2018, doi: 10.1126/science.aar6404.
 
-[2] He, K., Zhang, X., Ren, S., & Sun, J. (2016). “Deep Residual Learning for Image Recognition.” *Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)*, 770–778. https://doi.org/10.1109/CVPR.2016.90. Tham chiếu kiến trúc residual; không khẳng định mạng trong đồ án tương đương bài báo gốc.
+[2] L. Kocsis and C. Szepesvári, “Bandit based Monte-Carlo planning,” in *Proc. Eur. Conf. Mach. Learn. (ECML)*, 2006, pp. 282–293, doi: 10.1007/11871842_29.
 
-[3] Kocsis, L. & Szepesvári, C. (2006). “Bandit Based Monte-Carlo Planning.” *European Conference on Machine Learning (ECML 2006)*, 282–293. https://doi.org/10.1007/11871842_29. Tham chiếu nền tảng UCT/MCTS; triển khai dự án dùng PUCT theo mô tả tại SPEC §7.
+[3] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in *Proc. IEEE Conf. Comput. Vis. Pattern Recognit. (CVPR)*, 2016, pp. 770–778, doi: 10.1109/CVPR.2016.90.
 
-[4] Wang, H., Emmerich, M., Preuss, M., & Plaat, A. (2019). “Policy or Value? Loss Function and Playing Strength in AlphaZero-like Self-play.” *IEEE Conference on Games*. https://liacs.leidenuniv.nl/~plaata1/papers/CoG2019.pdf. Nguồn liên quan đến việc không đồng nhất loss với playing strength.
+[4] S. J. Pan and Q. Yang, “A survey on transfer learning,” *IEEE Trans. Knowl. Data Eng.*, vol. 22, no. 10, pp. 1345–1359, 2010, doi: 10.1109/TKDE.2009.191.
 
-[5] Liang, W., Yu, C., Whiteaker, B., Huh, I., Shao, H., & Liang, Y. (2023). “AlphaZero Gomoku.” arXiv:2309.01294. https://arxiv.org/abs/2309.01294. Tham khảo ứng dụng AlphaZero vào Gomoku; khác biệt cấu hình/quy tắc không cho phép dùng kết quả paper như baseline trực tiếp.
+[5] C. E. Shannon, “Programming a computer for playing chess,” *Philos. Mag.*, vol. 41, no. 314, pp. 256–275, 1950.
 
-[6] Pan, S. J. & Yang, Q. (2010). “A Survey on Transfer Learning.” *IEEE Transactions on Knowledge and Data Engineering*, 22(10), 1345–1359. https://ieeexplore.ieee.org/abstract/document/5288526. Bối cảnh khái niệm transfer learning cho việc chuyển checkpoint giữa luật/miền; không phải bằng chứng rằng fine-tuning Renju trong đồ án đã cải thiện sức chơi.
+[6] D. E. Knuth and R. W. Moore, “An analysis of alpha-beta pruning,” *Artif. Intell.*, vol. 6, no. 4, pp. 293–326, 1975, doi: 10.1016/0004-3702(75)90019-3.
 
-[7] Sutton, R. S. & Barto, A. G. (2018). *Reinforcement Learning: An Introduction* (2nd ed.). MIT Press. https://mitpress.mit.edu/9780262039246/reinforcement-learning/. Tài liệu nền tảng về học tăng cường; không được dùng thay cho kết quả thực nghiệm của dự án.
+[7] H. Wang, M. Emmerich, M. Preuss, and A. Plaat, “Policy or value? Loss function and playing strength in AlphaZero-like self-play,” in *Proc. IEEE Conf. Games*, 2019.
 
-### Nguồn dự án và điều kiện truy cập
+[8] W. Liang et al., “AlphaZero Gomoku,” arXiv:2309.01294, 2023. [Online]. Available: https://arxiv.org/abs/2309.01294.
 
-[8] `SPEC.md`, §§1–2, 4–10, 14. Đặc tả kiến trúc, trạng thái bằng chứng, tiêu chí đánh giá và các giới hạn. Tệp trong repository; cần quyền truy cập bản checkout dự án.
+[9] R. S. Sutton and A. G. Barto, *Reinforcement Learning: An Introduction*, 2nd ed. Cambridge, MA, USA: MIT Press, 2018.
 
-[9] `docs/report.md`, §§9–10; `docs/analysis/50k-final-submission.md`; `docs/analysis/60k-vs-heuristic-100-games-20261120.md`. Báo cáo test lịch sử, T35, gate 50k và screening 60k. Các tài liệu repository có thể đọc trong checkout; link tương đối trong báo cáo dẫn tới artifact cục bộ.
+[10] D. Silver et al., “Mastering the game of Go without human knowledge,” *Nature*, vol. 550, pp. 354–359, 2017, doi: 10.1038/nature24270.
 
-[10] `.audit/az-checkpoint-strength-20261123.tsv`; `.audit/renju_diagnostic_20261123.md`; `docs/az-80k-checkpoint-forensics.md`. Audit trajectory, Renju và lineage. `.audit/` là thư mục ẩn/local trong checkout, không phải URL công khai; truy cập cần bản repository chứa các audit này.
+### Nguồn dữ liệu và mã nguồn của dự án
 
-[11] `data/normal.sqlite`; `data/renju_finetune_1500.sqlite`; `data/tournament.sqlite`; các DB tournament candidate lưu dưới `data/` và `final_50k_pilot/`. Đây là SQLite runtime artifacts local-only, bị loại khỏi Git/không có URL công khai mặc định; cần truy cập checkout hoặc bản sao dữ liệu tương ứng để truy vấn. Các đường dẫn biểu thị nguồn đã được báo cáo, không bảo đảm DB vẫn còn nguyên trạng.
-
-[12] `az/model.py`, `az/mcts.py`, `az/selfplay.py`, `az/replay_buffer.py`, `az/trainer.py`, `gomoku/rules/`, `scripts/tournament.py`, `tests/`. Source và test trong repository; chỉ có thể truy cập qua checkout tương ứng. Chương này không khẳng định đã chạy lại chúng.
-
-[13] Silver et al. (2018). “A general reinforcement learning algorithm that masters chess, shogi, and Go through self-play.” *Science*, 362(6419), 1140–1144. https://doi.org/10.1126/science.aar6404. Tham chiếu nền tảng thuật toán AlphaZero.
+- `SPEC.md`, các tài liệu phân tích/benchmark trong `docs/`, log JSONL và audit cục bộ: nguồn thứ cấp về trạng thái và kết quả lịch sử.
+- Cơ sở dữ liệu SQLite nêu tại `report/bang_doi_chieu.md`: bản ghi game, metric và tournament được truy vấn chỉ đọc.
+- `az/`, `gomoku/`, `players/`, `ui/`, `scripts/`, `tests/`: nguồn mô tả implementation; test history chỉ được trích theo báo cáo đã lưu.
 
 **Lưu ý về nguồn:** các kết quả thực nghiệm và trạng thái test được trích từ tài liệu/DB nội bộ nêu trên, không phải kết quả chạy mới. Nguồn học thuật giải thích phương pháp và bối cảnh; không thay thế bằng chứng thực nghiệm của repository. URL học thuật có thể truy cập công khai; dữ liệu SQLite, audit ẩn và báo cáo nội bộ phụ thuộc quyền truy cập checkout/artifact của dự án.

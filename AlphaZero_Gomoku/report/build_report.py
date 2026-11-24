@@ -69,40 +69,71 @@ def configure(document: Document) -> None:
         style.font.name = "Times New Roman"
         style._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
     document.styles["Normal"].font.size = Pt(12)
+    document.styles["Normal"].paragraph_format.space_after = Pt(4)
+    document.styles["Normal"].paragraph_format.line_spacing = 1.12
+    document.styles["Normal"].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     for name, size in (("Heading 1", 16), ("Heading 2", 14), ("Heading 3", 12)):
-        document.styles[name].font.size = Pt(size)
-        document.styles[name].font.bold = True
-
+        style.font.size = Pt(size)
+        style.font.bold = True
+        style.paragraph_format.keep_with_next = True
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer.add_run("Trang ")
     field(footer, " PAGE ")
 
 
-def add_contents(document: Document, title: str, indexes) -> None:
-    cover = document.add_paragraph()
-    cover.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    cover.paragraph_format.space_before = Pt(145)
-    run = cover.add_run(title)
-    run.bold = True
-    run.font.name = "Times New Roman"
-    run.font.size = Pt(24)
-    sub = document.add_paragraph("BÁO CÁO")
-    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sub.runs[0].font.size = Pt(16)
-    sub.paragraph_format.space_before = Pt(18)
-    document.add_page_break()
 
+def add_frontmatter(document: Document, lines: list[str]) -> None:
+    heading = None
+    paragraph = []
+    table = None
+
+    def flush():
+        if paragraph:
+            document.add_paragraph(" ".join(paragraph))
+            paragraph.clear()
+
+    for i, raw in enumerate(lines):
+        line = raw.strip()
+        if not line:
+            flush()
+            continue
+        match = re.match(r"^#{1,2}\s+(.+?)\s*#*\s*$", line)
+        if match:
+            flush()
+            heading = match.group(1)
+            document.add_heading(heading, level=1 if heading == "Tóm tắt" else 2)
+            continue
+        if re.fullmatch(r"\|?[\s:|-]+\|?", line):
+            continue
+        if "|" in line and heading == "Danh mục từ viết tắt":
+            cells = parse_table_row(line)
+            if table is None:
+                table = document.add_table(rows=1, cols=2)
+                table.style = "Table Grid"
+                for index, text in enumerate(cells[:2]):
+                    table.rows[0].cells[index].text = text
+            else:
+                row = table.add_row().cells
+                for index in range(2):
+                    row[index].text = cells[index] if index < len(cells) else ""
+            continue
+        paragraph.append(line.replace("**", ""))
+    flush()
+
+
+def add_contents(document: Document, indexes) -> None:
+    document.add_page_break()
     for heading, entries in zip(("Mục lục", "Danh mục hình", "Danh mục bảng"), indexes):
         document.add_heading(heading, level=1)
         for text, page in entries:
             p = document.add_paragraph()
-            p.paragraph_format.space_after = Pt(2)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.line_spacing = 1
             p.paragraph_format.tab_stops.add_tab_stop(Cm(15.5), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
             run = p.add_run(f"{text}\t{page}")
-            run.font.size = Pt(10)
+            run.font.size = Pt(9)
         document.add_page_break()
-
 
 def add_caption(document: Document, label: str, caption: str, number: int) -> None:
     p = document.add_paragraph()
@@ -129,7 +160,11 @@ def build(indexes) -> None:
 
     doc = Document()
     configure(doc)
-    add_contents(doc, title, indexes)
+    chapter_start = next((i for i, line in enumerate(lines)
+                          if re.match(r"^#\s+Chương 1\b", line.strip())), 0)
+    add_frontmatter(doc, lines[:chapter_start])
+    add_contents(doc, indexes)
+    lines = lines[chapter_start:]
     figures = tables = 0
     i = 0
     while i < len(lines):
@@ -140,7 +175,6 @@ def build(indexes) -> None:
         heading = re.match(r"^(#{1,3})\s+(.+?)\s*#*\s*$", line)
         if heading:
             text = heading.group(2).strip()
-            # The title is already on the cover; keep it as the first document heading too.
             doc.add_heading(text, level=len(heading.group(1)))
             i += 1
             continue
@@ -152,6 +186,7 @@ def build(indexes) -> None:
             if path.suffix.lower() != ".png" or not path.is_file():
                 raise FileNotFoundError(f"Ảnh PNG không tồn tại hoặc không hỗ trợ: {path}")
             p = doc.add_paragraph()
+            p.paragraph_format.keep_with_next = True
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.add_run().add_picture(str(path), width=Cm(15.5))
             figures += 1
@@ -165,9 +200,12 @@ def build(indexes) -> None:
             while i < len(lines) and "|" in lines[i] and lines[i].strip():
                 rows.append(parse_table_row(lines[i]))
                 i += 1
+            tables += 1
+            add_caption(doc, "Bảng", " — ".join(headers[:3]), tables)
             table = doc.add_table(rows=1, cols=len(headers))
             table.style = "Table Grid"
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
+            table.autofit = True
             header = OxmlElement("w:tblHeader")
             header.set(qn("w:val"), "true")
             table.rows[0]._tr.get_or_add_trPr().append(header)
@@ -177,13 +215,17 @@ def build(indexes) -> None:
                 set_cell_shading(cell, "D9EAF7")
                 for run in cell.paragraphs[0].runs:
                     run.bold = True
+                    run.font.size = Pt(8)
             for row in rows:
                 cells = table.add_row().cells
+                table.rows[-1]._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
                 for idx, cell in enumerate(cells):
                     cell.text = row[idx] if idx < len(row) else ""
                     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-            tables += 1
-            add_caption(doc, "Bảng", " — ".join(headers[:3]), tables)
+                    for paragraph in cell.paragraphs:
+                        paragraph.paragraph_format.space_after = Pt(0)
+                        for run in paragraph.runs:
+                            run.font.size = Pt(8)
             continue
         bullet = re.match(r"^\s*[-*+]\s+(.+)$", line)
         numbered = re.match(r"^\s*\d+[.)]\s+(.+)$", line)
@@ -191,7 +233,6 @@ def build(indexes) -> None:
             doc.add_paragraph((bullet or numbered).group(1), style="List Bullet" if bullet else "List Number")
             i += 1
             continue
-        # Consecutive plain lines form one paragraph; inline syntax is preserved literally.
         paragraph_lines = [line]
         i += 1
         while i < len(lines) and lines[i].strip() and not re.match(r"^(#{1,3})\s+", lines[i].strip()) and not IMAGE_RE.fullmatch(lines[i].strip()) and not ("|" in lines[i] and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1])) and not re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", lines[i]):
@@ -210,6 +251,9 @@ def collect_indexes():
     source = SOURCE.read_text(encoding="utf-8-sig")
     source = re.sub(r"(?<!!)\[([^]]+)\]\(([^)]+)\)", r"\1 (\2)", source)
     lines = source.replace("**", "").replace("`", "").splitlines()
+    chapter_start = next((i for i, line in enumerate(lines)
+                          if re.match(r"^#\s+Chương 1\b", line.strip())), 0)
+    lines = lines[chapter_start:]
     headings = [re.sub(r"^#{1,2}\s+", "", line).strip()
                 for line in lines if re.match(r"^#{1,2}\s+", line)]
     figures = []
@@ -251,3 +295,4 @@ if __name__ == "__main__":
         sys.exit(0 if current == previous else 3)
     else:
         raise SystemExit("Use --build or --index; run build_report.sh for the complete export.")
+
