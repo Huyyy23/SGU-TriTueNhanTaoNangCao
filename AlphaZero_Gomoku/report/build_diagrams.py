@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 
@@ -59,10 +60,10 @@ def architecture():
     # Game layer
     game = [
         (0.35, "Giao diện\nPygame / CLI"),
-        (2.9, "Runner\nđiều phối ván"),
-        (5.45, "Rules\nNormal / Renju"),
-        (8.0, "Board\ntrạng thái + lịch sử"),
-        (10.55, "Player\nAZ / heuristic / khác"),
+        (2.9, "Điều phối ván"),
+        (5.45, "Luật\nNormal / Renju"),
+        (8.0, "Bàn cờ\ntrạng thái + lịch sử"),
+        (10.55, "Tác tử\nAZ / heuristic / khác"),
     ]
     for x, label in game:
         box(ax, (x, 6.25), (2.1, 0.9), label, fontsize=9)
@@ -72,8 +73,8 @@ def architecture():
     # AlphaZero search path
     search = [
         (0.55, "board_to_planes\n4 × 11 × 11"),
-        (3.55, "AZNet\npolicy + value"),
-        (6.55, "MCTS / PUCT\nmask · expand · backup"),
+        (3.55, "AZNet\nchính sách + giá trị"),
+        (6.55, "MCTS / PUCT\nmặt nạ · mở rộng · truyền ngược"),
         (9.55, "AZPlayer\nphân phối lượt thăm"),
     ]
     for x, label in search:
@@ -81,33 +82,32 @@ def architecture():
     for (x, _), (next_x, _) in zip(search, search[1:]):
         arrow(ax, (x + 2.42, 4.82), (next_x - 0.03, 4.82))
     arrow(ax, (9.85, 5.28), (9.85, 6.22), "nước đi")
-    ax.text(0.65, 5.55, "Board/Rules cung cấp trạng thái và mặt nạ hợp lệ cho tìm kiếm.",
+    ax.text(0.65, 5.55, "Luật và bàn cờ cung cấp trạng thái cùng mặt nạ hợp lệ cho tìm kiếm.",
             fontsize=8.5, color=COLORS["text"])
 
     # Training and persistence
     training = [
-        (0.4, "Self-play\nván và mẫu"),
+        (0.4, "Tự chơi\nván và mẫu"),
         (3.0, "ReplayBuffer\n(features, π, z)"),
-        (5.6, "Trainer\npolicy + value loss"),
-        (8.2, "Checkpoint\nmodel + trạng thái"),
-        (10.8, "SQLite\nself-play / train"),
+        (5.6, "Trainer\nloss chính sách + giá trị"),
+        (8.2, "Checkpoint\ntrọng số + trạng thái"),
+        (10.8, "SQLite\ntự chơi / huấn luyện"),
     ]
     for x, label in training:
         box(ax, (x, 1.55), (2.0, 0.9), label, color="data", fontsize=8.5)
     for (x, _), (next_x, _) in zip(training[:4], training[1:4]):
         arrow(ax, (x + 2.02, 2.0), (next_x - 0.03, 2.0))
-    arrow(ax, (9.2, 1.55), (1.4, 1.55), "checkpoint dùng cho self-play", curve=-0.2,
+    arrow(ax, (10.22, 2.0), (10.77, 2.0))
+    arrow(ax, (9.2, 1.55), (1.4, 1.55), "checkpoint dùng cho tự chơi", curve=-0.2,
           label_offset=(0, -0.2))
-    arrow(ax, (2.4, 1.7), (10.75, 1.7), "metadata / metrics", curve=0.12,
-          label_offset=(0, 0.2))
 
-    box(ax, (7.0, 0.35), (2.0, 0.75), "Tournament\nso sánh agents", color="data", fontsize=8.5)
+    box(ax, (7.0, 0.35), (2.0, 0.75), "Đấu giải\nso sánh tác tử", color="data", fontsize=8.5)
     box(ax, (10.8, 0.35), (2.0, 0.75), "SQLite\ntournament", color="data", fontsize=8.5)
     arrow(ax, (9.02, 0.72), (10.77, 0.72))
     box(ax, (4.0, 3.0), (2.0, 0.72), "Native MCTS (C++)\nbackend tùy chọn",
         color="optional", fontsize=8, linestyle="dashed")
-    arrow(ax, (6.05, 3.36), (6.8, 4.32), "thay tree", dashed=True)
-    ax.text(0.45, 0.55, "Native chỉ thay cơ chế tìm kiếm; luật, bàn, mã hóa và suy luận thuộc Python.",
+    arrow(ax, (6.05, 3.36), (6.8, 4.32), "thay cơ chế tìm kiếm", dashed=True)
+    ax.text(0.45, 0.55, "C++ chỉ thay tìm kiếm; luật, bàn, mã hóa và suy luận vẫn thuộc Python.",
             fontsize=8, color=COLORS["text"])
     fig.tight_layout(rect=(0.02, 0.04, 0.98, 0.93))
     fig.savefig(OUT / "architecture.png", dpi=180, bbox_inches="tight")
@@ -164,78 +164,185 @@ def flow():
 
 
 
-
-def architecture_detail():
-    fig, axes = plt.subplots(2, 2, figsize=(13, 8))
-    fig.suptitle("Các thành phần cốt lõi của AlphaZero Gomoku", fontsize=17,
-                 fontweight="bold", color=COLORS["text"])
-    for ax in axes.flat:
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 5)
-        ax.axis("off")
-
-    ax = axes[0, 0]
-    ax.set_title("(a) Biểu diễn và ResNet 6×64", loc="left", fontsize=12, fontweight="bold")
-    box(ax, (0.25, 2.45), (2.15, 1.0), "4 plane đầu vào\nTa · đối thủ · cấm · màu lượt", fontsize=8)
-    box(ax, (3.2, 2.45), (1.45, 1.0), "Stem\nConv 3×3", color="search", fontsize=8)
-    box(ax, (5.25, 2.25), (1.8, 1.4), "6 residual blocks\n64 filters", color="search", fontsize=8)
-    box(ax, (8.0, 3.4), (1.6, 0.8), "Policy\n121 logits", color="data", fontsize=8)
-    box(ax, (8.0, 1.45), (1.6, 0.8), "Value\n[-1, 1]", color="data", fontsize=8)
-    arrow(ax, (2.43, 2.95), (3.17, 2.95))
-    arrow(ax, (4.67, 2.95), (5.22, 2.95))
-    arrow(ax, (7.08, 3.2), (7.97, 3.78))
-    arrow(ax, (7.08, 2.7), (7.97, 1.88))
-
-    ax = axes[0, 1]
-    ax.set_title("(b) Một vòng MCTS dùng PUCT", loc="left", fontsize=12, fontweight="bold")
-    nodes = [
-        ((0.25, 2.5), "Chọn nhánh\nPUCT"),
-        ((2.7, 2.5), "Mở rộng\nnước hợp lệ"),
-        ((5.1, 2.5), "Đánh giá lá\npolicy + value"),
-        ((7.55, 2.5), "Backup\nđổi dấu"),
-    ]
-    for (x, y), label in nodes:
-        box(ax, (x, y), (1.85, 1.05), label, color="search", fontsize=8)
-    for i in range(len(nodes) - 1):
-        arrow(ax, (nodes[i][0][0] + 1.88, 3.02), (nodes[i + 1][0][0] - 0.03, 3.02))
-    ax.text(1.0, 1.45, "−Q(child) + cₚᵤcₜ · P · √N / (1 + Nₐ)",
-            ha="center", fontsize=9, color=COLORS["text"])
-    arrow(ax, (8.4, 2.42), (1.15, 2.42), "lặp đến đủ lượt mô phỏng", curve=-0.25,
-          label_offset=(0, -0.6))
-
-    ax = axes[1, 0]
-    ax.set_title("(c) Tăng cường dữ liệu theo 8 đối xứng", loc="left", fontsize=12, fontweight="bold")
-    box(ax, (0.35, 2.4), (2.15, 1.0), "4-plane tensor\n+ policy (121)", color="data", fontsize=8)
-    box(ax, (3.9, 2.4), (2.15, 1.0), "8 đối xứng\nD₄: quay / lật", color="search", fontsize=8)
-    box(ax, (7.45, 2.4), (2.15, 1.0), "tensor′ + policy′\nz giữ nguyên", color="data", fontsize=8)
-    arrow(ax, (2.53, 2.9), (3.86, 2.9))
-    arrow(ax, (6.08, 2.9), (7.42, 2.9))
-    ax.text(5.0, 1.45, "Cùng phép biến đổi cho bàn và phân phối hành động",
-            ha="center", fontsize=8, color=COLORS["text"])
-
-    ax = axes[1, 1]
-    ax.set_title("(d) Sơ đồ luật Renju theo implementation", loc="left", fontsize=12, fontweight="bold")
-    box(ax, (0.25, 2.45), (1.45, 0.9), "Màu quân?", color="interface", fontsize=8)
-    box(ax, (2.2, 3.45), (2.25, 0.8), "Trắng: ≥5 thắng;\nkhác: nước hợp lệ", color="data", fontsize=7.5)
-    box(ax, (2.2, 1.35), (2.25, 0.95), "Đen: đúng 5 thắng;\nưu tiên trước kiểm tra cấm", color="search", fontsize=7.5)
-    box(ax, (5.15, 1.35), (1.9, 0.95), "Overline hoặc\n3–3 / 4–4?", color="search", fontsize=8)
-    box(ax, (8.0, 2.65), (1.75, 0.8), "Có: nước cấm", color="optional", fontsize=8)
-    box(ax, (8.0, 0.75), (1.75, 0.8), "Không: hợp lệ", color="data", fontsize=8)
-    arrow(ax, (1.73, 3.0), (2.17, 3.85))
-    arrow(ax, (1.73, 2.8), (2.17, 1.82))
-    arrow(ax, (4.48, 1.82), (5.12, 1.82))
-    arrow(ax, (7.08, 2.0), (7.97, 3.05), "có")
-    arrow(ax, (7.08, 1.65), (7.97, 1.15), "không")
-
-    fig.tight_layout(rect=(0.02, 0.02, 0.98, 0.94))
-    fig.savefig(OUT / "architecture_detail.png", dpi=180, bbox_inches="tight")
+def save(fig, name):
+    fig.savefig(OUT / name, dpi=220, bbox_inches="tight")
     plt.close(fig)
+
+
+def draw_board(ax, black=(), white=(), candidate=None, title=None):
+    ax.set_xlim(-0.6, 10.6)
+    ax.set_ylim(10.6, -0.6)
+    ax.set_aspect("equal")
+    ax.set_xticks(range(11))
+    ax.set_yticks(range(11))
+    ax.grid(color="#75551E", linewidth=0.75)
+    ax.set_facecolor("#E9B448")
+    ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+    for x in (2, 5, 8):
+        for y in (2, 5, 8):
+            ax.scatter(x, y, s=13, color="#75551E", zorder=2)
+    if black:
+        ax.scatter([c for r, c in black], [r for r, c in black], s=145,
+                   color="#171717", edgecolors="black", linewidths=0.7, zorder=3)
+    if white:
+        ax.scatter([c for r, c in white], [r for r, c in white], s=145,
+                   color="white", edgecolors="#6D6D6D", linewidths=0.8, zorder=3)
+    if candidate:
+        r, c = candidate
+        ax.scatter(c, r, s=220, marker="x", color="#C53030", linewidths=2.5, zorder=4)
+    if title:
+        ax.set_title(title, fontsize=10, fontweight="bold", pad=7, color=COLORS["text"])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+def gameplay_board():
+    screenshot = plt.imread(OUT / "gomoku_gameplay.png")
+    return screenshot[85:760, 12:690]
+
+
+def tensor_planes():
+    fig, axes = plt.subplots(1, 5, figsize=(14, 3.4))
+    fig.suptitle("Mã hóa một trạng thái ván thực tế thành tensor đầu vào (4 × 11 × 11)",
+                 fontsize=15, fontweight="bold", color=COLORS["text"])
+    board = gameplay_board()
+    axes[0].imshow(board)
+    axes[0].axis("off")
+    axes[0].set_title("Bàn cờ trong ván thực tế", fontsize=9, fontweight="bold",
+                      color=COLORS["text"], pad=7)
+    black = ((4, 4),)
+    white = ((5, 5),)
+    channels = [
+        ("Mặt phẳng 1 · bên đi", black),
+        ("Mặt phẳng 2 · đối thủ", white),
+        ("Mặt phẳng 3 · ô cấm", ()),
+        ("Mặt phẳng 4 · màu lượt", None),
+    ]
+    for i, (title, stones) in enumerate(channels, 1):
+        ax = axes[i]
+        ax.set_xlim(-0.5, 10.5)
+        ax.set_ylim(10.5, -0.5)
+        ax.set_aspect("equal")
+        ax.set_xticks(range(11))
+        ax.set_yticks(range(11))
+        ax.tick_params(left=False, bottom=False, labelleft=False, labelbottom=False)
+        ax.grid(color="#9A9A9A", linewidth=0.55)
+        ax.set_facecolor("#FAFAFA")
+        if stones:
+            ax.scatter([c for r, c in stones], [r for r, c in stones],
+                       s=92, color="#263238", zorder=3)
+        elif stones is None:
+            ax.imshow([[1] * 11] * 11, cmap="Blues", vmin=0, vmax=1, alpha=0.38,
+                      extent=(-0.5, 10.5, 10.5, -0.5), zorder=0)
+        value = "Đen = 1" if i in (1, 4) else "Trắng = 1" if i == 2 else "Toàn 0"
+        ax.set_title(f"{title}\n{value}", fontsize=9, fontweight="bold",
+                     color=COLORS["text"], pad=7)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+    fig.tight_layout(rect=(0.01, 0.02, 0.99, 0.88), w_pad=1.0)
+    save(fig, "tensor_planes.png")
+
+
+def augmentation_board():
+    board = gameplay_board()
+    transforms = [
+        ("Gốc", lambda image: image),
+        ("Quay 90°", lambda image: np.rot90(image)),
+        ("Lật ngang", lambda image: np.fliplr(image)),
+        ("Quay 90° rồi lật", lambda image: np.fliplr(np.rot90(image))),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(13, 3.5))
+    fig.suptitle("Tăng cường dữ liệu: biến đổi đồng bộ bàn cờ và chính sách",
+                 fontsize=14, fontweight="bold", color=COLORS["text"])
+    for ax, (title, transform) in zip(axes, transforms):
+        ax.imshow(transform(board))
+        ax.axis("off")
+        ax.set_title(title, fontsize=10, fontweight="bold", color=COLORS["text"])
+    fig.text(0.5, 0.03,
+             "Một trong 8 phép đối xứng D₄ được áp dụng đồng thời lên bàn cờ và π; nhãn kết quả z không đổi.",
+             ha="center", fontsize=9, color=COLORS["text"])
+    fig.tight_layout(rect=(0.01, 0.12, 0.99, 0.88), w_pad=1.0)
+    save(fig, "augmentation_board.png")
+
+
+def resnet_architecture():
+    fig, ax = base_figure("AZNet: ResNet 6 khối, 64 bộ lọc", (13, 4.7))
+    ax.set_ylim(0, 8)
+    box(ax, (0.2, 3.15), (1.8, 1.15), "Tensor\n4 × 11 × 11", color="interface", fontsize=10)
+    box(ax, (2.6, 3.15), (1.8, 1.15), "Stem\nConv 3×3 · 64", color="search", fontsize=10)
+    box(ax, (5.0, 2.9), (2.3, 1.65), "6 khối phần dư\nmỗi khối: Conv–BN–ReLU\nConv–BN + nhánh tắt", color="search", fontsize=9)
+    box(ax, (8.05, 4.45), (2.0, 1.0), "Policy head\n121 logits", color="data", fontsize=10)
+    box(ax, (8.05, 1.8), (2.0, 1.0), "Value head\n1 giá trị tanh", color="data", fontsize=10)
+    box(ax, (10.75, 4.45), (2.0, 1.0), "Chấm điểm\n121 ô", color="interface", fontsize=10)
+    box(ax, (10.75, 1.8), (2.0, 1.0), "Giá trị\n[−1, +1]", color="interface", fontsize=10)
+    arrow(ax, (2.02, 3.72), (2.57, 3.72))
+    arrow(ax, (4.42, 3.72), (4.97, 3.72))
+    arrow(ax, (7.32, 3.9), (8.02, 4.88))
+    arrow(ax, (7.32, 3.45), (8.02, 2.3))
+    arrow(ax, (10.08, 4.95), (10.72, 4.95))
+    arrow(ax, (10.08, 2.3), (10.72, 2.3))
+    ax.text(6.15, 1.05, "Mỗi khối học phần dư F(x); đầu ra = ReLU(F(x) + x).",
+            ha="center", fontsize=9, color=COLORS["text"])
+    fig.tight_layout(rect=(0.01, 0.05, 0.99, 0.92))
+    save(fig, "resnet6x64.png")
+
+
+def mcts_puct():
+    fig, ax = base_figure("Một lượt mô phỏng MCTS dùng PUCT", (13, 4.8))
+    stages = [
+        (0.25, "Chọn nhánh\nPUCT"),
+        (2.8, "Mở rộng\nnước hợp lệ"),
+        (5.35, "Đánh giá lá\npolicy + value"),
+        (7.9, "Backup\nđổi dấu"),
+        (10.45, "Cập nhật lượt\nthăm gốc"),
+    ]
+    for x, label in stages:
+        box(ax, (x, 3.55), (2.05, 1.2), label, color="search", fontsize=10)
+    for (x, _), (nx, _) in zip(stages, stages[1:]):
+        arrow(ax, (x + 2.08, 4.15), (nx - 0.03, 4.15))
+    ax.text(6.5, 2.15,
+            "score(s,a) = −Q(sₐ) + cₚᵤcₜ · P(s,a) · √max(1,N(s)) / (1 + N(sₐ))",
+            ha="center", fontsize=11, color=COLORS["text"])
+    arrow(ax, (11.5, 3.45), (1.15, 3.45), "lặp đến đủ ngân sách mô phỏng",
+          curve=-0.05, label_offset=(0, -0.35))
+    ax.text(6.5, 0.95,
+            "Nút kết thúc được backup trực tiếp; giá trị nút con đổi dấu khi quy về góc nhìn nút cha.",
+            ha="center", fontsize=9, color=COLORS["text"])
+    fig.tight_layout(rect=(0.01, 0.03, 0.99, 0.92))
+    save(fig, "mcts_puct.png")
+
+
+def renju_board_rules():
+    examples = [
+        ("Đúng 5: thắng và hợp lệ", tuple((5, c) for c in range(2, 6)),
+         (5, 6), "renju_exact_five.png"),
+        ("Quá 5: 6 quân liên tiếp, nước bị cấm", tuple((5, c) for c in range(0, 5)),
+         (5, 5), "renju_overline.png"),
+        ("3–3: tạo hai bộ ba mở, nước bị cấm",
+         ((5, 4), (5, 6), (4, 5), (6, 5)), (5, 5), "renju_double_three.png"),
+        ("4–4: tạo hai bộ bốn mở, nước bị cấm",
+         tuple((5, c) for c in (2, 3, 4)) + tuple((r, 5) for r in (2, 3, 4)),
+         (5, 5), "renju_double_four.png"),
+    ]
+    for title, black, candidate, filename in examples:
+        fig, ax = plt.subplots(figsize=(6.0, 6.2))
+        fig.suptitle(f"Minh họa luật Renju: {title}", fontsize=13,
+                     fontweight="bold", color=COLORS["text"], y=0.97)
+        draw_board(ax, black, candidate=candidate)
+        fig.text(0.5, 0.03, "Dấu × là nước đang xét; sơ đồ minh họa một thế riêng lẻ.",
+                 ha="center", fontsize=9, color=COLORS["text"])
+        fig.tight_layout(rect=(0.03, 0.07, 0.97, 0.92))
+        save(fig, filename)
 
 
 def main():
     architecture()
     flow()
-    architecture_detail()
+    tensor_planes()
+    augmentation_board()
+    resnet_architecture()
+    mcts_puct()
+    renju_board_rules()
+
 
 if __name__ == "__main__":
     main()

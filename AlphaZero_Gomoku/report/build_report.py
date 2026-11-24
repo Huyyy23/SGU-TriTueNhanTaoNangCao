@@ -29,6 +29,8 @@ SOURCE = ROOT / "report.md"
 DOCX = ROOT / "bao_cao.docx"
 PDF = ROOT / "bao_cao.pdf"
 IMAGE_RE = re.compile(r"!\[([^]]*)\]\(([^)]+)\)")
+TABLE_CAPTION_RE = re.compile(r"^\*{0,2}Bảng:\s*(.+?)\*{0,2}$", re.IGNORECASE)
+EQUATION_RE = re.compile(r"^\$\$(.+)\$\$$")
 
 
 def field(paragraph, instruction: str, result: str = "") -> None:
@@ -166,6 +168,7 @@ def build(indexes) -> None:
     add_contents(doc, indexes)
     lines = lines[chapter_start:]
     figures = tables = 0
+    pending_table_caption = None
     i = 0
     while i < len(lines):
         line = lines[i].strip()
@@ -175,7 +178,24 @@ def build(indexes) -> None:
         heading = re.match(r"^(#{1,3})\s+(.+?)\s*#*\s*$", line)
         if heading:
             text = heading.group(2).strip()
+            if len(heading.group(1)) == 1 and text == "Tài liệu tham khảo":
+                doc.add_page_break()
             doc.add_heading(text, level=len(heading.group(1)))
+            i += 1
+            continue
+        equation = EQUATION_RE.fullmatch(line)
+        if equation:
+            p = doc.add_paragraph()
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.keep_together = True
+            run = p.add_run(equation.group(1))
+            run.font.name = "Cambria Math"
+            run.font.size = Pt(11)
+            i += 1
+            continue
+        table_caption = TABLE_CAPTION_RE.fullmatch(line)
+        if table_caption:
+            pending_table_caption = table_caption.group(1).strip()
             i += 1
             continue
         image = IMAGE_RE.fullmatch(line)
@@ -185,10 +205,8 @@ def build(indexes) -> None:
             path = (SOURCE.parent / path_text.strip()).resolve()
             if path.suffix.lower() != ".png" or not path.is_file():
                 raise FileNotFoundError(f"Ảnh PNG không tồn tại hoặc không hỗ trợ: {path}")
-            p = doc.add_paragraph()
-            p.paragraph_format.keep_with_next = True
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p.add_run().add_picture(str(path), width=Cm(15.5))
+            image_width = Cm(9.0) if path.stem.startswith("renju_") else Cm(15.5)
+            p.add_run().add_picture(str(path), width=image_width)
             figures += 1
             add_caption(doc, "Hình", caption or path.stem, figures)
             i += 1
@@ -200,8 +218,10 @@ def build(indexes) -> None:
             while i < len(lines) and "|" in lines[i] and lines[i].strip():
                 rows.append(parse_table_row(lines[i]))
                 i += 1
-            tables += 1
-            add_caption(doc, "Bảng", " — ".join(headers[:3]), tables)
+            if not pending_table_caption:
+                raise ValueError(f"Bảng thiếu nhan đề nội dung tại dòng {i + chapter_start + 1}")
+            add_caption(doc, "Bảng", pending_table_caption, tables)
+            pending_table_caption = None
             table = doc.add_table(rows=1, cols=len(headers))
             table.style = "Table Grid"
             table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -235,7 +255,7 @@ def build(indexes) -> None:
             continue
         paragraph_lines = [line]
         i += 1
-        while i < len(lines) and lines[i].strip() and not re.match(r"^(#{1,3})\s+", lines[i].strip()) and not IMAGE_RE.fullmatch(lines[i].strip()) and not ("|" in lines[i] and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1])) and not re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", lines[i]):
+        while i < len(lines) and lines[i].strip() and not re.match(r"^(#{1,3})\s+", lines[i].strip()) and not TABLE_CAPTION_RE.fullmatch(lines[i].strip()) and not IMAGE_RE.fullmatch(lines[i].strip()) and not ("|" in lines[i] and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1])) and not re.match(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)", lines[i]):
             paragraph_lines.append(lines[i].strip())
             i += 1
         doc.add_paragraph(" ".join(paragraph_lines))
@@ -258,13 +278,20 @@ def collect_indexes():
                 for line in lines if re.match(r"^#{1,2}\s+", line)]
     figures = []
     tables = []
+    pending_table_caption = None
     for i, line in enumerate(lines):
         image = IMAGE_RE.fullmatch(line.strip())
         if image:
             caption = re.sub(r"^Hình\s+\d+\s*:\s*", "", image.group(1), flags=re.IGNORECASE)
             figures.append(f"Hình {len(figures) + 1}: {caption}")
-        if "|" in line and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1]):
-            tables.append(f"Bảng {len(tables) + 1}: " + " — ".join(parse_table_row(line)[:3]))
+        table_caption = TABLE_CAPTION_RE.fullmatch(line.strip())
+        if table_caption:
+            pending_table_caption = table_caption.group(1).strip()
+        elif "|" in line and i + 1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i + 1]):
+            if not pending_table_caption:
+                raise ValueError(f"Bảng thiếu nhan đề nội dung tại dòng {i + chapter_start + 1}")
+            tables.append(f"Bảng {len(tables) + 1}: {pending_table_caption}")
+            pending_table_caption = None
 
     with fitz.open(PDF) as pdf:
         pages = [" ".join(page.get_text().split()) for page in pdf]
