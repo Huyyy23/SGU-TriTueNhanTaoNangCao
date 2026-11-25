@@ -84,7 +84,7 @@ Chạy tournament hai ván trong SQLite riêng:
 ..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic --games 2 --budget sims:1 --backend python --db data/tournament-smoke.sqlite
 ```
 
-Xoá thủ công các file `checkpoints/smoke`, `data/smoke.sqlite`, và `data/tournament-smoke.sqlite` sau khi đã xem kết quả, nếu không cần giữ chúng.
+Các ví dụ ghi vào `checkpoints/smoke`, `data/smoke.sqlite`, và `data/tournament-smoke.sqlite`. Dùng tên output khác nếu muốn giữ các kết quả; các đường dẫn này có thể trùng với dữ liệu đã tồn tại.
 
 ## Backend C++ tuỳ chọn
 
