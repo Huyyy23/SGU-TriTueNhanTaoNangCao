@@ -29,7 +29,7 @@ Trên macOS hoặc Linux, dùng `python3.10 -m venv .venv` tại thư mục gố
 Khởi động GUI với người chơi cầm Đen và AlphaZero cầm Trắng theo luật Normal. Tuỳ chọn checkpoint khiến đường dẫn weights được nêu rõ trong lệnh:
 
 ```powershell
-.venv\Scripts\python -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset normal --checkpoint AlphaZero_Gomoku/models/az_normal_weights.pt
+.venv\Scripts\python -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset normal --checkpoint models/az_normal_weights.pt
 ```
 
 Chọn Renju và tác tử bằng các cờ `--ruleset` và `--agent`. Tác tử có sẵn gồm `random`, `heuristic`, `alphabeta`, `mcts-pure`, `az`, `az_v0`, `az_v1_tactical`, và `az_v1_threat`. AZ dùng checkpoint theo luật đã chọn. GUI không nhận checkpoint thì báo lỗi nếu thiếu weights phù hợp.
@@ -91,7 +91,7 @@ Mỗi lệnh dùng tên duy nhất để không ghi đè kết quả thí nghi�
 
 ## Backend C++ tuỳ chọn
 
-Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là tuỳ chọn, yêu cầu compiler và extension được build cho đúng Python ABI. Để build, chạy `.venv\Scripts\python scripts/build_gomoku_native.py --module mcts` hoặc `--module patterns`. Không cần C++ để chạy trò chơi, luật, tests Python, self-play hoặc tournament. Các cờ `--backend python` chọn Python tường minh cho train và tournament.
+Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là tuỳ chọn, yêu cầu compiler và extension được build cho đúng Python ABI. Để build, chạy `..\.venv\Scripts\python scripts/build_gomoku_native.py --module mcts` hoặc `--module patterns`. Không cần C++ để chạy trò chơi, luật, tests Python, self-play hoặc tournament. Các cờ `--backend python` chọn Python tường minh cho train và tournament.
 
 ## Dữ liệu thực nghiệm
 
