@@ -1,163 +1,104 @@
-# Gomoku 11x11 + AlphaZero
+# Gomoku 11×11 với AlphaZero
 
-Agent Gomoku trên bàn 11x11, tự học bằng self-play theo AlphaZero: mạng ResNet nhỏ, tìm kiếm cây PUCT, huấn luyện từ những ván agent tự đấu. Hỗ trợ hai bộ luật: **Normal** (thắng khi có 5 quân liền hoặc hơn) và **Renju** (cấm nước 3-3, 4-4, quá 5 quân cho bên đen; nước tạo đúng 5 quân luôn hợp lệ).
-
-## Trạng thái
-
-Dự án đã có lõi game 11x11, agent AlphaZero và pipeline huấn luyện/đánh giá.
-CLI và giao diện Pygame hỗ trợ Normal/Renju, người đấu máy và máy đấu máy.
-Checkpoint Renju và log fine-tune đã có; nguồn gốc, số liệu huấn luyện và giới hạn được đối chiếu trong [báo cáo](docs/report.md).
-
-Các tài liệu kế hoạch:
-
-| Tài liệu | Nội dung |
-|---|---|
-| [tasks/plan.md](tasks/plan.md) | Kế hoạch triển khai: 26 task, 11 phase, quyết định kiến trúc, bảng rủi ro |
-| [tasks/todo.md](tasks/todo.md) | Chi tiết từng task: tiêu chí nghiệm thu, cách kiểm chứng, file dự kiến đụng |
-| [tasks/proposal.md](tasks/proposal.md) | Đề tài trình bày: mục tiêu, phương pháp, thiết kế thí nghiệm E1–E5 |
-| [tasks/proposal-requirements.md](tasks/proposal-requirements.md) | Yêu cầu đề tài theo từng khối |
-| [docs/report.md](docs/report.md) | Thuật toán, huấn luyện, nguồn gốc checkpoint và kết quả đánh giá có bằng chứng |
-
-Đối chiếu tiêu chí và tiến độ theo `tasks/todo.md`.
-
-## Mục tiêu
-
-| # | Mục tiêu | Tiêu chí nghiệm thu |
-|---|---|---|
-| M1 | Game Gomoku 11x11 chơi được | Đấu người với máy, hoặc hai máy đấu nhau qua giao diện đồ họa |
-| M2 | Agent tự ra quyết định | Mọi nước đi đến từ mạng + tìm kiếm cây, không có bảng tra cứu hay heuristic hardcode |
-| M3 | Hai bộ luật Normal và Renju | Một kiến trúc mạng, hai bộ luật, agent chơi được cả hai |
-| M4 | Đo lường được | 1000 ván đánh giá có log đầy đủ, tổng hợp theo lượt đi trước và nguyên nhân kết thúc ván |
-
-Câu hỏi nghiên cứu:
-
-> Với ngân sách 1000 ván tự chơi, agent Gomoku 11x11 đạt được trình độ nào, và win rate tăng thế nào theo từng 100 ván?
-
-## Cấu trúc dự án (dự kiến)
-
-```
-gomoku/        Lõi game, không phụ thuộc AI hay UI
-  board.py       Bàn 11x11, play/undo, history
-  rules/         base.py (interface), normal.py, renju.py
-  features.py    Bàn -> tensor 4 plane, đối xứng 8 phép
-  runner.py      Chạy một ván, gọi player qua interface
-az/            Tầng AlphaZero
-  model.py       ResNet nhỏ (6 block, 64 filter), đầu chính sách (121), đầu giá trị
-  mcts.py        PUCT, nhiễu Dirichlet ở gốc, nhiệt độ
-  selfplay.py    Sinh ván, multiprocessing, gom lô suy luận
-  replay_buffer.py  Buffer + tăng cường đối xứng 8 phép
-  trainer.py     Loss = policy CE + value MSE + L2
-  evaluator.py   Arena, cổng thay thế mô hình tốt nhất
-  logging_v2.py  Nguồn log có cấu trúc SQLite cho self-play, training và tournament
-players/       base.py (select_move), random, human, mcts_pure, az_player
-ui/            Pygame: human vs AI, AI vs AI
-scripts/       train.py, play.py, arena.py, simulate.py, sync_drive.py, selfplay_shard.py, merge_shards.py
-colab/         train.ipynb + README (chạy dài trên Google Colab)
-configs/       normal.yaml, renju.yaml, colab.yaml
-tests/         Test luật (kỹ Renju), MCTS, self-play, huấn luyện, arena
-docs/          provenance.md, report.md, README.md
-```
-
-
-Bốn quy tắc kiến trúc giữ xuyên suốt: luật chơi nằm sau một interface duy nhất (`legal_moves`, `is_win`, `is_terminal`), giá trị của node con là góc nhìn đối thủ nên phủ định khi backup, mỗi bộ luật một model riêng, và `gomoku/` không import torch.
-
-## Siêu tham số mặc định
-
-| Nhóm | Tham số | Giá trị |
-|---|---|---|
-| Tìm kiếm | số lượt mô phỏng mỗi nước | 200 |
-| Tìm kiếm | hệ số khám phá `c_puct` | 1.5 |
-| Tìm kiếm | nhiễu Dirichlet alpha / epsilon | 0.15 / 0.25 |
-| Tìm kiếm | số nước dùng nhiệt độ = 1 | 15 |
-| Mô hình | số block / số filter | 6 / 64 |
-| Mô hình | tối ưu hoá / tốc độ học | Adam / 1e-4, hằng số cho checkpoint Normal hiện tại |
-| Mô hình | hệ số chuẩn hoá L2 | 1e-4 |
-| Mô hình | trọng số mất mát chính sách / giá trị | 1.0 / 1.0 |
-| Huấn luyện | số bước mỗi vòng / batch size | 100 / 32 cho checkpoint Normal hiện tại |
-| Huấn luyện | dung lượng buffer (trước tăng cường) | 50000 |
-| Lịch Normal | ván mỗi vòng | 50; tiếp tục từ generation chính thức |
-| Định danh | mô hình Normal chính thức | AZ Normal |
-| Đánh giá | điều kiện chọn best | cận dưới CI 95% của ΔElo so với best hiện tại > 0 |
-| Đánh giá | cỡ mẫu mỗi gate | 100 ván tổng cộng, không mở rộng |
-| Đánh giá | opening | 4 nước ngẫu nhiên, đổi màu theo cặp |
-
-Mỗi 5000 ván self-play mới, candidate đấu best; nếu chưa có best thì đấu Heuristic. Khi đã có best, gate không đo Heuristic.
-Renju giữ lịch fine-tune riêng trong `configs/renju.yaml`.
-
-## Môi trường
-
-| Mục | Yêu cầu |
-|---|---|
-| Python | 3.12 (`../.venv` dùng chung toàn repo) |
-| Thư viện | Cài từ `../requirements.txt` |
-| GPU | NVIDIA RTX 4060 8 GB (sm_89) cho lần train đầu; CPU vẫn chạy được để test |
-| Mạng | pip OK |
-
-Colab free chỉ cho 2 vCPU, nên một instance Colab chậm hơn máy local. Colab dùng cho vòng chạy dài và cho việc sinh ván song song, không phải để thay thế local.
-
-## Lệnh dự kiến
-
-Chạy lệnh từ thư mục `AlphaZero_Gomoku`, dùng `.venv` ở root:
+## Clone repository
 
 ```powershell
-..\.venv\Scripts\python scripts/play.py --mode human-vs-ai --agent mcts-pure --ruleset normal
-..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --agent random --ruleset renju
-..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --black-agent heuristic --white-agent alphabeta
-..\.venv\Scripts\python scripts/play.py --mode human-vs-ai --human-color white --agent heuristic
-..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --black-agent az --white-agent mcts-pure
-..\.venv\Scripts\python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure
-..\.venv\Scripts\python -m ui.pygame_app --mode ai-vs-ai
-..\.venv\Scripts\python scripts/train.py --iterations 701
-..\.venv\Scripts\python scripts/arena.py --a random --b az --games 100
-..\.venv\Scripts\python scripts/arena.py --a heuristic --b az_v1_tactical --games 100 --budget sims:200
-..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic,alphabeta,mcts-pure,az,az_v1_threat --games 100 --budget sims:200
-..\.venv\Scripts\python scripts/tournament.py --agents az,az_v1_threat,alphabeta --games 100 --budget time:1
-..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic,alphabeta,az_renju --rules renju --games 100 --budget sims:200
+git clone https://github.com/Huyyy23/SGU-TriTueNhanTaoNangCao.git
+cd SGU-TriTueNhanTaoNangCao
+```
+
+Các lệnh dưới đây bắt đầu từ thư mục gốc repository. Trên Windows dùng `.venv\Scripts\python`. Trên macOS hoặc Linux dùng `.venv/bin/python`.
+
+Đồ án xây dựng trò Gomoku trên bàn 11×11 với luật Normal và Renju, giao diện Pygame, CLI, các tác tử tìm kiếm cổ điển và mạng AlphaZero. Hướng dẫn này giúp giảng viên cài đặt, mở trò chơi bằng checkpoint có sẵn và chạy các kiểm tra nhỏ mà không huấn luyện lại.
+
+## Cài đặt
+
+Cài Python 3.10. Python 3.10.6 là môi trường đã dùng cho các thí nghiệm của đồ án. Tạo môi trường ảo và cài dependency từ thư mục gốc repository:
+
+```powershell
+cd AlphaZero_Gomoku
+py -3.10 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+Trên macOS hoặc Linux, dùng `python3.10 -m venv .venv`, sau đó chạy `.venv/bin/python -m pip install -r requirements.txt` và gọi Python qua `.venv/bin/python`. PyTorch cài mặc định bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần cài bản PyTorch CUDA tương ứng với máy.
+
+## Chơi trò chơi
+
+Khởi động GUI với người chơi cầm Đen và AlphaZero cầm Trắng theo luật Normal:
+
+```powershell
+..\.venv\Scripts\python -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset normal
+```
+
+Chọn Renju và tác tử bằng các cờ `--ruleset` và `--agent`. Tác tử có sẵn gồm `random`, `heuristic`, `alphabeta`, `mcts-pure`, `az`, `az_v0`, `az_v1_tactical`, và `az_v1_threat`. AZ dùng checkpoint theo luật đã chọn. GUI không nhận checkpoint thì báo lỗi nếu thiếu weights phù hợp.
+
+Chạy hai máy đấu nhau trong GUI:
+
+```powershell
+..\.venv\Scripts\python -m ui.pygame_app --mode ai-vs-ai --ruleset normal --black-agent az --white-agent heuristic
+```
+
+Chơi qua terminal:
+
+```powershell
+..\.venv\Scripts\python scripts/play.py --mode human-vs-ai --human-color black --agent az --ruleset normal
+..\.venv\Scripts\python scripts/play.py --mode ai-vs-ai --black-agent az --white-agent heuristic --ruleset renju
+```
+
+Đổi màu người chơi bằng `--human-color black` hoặc `--human-color white`. Dùng `--black-agent` và `--white-agent` để đặt tác tử riêng cho từng bên. Với AlphaBeta, `--depth` đặt độ sâu. Với MCTS Pure, `--rollouts` đặt số rollout. Các nước cấm Renju được kiểm tra qua bộ luật, không phụ thuộc tác tử.
+
+## Checkpoint có sẵn
+
+Repository cung cấp weights Normal tại `models/az_normal_weights.pt` và weights Renju tại `checkpoints/renju/az_renju_weights.pt`. Các file này được dùng khi chơi; bạn không cần huấn luyện lại. Checkpoint đầy đủ để tiếp tục huấn luyện và replay buffer nằm trong `checkpoints/normal/`, nhưng không được đóng gói trong Git clone. Không dùng đường dẫn checkpoint training trong hướng dẫn chơi.
+
+Có thể truyền weights khác cho CLI bằng `--checkpoint PATH`, hoặc đặt riêng bằng `--black-checkpoint PATH` và `--white-checkpoint PATH`. Để kiểm tra hash của weights mặc định:
+
+```powershell
+..\.venv\Scripts\python -c "import hashlib; from pathlib import Path; [print(p, hashlib.sha256(Path(p).read_bytes()).hexdigest()) for p in ['models/az_normal_weights.pt', 'checkpoints/renju/az_renju_weights.pt']]"
+```
+
+## Kiểm thử và thử nghiệm nhỏ
+
+Chạy toàn bộ test suite:
+
+```powershell
 ..\.venv\Scripts\python -m pytest -q
 ```
 
-
-`--agent` đặt cùng một agent cho cả hai phía để giữ tương thích; dùng
-`--black-agent` và `--white-agent` để chọn riêng. `--human-color` đổi màu
-quân của người chơi. Agent hỗ trợ: `random`, `mcts-pure`, `heuristic`,
-`alphabeta`, `az`, `az_v0`, `az_v1_tactical`, and `az_v1_threat`. `az` dùng biến thể
-`az_v1_threat` với weights chính thức hiện tại; chọn `az_v0` tường minh để dùng v0.
-`--depth`/`--no-pruning` cấu hình Alpha-Beta, `--rollouts` cấu hình MCTS Pure.
-Trong chế độ AI-vs-AI, nhấn Space để tạm dừng/tiếp tục và New game để chơi lại.
-Checkpoint Normal chính thức: `checkpoints/normal/latest.json`; generation được xác minh
-bằng hash và bao gồm weights cùng replay. Training mặc định nạp generation, optimizer và
-trạng thái phục hồi; thiếu checkpoint là lỗi, không tự tạo model mới. `--fresh` là
-chế độ khởi tạo mới tường minh. Lịch sử thí nghiệm và checkpoint cũ được giữ riêng.
-Log Normal: `data/normal.sqlite`; tournament: `data/tournament.sqlite`.
-Mốc lịch sử 60k là danh nghĩa, không cộng 20k ván từ run độc lập đã loại bỏ.
-Tournament ghi games, moves, agent/config metadata và events vào SQLite; không sinh
-JSONL/CSV/JSON output mặc định. Mỗi cặp đổi màu, vì vậy `--games` phải chẵn.
-`--checkpoint NAME=PATH` chọn weights riêng cho agent; Normal mặc định dùng
-`checkpoints/normal/latest.json`, Renju dùng checkpoint riêng.
-`--db` chọn database tournament; mặc định là `data/tournament.sqlite`.
-`sims:N` đặt số mô phỏng cho AZ/MCTS Pure, Alpha-Beta dùng `--depth` (mặc định 2);
-`time:S` đặt ngân sách giây mỗi nước cho tác tử tìm kiếm. Random/heuristic không
-bị làm chậm để dùng hết ngân sách. Báo cáo độ trễ và lượng tìm kiếm thực tế,
-không coi số node Alpha-Beta bằng số simulation MCTS.
-`--pair NAME,NAME` chạy một cặp với seed theo vị trí trong danh sách đầy đủ.
-Để tiếp tục run đã có, dùng cùng cấu hình với `--resume --run-id RUN_ID`; resume
-đọc các ván đã commit trong database và từ chối nếu run/config không khớp.
-
-Dry-run inventory migration mặc định quét `logs/` và `evidence/`, không ghi dữ liệu:
+Kiểm tra rules, model, UI và tác tử riêng lẻ:
 
 ```powershell
-.venv\Scripts\python.exe scripts/migrate_logs_to_sqlite.py
-.venv\Scripts\python.exe scripts/migrate_logs_to_sqlite.py --import
+..\.venv\Scripts\python -m pytest -q tests/test_rules_normal.py tests/test_rules_renju.py tests/test_model.py tests/test_ui.py tests/test_agent_factory.py
 ```
 
-Import bổ sung vào hai database chính, idempotent theo source identity/hash, không
-xóa hoặc sửa file nguồn. Dùng `scripts/analyze_t35.py --db data/tournament.sqlite`
-để truy vấn tournament; JSON export chỉ được tạo khi truyền `--out`.
+Chạy self-play thử nghiệm với config tạm, output checkpoint tạm và SQLite riêng. Lệnh huấn luyện ghi các file đó, nên không chạy nó trên dữ liệu thí nghiệm chính:
 
-## Backend Python/C++ (thử nghiệm)
+```powershell
+..\.venv\Scripts\python scripts/train.py --config configs/normal.yaml --fresh --iterations 1 --games 2 --simulations 1 --backend python --out-dir checkpoints/smoke --db data/smoke.sqlite --run-id smoke
+```
 
-Mặc định là `python`. `scripts/train.py` và `scripts/tournament.py` nhận preset `--backend python|cpp`, cùng override độc lập `--mcts-backend` và `--patterns-backend`; override thắng preset. Build Patterns bằng `scripts/build_gomoku_native.py --module patterns`; build MCTS bằng `scripts/build_gomoku_native.py --module mcts`.
+Chạy tournament hai ván trong SQLite riêng:
 
-Native MCTS dùng arena C++ sở hữu node theo index; Python vẫn xử lý rules, board, RNG và inference. Có thể chọn `--mcts-backend cpp` sau khi build extension đúng Python ABI. Không fallback im lặng khi extension thiếu/không tương thích. Python vẫn là mặc định: test native mới đạt, nhưng chưa chạy integration với PyTorch/checkpoint, multiprocessing/resume hoặc benchmark end-to-end; microbenchmark search/fake evaluator mới tăng 7,9%, chưa đạt ngưỡng 10%. Không xem backend C++ là production-ready hoặc dùng cho 5.000 ván.
+```powershell
+..\.venv\Scripts\python scripts/tournament.py --agents random,heuristic --games 2 --budget sims:1 --backend python --db data/tournament-smoke.sqlite
+```
 
-Tournament log ghi cả backend đã chọn và `components_used` thực tế. Patterns C++ không tăng tốc AlphaZero self-play cơ bản, vốn không gọi `find_patterns()`. Xem [báo cáo Dual Backend](docs/bao-cao-dual-backend.md) để biết lệnh, số liệu và các gate còn thiếu.
+Xoá thủ công các file `checkpoints/smoke`, `data/smoke.sqlite`, và `data/tournament-smoke.sqlite` sau khi đã xem kết quả, nếu không cần giữ chúng.
+
+## Backend C++ tuỳ chọn
+
+Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là tuỳ chọn, yêu cầu compiler và extension được build cho đúng Python ABI. Để build, chạy `..\.venv\Scripts\python scripts/build_gomoku_native.py --module mcts` hoặc `--module patterns`. Không cần C++ để chạy trò chơi, luật, tests Python, self-play hoặc tournament. Các cờ `--backend python` chọn Python tường minh cho train và tournament.
+
+## Dữ liệu thực nghiệm
+
+`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc một chỉ số, có cột nguồn, mục đích, kết luận và ghi chú. W/D/L là thắng, hoà, thua của tác tử A. `score_pct` tính `(thắng + 0.5 × hoà) / số ván × 100`; đây không phải win rate. Ô trống nghĩa là số liệu không được xác định hoặc không được công bố.
+
+CSV tổng hợp số liệu đã nêu trong báo cáo và ghi rõ các mục thiếu hoặc chưa kiểm chứng độc lập. Dữ liệu SQLite trong `data/` bị Git ignore, nên có thể không có trong clone mới. Để truy vết, dùng đường dẫn ở `source_file` cùng `report_section`; các file báo cáo chính thức nằm trong `report/` và `docs/`. Các số liệu được chép từ báo cáo không đồng nghĩa với việc cơ sở dữ liệu tương ứng có trong bản clone.
+
+## Tài liệu kỹ thuật
+
+- [SPEC.md](SPEC.md) ghi hợp đồng kỹ thuật, trạng thái kiểm chứng và giới hạn của các kết luận.
+- [Báo cáo đồ án](docs/report.md) mô tả thuật toán, kết quả và nguồn checkpoint.
+- [Hướng dẫn tournament](docs/tournament_guide.md) mô tả ngân sách, lưu log và tiếp tục tournament.
+
