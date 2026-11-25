@@ -13,7 +13,7 @@ Các lệnh dưới đây bắt đầu từ thư mục gốc repository. Trên W
 
 ## Cài đặt
 
-Cài Python 3.10. Python 3.10.6 là môi trường đã dùng cho các thí nghiệm của đồ án. Tạo môi trường ảo và cài dependency từ thư mục gốc repository:
+Cài Python 3.10. Python 3.10.6 là môi trường đã dùng cho các thí nghiệm của đồ án. Tạo môi trường ảo trong thư mục Gomoku và cài dependency từ `AlphaZero_Gomoku/requirements.txt`:
 
 ```powershell
 cd AlphaZero_Gomoku
@@ -21,7 +21,7 @@ py -3.10 -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
 ```
 
-Trên macOS hoặc Linux, dùng `python3.10 -m venv .venv`, sau đó chạy `.venv/bin/python -m pip install -r requirements.txt` và gọi Python qua `.venv/bin/python`. PyTorch cài mặc định bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần cài bản PyTorch CUDA tương ứng với máy.
+Trên macOS hoặc Linux, dùng `python3.10 -m venv .venv`, sau đó chạy `.venv/bin/python -m pip install -r requirements.txt` và gọi Python qua `.venv/bin/python`. PyTorch cài mặc định bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần cài bản PyTorch CUDA tương ứng với máy. Đồ hoạ Pygame cần môi trường desktop có màn hình.
 
 ## Chơi trò chơi
 
