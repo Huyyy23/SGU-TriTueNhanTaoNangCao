@@ -75,7 +75,7 @@ Kiểm tra rules, model, UI và tác tử riêng lẻ:
 Chạy self-play thử nghiệm với config tạm, output checkpoint tạm và SQLite riêng. Lệnh huấn luyện ghi các file đó, nên không chạy nó trên dữ liệu thí nghiệm chính:
 
 ```powershell
-..\.venv\Scripts\python scripts/train.py --config configs/normal.yaml --fresh --iterations 1 --games 2 --simulations 1 --backend python --out-dir checkpoints/smoke --db data/smoke.sqlite --run-id smoke
+..\.venv\Scripts\python scripts/train.py --config configs/normal.yaml --fresh --iterations 1 --games 2 --simulations 2 --backend python --out-dir checkpoints/smoke --db data/smoke.sqlite --run-id smoke
 ```
 
 Chạy tournament hai ván trong SQLite riêng:
