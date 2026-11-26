@@ -1,8 +1,8 @@
-# Logging V2 — implementation and audit report
+# Logging V2 — báo cáo triển khai và kiểm toán
 
 **Trạng thái: cutover và import lịch sử đã triển khai; acceptance chưa hoàn tất.** Không chạy lại thí nghiệm self-play/tournament, không xóa nguồn cũ, không sửa checkpoint/replay hoặc kết quả AI. STANDARD overhead sau cutover chưa được benchmark nên chưa thể tuyên bố đạt KPI ≤5%.
 
-## 1. Executive summary
+## 1. Tóm tắt
 
 - `data/selfplay.sqlite` là nguồn dữ liệu cho self-play/training; `data/tournament.sqlite` là nguồn cho tournament/Elo. Các file DB/sidecar bị `.gitignore` loại khỏi Git; không có DB tracked cần untrack. Không ghi đè DB khi import/export.
 - Training, arena, tournament, ablation/benchmark event writers và `analyze_t35.py` dùng SQLite mặc định. Tournament resume đọc các ván đã commit trong DB. Export/import bundle thí nghiệm tournament là thao tác tường minh, additive, hash/idempotent.
@@ -39,7 +39,7 @@ Inventory toàn bộ 1.244 file trong `logs/` và `evidence/`; importer nhận d
 - WAL, foreign keys, stable IDs, uniqueness, schema-version preflight, BLOB encode/decode, backup helper và prepared SQL statements nằm trong `az/logging_v2.py`.
 - STANDARD self-play ghi move/root telemetry sau khi search/game data đã thu được; NONE bỏ thu thập telemetry không cần thiết và durable writes. Không thay đổi MCTS, RNG, luật hoặc số simulations.
 - Tournament STANDARD ghi DB; resume lấy config/result đã commit từ cùng DB và cần `--run-id` rõ ràng. NONE chỉ là baseline không lưu dữ liệu.
-- STANDARD training resume requires the original `--run-id`; the existing run row is reused only if config/backend/rules/seed/metadata match. Legacy checkpoints without a DB row start a newly identified run; the importer does not infer lineage.
+- STANDARD training resume yêu cầu `--run-id` ban đầu; hệ thống chỉ dùng lại dòng run hiện có nếu config/backend/rules/seed/metadata khớp. Checkpoint cũ không có dòng DB sẽ bắt đầu một run với identity mới; importer không suy đoán lineage.
 - `az.experiment_exchange` export/import một tournament experiment sang bundle SQLite tường minh. Import additive; xung đột rollback, hash + experiment identity chống duplicate; không thay DB đích. Self-play run bundle chưa có.
 
 ## 5. Schema và indexing
@@ -53,16 +53,16 @@ Sau migration, `mcts_roots`/`mcts_traces` và Elo tables còn trống trong dữ
 ## 6. File/module đã thay đổi
 
 - `.gitignore`: bỏ SQLite DB, sidecars, journals và bundle local khỏi Git; không xóa DB local.
-- `az/logging_v2.py`, `az/backend_logging.py`: schemas, structured event routing, root telemetry, backup and data integrity helpers.
-- `az/mcts.py`, `native/gomoku_mcts_native.cpp`, `az/selfplay.py`, `scripts/train.py`: read-only telemetry capture và selfplay/training SQLite persistence; không đổi search/training targets.
+- `az/logging_v2.py`, `az/backend_logging.py`: schemas, định tuyến structured event, telemetry gốc, helper sao lưu và kiểm tra toàn vẹn dữ liệu.
+- `az/mcts.py`, `native/gomoku_mcts_native.cpp`, `az/selfplay.py`, `scripts/train.py`: chỉ thu thập telemetry để đọc và lưu self-play/training vào SQLite; không đổi search/training targets.
 - `az/game_log.py`, `az/evaluator.py`: bỏ JSONL file writer/read/summary; game records/summaries còn xử lý trong memory.
 - `scripts/tournament.py`, `scripts/arena.py`, `az/renju_finetune.py`: chuyển kết quả/tổng hợp sang SQLite; checkpoint/replay output giữ nguyên.
 - `scripts/ablation.py`, `scripts/bench_batching.py`, `scripts/bench_selfplay_round2.py`: event mặc định vào DB; explicit JSON export không mặc định.
 - `scripts/analyze_t35.py`: analytics đọc tournament DB, export chỉ khi yêu cầu.
 - `az/elo.py`, `scripts/recalculate_elo.py`: Elo replay từ game rows.
 - `az/experiment_exchange.py`, `scripts/exchange_experiment.py`: exchange tournament bundle.
-- `scripts/migrate_logs_to_sqlite.py`: inventory/import JSONL, JSON arrays/objects, CSV, log/TXT and legacy backend SQLite.
-- Tests: `test_logging.py`, `test_logging_v2.py`, `test_migrate_logs_to_sqlite.py`, `test_train_resume_logging.py`, `test_elo.py`, `test_experiment_exchange.py`, `test_tournament.py`, `test_arena.py`, `test_ablation.py`, `test_backend_auto.py`, `test_selfplay.py`, `test_native_mcts.py`.
+- `scripts/migrate_logs_to_sqlite.py`: inventory/import JSONL, JSON arrays/objects, CSV, log/TXT và SQLite backend cũ.
+- Kiểm thử: `test_logging.py`, `test_logging_v2.py`, `test_migrate_logs_to_sqlite.py`, `test_train_resume_logging.py`, `test_elo.py`, `test_experiment_exchange.py`, `test_tournament.py`, `test_arena.py`, `test_ablation.py`, `test_backend_auto.py`, `test_selfplay.py`, `test_native_mcts.py`.
 - `README.md`, `SPEC.md`, `docs/tournament_guide.md`, `docs/adr/0004-structured-logging-and-benchmarking.md` và báo cáo này.
 
 ## 7. Migration inventory và reconciliation
@@ -127,7 +127,7 @@ Không đổi luật, MCTS selection/backup, RNG, backend selection, model, trai
 
 ## 12. Crash/resume/data integrity tests
 
-Verified in this task: focused cutover suite `109 passed`; importer after TXT support `11 passed`; native parity/root-telemetry `3 passed, 6 deselected`; `test_az_player.py` `2 passed, 2 skipped`; training resume identity/metadata checks nằm trong suite. Read-only analytics của một imported experiment trả về 6 games/3 pair groups; seed filter T35 mặc định không có experiment khớp. Không rerun AI research games.
+Đã xác minh trong tác vụ này: bộ kiểm thử cutover tập trung `109 passed`; importer sau khi hỗ trợ TXT `11 passed`; native parity/root-telemetry `3 passed, 6 deselected`; `test_az_player.py` `2 passed, 2 skipped`; các kiểm tra identity/metadata khi resume training nằm trong bộ kiểm thử. Analytics chỉ đọc của một experiment đã import trả về 6 games/3 pair groups; bộ lọc seed T35 mặc định không tìm thấy experiment phù hợp. Không chạy lại AI research games.
 
 Chưa có crash injection quanh transaction commit, queue-full, lock timeout, disk-full, writer failure, abrupt WAL recovery, concurrent production writers hoặc restore thử trên database research hiện tại. Không test bằng cách làm gián đoạn hoặc ghi đè database local. Existing backup/restore test dùng temporary DB.
 
@@ -135,12 +135,12 @@ Chưa có crash injection quanh transaction commit, queue-full, lock timeout, di
 
 Controlled fixture: một Black win từ 1200/1200, K=32 cho 1216/1184; recalculation idempotent và tạo hai rating events. Historical tournament game rows chưa được dùng để ghi rating history: `rating_systems=0`, `rating_events=0` sau import. Recalculate Elo trên production history chưa chạy để không ghi thêm kết quả suy diễn. Rating pools Normal/Renju vẫn độc lập; advanced Bradley–Terry/Davidson protocol chưa được triển khai.
 
-## 14. Acceptance criteria
+## 14. Tiêu chí nghiệm thu
 
 | Tiêu chí | Trạng thái |
 |---|---|
 | Hai SQLite DB local, không commit | Đạt theo `.gitignore`; không có DB tracked cần untrack |
-| Self-play/training → selfplay DB | Đạt ở entrypoints mặc định; STANDARD resume reuses an explicit run ID and rejects metadata drift; checkpoint/replay không đổi |
+| Self-play/training → selfplay DB | Đạt ở entrypoints mặc định; STANDARD resume dùng lại run ID được chỉ định và từ chối khi metadata sai khác; checkpoint/replay không đổi |
 | Tournament/Elo/analytics → tournament DB | Đạt ở entrypoints mặc định; resume/query dùng DB |
 | Python/C++ chung schema | Root-stat API parity đã có; full trajectory parity chưa đủ |
 | STANDARD root logging đầy đủ | Self-play producer có; tournament root producer chưa wired |
@@ -155,7 +155,7 @@ Controlled fixture: một Black win từ 1200/1200, K=32 cho 1216/1184; recalcul
 | Integrity | Cả hai DB integrity `ok`, FK violations 0 |
 | Tài liệu truy vấn/bảo trì | README, tournament guide, SPEC và ADR cập nhật |
 
-## 15. Known issues và rủi ro
+## 15. Vấn đề đã biết và rủi ro
 
 - Benchmark post-cutover không chạy vì yêu cầu không rerun thí nghiệm; overhead target không được xác nhận.
 - Tournament MCTS roots/TRACE và self-play experiment exchange còn thiếu.
@@ -165,7 +165,7 @@ Controlled fixture: một Black win từ 1200/1200, K=32 cho 1216/1184; recalcul
 - Schema có version 1 nhưng chưa có upgrade migration.
 - Historical root payloads trong raw events không được chuyển thành normalized compressed BLOB.
 - Backup/restore chỉ kiểm thử helper trên temporary DB; production DB chưa restore thử.
-- Historical checkpoint/replay provenance cannot be inferred when the old source did not record a stable run ID; resume with such a checkpoint needs an explicit new DB identity.
+- Không thể suy ra provenance của checkpoint/replay cũ nếu nguồn không ghi run ID ổn định; muốn resume checkpoint như vậy cần identity DB mới được chỉ định rõ.
 - Không có đề xuất cleanup trong task này; nguồn chỉ có thể được xem xét riêng sau backup và đối chiếu.
 
 ## 16. Hướng dẫn sử dụng, truy vấn và bảo trì

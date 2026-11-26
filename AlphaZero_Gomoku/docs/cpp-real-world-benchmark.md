@@ -20,7 +20,7 @@ Benchmark hiệu năng thực tế Python vs C++ trong self-play Gomoku AlphaZer
 | repeats | 2 | nhiều lần lặp |
 | Backend | python vs cpp | cùng checkpoint, cùng trọng số |
 
-Scripts: `scripts/bench_real_world.py` (end-to-end), `scripts/investigate_phase_timing.py` (phase timing), cả hai throwaway, không commit vào pipeline chính.
+Scripts: `scripts/bench_real_world.py` (end-to-end), `scripts/investigate_phase_timing.py` (đo thời gian từng giai đoạn), cả hai chỉ dùng thử và không commit vào pipeline chính.
 
 ## 3. Kết quả end-to-end (median / min / max / std qua 3 seeds × 2 repeats)
 
@@ -29,9 +29,9 @@ Scripts: `scripts/bench_real_world.py` (end-to-end), `scripts/investigate_phase_
 | Python | 31.408 | 0.255 | 0.029 | 7.6 | 39,495 | 7.63 |
 | C++ | 12.353 | 0.648 | 0.108 | 17.3 | 39,495 | 7.63 |
 
-**Speedup C++/Python (games/s, median): 2.54×**
+**Mức tăng tốc C++/Python (games/s, trung vị): 2.54×**
 
-Chi tiết từng run:
+Chi tiết từng lần chạy:
 
 | backend | rep | seed | wall (s) | games/s | cpu% | gpu% |
 |---|---:|---:|---:|---:|---:|---:|
@@ -52,7 +52,7 @@ Chi tiết từng run:
 - C++ giảm wall time từ ~31.4s xuống ~12.4s (median), ~61% nhanh hơn.
 - GPU utilization đọc được qua `nvidia-smi` subprocess (không cài pynvml mới) trong bản đầu: dao động 11–45%, phụ thuộc seed/repeat (không ổn định trên workload ngắn). Bản phase timing không đọc nvidia-smi để tránh can thiệp thời gian đo.
 
-## 4. Giải thích mâu thuẫn 2.38× vs 92–95%
+## 4. Giải thích chênh lệch giữa 2.38× và 92–95%
 
 Bản báo cáo trước profiling một ván đơn lẻ, batch=1 (mỗi nước một lần infer), cho thấy inference chiếm 92–95% thời gian/tick. Điều đó **không đại diện** cho end-to-end batched (`parallel_games=16`, mean_batch≈7.5).
 
@@ -68,13 +68,13 @@ Phase timing instrument `model.predict` với CUDA sync trên toàn bộ 24 ván
 | inference / call (ms) | ~2.1–2.7 | ~1.5–1.6 |
 | non-inference / move (ms) | ~59–82 | ~11–12 |
 
-**Mâu thuẫn đã được giải quyết:**
+**Đã giải thích được chênh lệch:**
 - Profiling cũ (92–95%) đo **một ván đơn lẻ, batch=1**, không có batched inference của `parallel_games=16`.
 - End-to-end thực tế: inference chỉ **53.3%** (Python) và **79.7%** (C++); non-inference (MCTS request/receive + Python overhead per tick) chiếm **46.7%** (Python) và **20.3%** (C++).
 - C++ giảm inference 1.71× (16.83 → 9.85s) **và** giảm non-inference 5.75× (14.38 → 2.50s). Tổng speedup wall 2.54×.
-- "Missing time" trong bản đầu là non-inference Python overhead (per-tick request/receive + play/reset), không được tính trong profiling cũ.
+- "Thời gian còn thiếu" trong bản đầu là overhead Python không thuộc inference (request/receive mỗi tick + play/reset), không được tính trong profiling cũ.
 
-## 5. Profiling riêng theo thành phần (một ván ngắn, 40 nước, n_simulations=200, CUDA sync)
+## 5. Profiling riêng theo thành phần (một ván ngắn, 40 nước, n_simulations=200, đồng bộ CUDA)
 
 | Thành phần | Python | C++ | Tỷ lệ Python | Tỷ lệ C++ |
 |---|---:|---:|---:|---:|
@@ -83,44 +83,44 @@ Phase timing instrument `model.predict` với CUDA sync trên toàn bộ 24 ván
 | Inference (PyTorch CUDA, 1 leaf, synced) | 67.014 ms | 60.355 ms | 92.0% | 94.9% |
 | pybind11 receive | 4.274 ms | 1.744 ms | 5.9% | 2.7% |
 
-- Lần này là **batch=1** (khác end-to-end batched), nên tỷ lệ inference lại cao (92–95%). Đây là chi phí trên **một lần infer đơn lẻ**, không phải trên toàn bộ ván self-play batched.
-- MCTS tree ~2% (không phải bottleneck trong cả hai trường hợp).
+- Lần này là **batch=1** (khác với end-to-end theo lô), nên tỷ lệ inference lại cao (92–95%). Đây là chi phí trên **một lần infer đơn lẻ**, không phải trên toàn bộ ván self-play theo lô.
+- Cây MCTS chiếm ~2% (không phải bottleneck trong cả hai trường hợp).
 
-## 6. Overhead pybind11 (MCTS tree only, 200 sims, cùng board)
+## 6. Overhead pybind11 (chỉ cây MCTS, 200 sims, cùng board)
 
 | Thực thi | Thời gian | Visits bằng nhau |
 |---|---:|---:|
-| Python MCTS tree | 464.23 ms | Yes |
-| C++ MCTS tree | 274.34 ms | Yes |
+| Python MCTS tree | 464.23 ms | Có |
+| C++ MCTS tree | 274.34 ms | Có |
 
-**Speedup tree-only: 1.69×**, visit counts giống hệt bitwise. Đo bằng `MCTS.search`/`NativeMCTS.search` cùng evaluator `model.predict` (wrapper unpack `LeafRequest.planes` — sửa lỗi API mismatch của bản thử ban đầu, không ảnh hưởng mã sản phẩm).
+**Mức tăng tốc chỉ xét cây: 1.69×**, số lượt thăm khớp nhau chính xác đến từng bit. Đo bằng `MCTS.search`/`NativeMCTS.search` với cùng evaluator `model.predict` (wrapper giải nén `LeafRequest.planes` để sửa lỗi API mismatch trong bản thử ban đầu, không ảnh hưởng mã sản phẩm).
 
-## 7. Xác định bottleneck thật (end-to-end, batched)
+## 7. Xác định bottleneck thật (end-to-end, theo lô)
 
 | Thành phần | Thời gian median (s) | Tỷ lệ wall | Có nên tốiưu? | Lý do |
 |---|---:|---:|---:|---|
-| NN inference (PyTorch CUDA) | 16.83 (py) / 9.85 (cpp) | 53.3% / 79.7% | Có, nhưng có ràng buộc | Largest single component; SPEC §9.1 không có C++ NN engine |
-| Non-inference (MCTS request/receive + Python overhead) | 14.38 (py) / 2.50 (cpp) | 46.7% / 20.3% | Có (đã giảm bằng C++ MCTS) | C++ MCTS đã giảm 5.75×, saved 11.88s (82.6%) |
+| NN inference (PyTorch CUDA) | 16.83 (py) / 9.85 (cpp) | 53.3% / 79.7% | Có, nhưng có ràng buộc | Thành phần đơn lẻ lớn nhất; SPEC §9.1 không có C++ NN engine |
+| Non-inference (MCTS request/receive + Python overhead) | 14.38 (py) / 2.50 (cpp) | 46.7% / 20.3% | Có (đã giảm bằng C++ MCTS) | C++ MCTS đã giảm 5.75×, tiết kiệm 11.88s (82.6%) |
 | MCTS tree (bookkeeping) | ~2% | ~2% | Không | Không phải bottleneck |
 | Feature extraction | ~0.2% | ~0.2% | Không | Rất rẻ |
 
-**Kết luận:** Tốc độ self-play tổng thể bị giới hạn bởi **cả inference PyTorch CUDA (~53% Python, ~80% C++) và non-inference overhead (~47% Python, ~20% C++)**. Chuyển MCTS tree sang C++ giúp speedup wall **2.54×** (giảm non-inference 5.75× và inference 1.71×). Không có bằng chứng để kết luận MCTS tree là bottleneck (chỉ ~2%).
+**Kết luận:** Tốc độ self-play tổng thể bị giới hạn bởi **cả inference PyTorch CUDA (~53% Python, ~80% C++) và overhead ngoài inference (~47% Python, ~20% C++)**. Chuyển cây MCTS sang C++ giúp tăng tốc wall **2.54×** (giảm overhead ngoài inference 5.75× và inference 1.71×). Không có bằng chứng để kết luận cây MCTS là bottleneck (chỉ ~2%).
 
-## 8. Speedup đáng tin cậy không?
+## 8. Mức tăng tốc có đáng tin cậy không?
 
 **Có.** Cơ sở:
 - Cùng checkpoint `checkpoints/latest.pt`, cùng trọng số, cùng `n_simulations=200`, cùng `parallel_games=16`.
 - Cùng số inference calls (39,495) và mean_batch (7.63) → workload đồng nhất.
 - `torch.cuda.synchronize()` trước/sau mỗi infer → thời gian GPU chính xác.
 - 3 seeds × 2 repeats → median/std ổn định (wall std Python 2.89s, C++ 2.18s).
-- C++ non-inference reducción 82.6% (11.88s saved), inference giảm 1.71×.
+- C++ giảm overhead ngoài inference 82.6% (tiết kiệm 11.88s), inference giảm 1.71×.
 
 ## 9. Đề xuất tối ưu có bằng chứng
 
-1. **Giữ MCTS C++** (`mcts_backend="cpp"`): đã đồng nhất arena với tournament, giảm non-inference overhead 5.75×, speedup wall 2.54×, không đổi thuật toán/trọng số.
+1. **Giữ MCTS C++** (`mcts_backend="cpp"`): đã đồng nhất arena với tournament, giảm overhead ngoài inference 5.75×, tăng tốc wall 2.54×, không đổi thuật toán/trọng số.
 2. **Không chuyển PyTorch inference sang C++**: SPEC §9.1 xác định không có C++ NN engine; inference là thành phần lớn nhất (~53–80% wall), chuyển nó sẽ đổi thuật toán/stack, ngoài phạm vi và rủi ro cao.
-3. **Không tốiưu MCTS tree thêm**: chỉ ~2% chi phí, không có bằng chứng bottleneck.
-4. **Nếu muốn tăng games/s hơn nữa**: cần xử lý phía inference (batch lớn hơn, nhiều GPU stream, hoặc giảm `n_simulations` — nhưng SPEC §7.1 cấm điều chỉnh ngân sách 200 simulations). Đây là quyết định nghiên cứu, không phải tốiưu code hiện tại.
+3. **Không tối ưu thêm cây MCTS**: chỉ ~2% chi phí, không có bằng chứng là bottleneck.
+4. **Nếu muốn tăng games/s hơn nữa**: cần xử lý phía inference (batch lớn hơn, nhiều GPU stream, hoặc giảm `n_simulations` — nhưng SPEC §7.1 cấm điều chỉnh ngân sách 200 simulations). Đây là quyết định nghiên cứu, không phải tối ưu mã hiện tại.
 
 ## 10. Giới hạn
 

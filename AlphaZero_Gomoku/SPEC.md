@@ -8,30 +8,30 @@
 
 1. [Mục tiêu và câu hỏi nghiên cứu](#1-mục-tiêu-và-câu-hỏi-nghiên-cứu)
 2. [Phạm vi, yêu cầu và tiêu chí thành công](#2-phạm-vi-yêu-cầu-và-tiêu-chí-thành-công)
-3. [Tech stack, cấu trúc và code style](#3-tech-stack-cấu-trúc-và-code-style)
-4. [Kiến trúc và execution paths hiện tại](#4-kiến-trúc-và-execution-paths-hiện-tại)
+3. [Nền tảng công nghệ, cấu trúc và code style](#3-nền-tảng-công-nghệ-cấu-trúc-và-code-style)
+4. [Kiến trúc và luồng thực thi hiện tại](#4-kiến-trúc-và-luồng-thực-thi-hiện-tại)
 5. [Hợp đồng game engine và luật](#5-hợp-đồng-game-engine-và-luật)
 6. [Policy-value network](#6-policy-value-network)
 7. [MCTS / PUCT](#7-mcts--puct)
-8. [Self-play, replay và training](#8-self-play-replay-và-training)
-9. [Python/C++ dual backend](#9-pythonc-dual-backend)
+8. [Self-play, replay và huấn luyện](#8-self-play-replay-và-huấn-luyện)
+9. [Backend kép Python/C++](#9-backend-kép-pythonc)
 10. [Tournament, Elo và đánh giá sức chơi](#10-tournament-elo-và-đánh-giá-sức-chơi)
-11. [Performance và benchmark](#11-performance-và-benchmark)
-12. [Reproducibility và persistence](#12-reproducibility-và-persistence)
-13. [CLI, UI và commands](#13-cli-ui-và-commands)
-14. [Testing strategy và traceability](#14-testing-strategy-và-traceability)
+11. [Hiệu năng và benchmark](#11-hiệu-năng-và-benchmark)
+12. [Khả năng tái lập và lưu trữ](#12-khả-năng-tái-lập-và-lưu-trữ)
+13. [CLI, UI và lệnh](#13-cli-ui-và-lệnh)
+14. [Chiến lược kiểm thử và truy xuất](#14-chiến-lược-kiểm-thử-và-truy-xuất)
 15. [Code style](#15-code-style)
-16. [Boundaries](#16-boundaries)
-17. [Current state, gaps và roadmap](#17-current-state-gaps-và-roadmap)
-18. [Open questions và giới hạn bằng chứng](#18-open-questions-và-giới-hạn-bằng-chứng)
+16. [Ranh giới](#16-ranh-giới)
+17. [Trạng thái hiện tại, khoảng trống và lộ trình](#17-trạng-thái-hiện-tại-khoảng-trống-và-lộ-trình)
+18. [Câu hỏi còn mở và giới hạn bằng chứng](#18-câu-hỏi-còn-mở-và-giới-hạn-bằng-chứng)
 
 ## 1. Mục tiêu và câu hỏi nghiên cứu
 
-### 1.1 Đối tượng và problem
+### 1.1 Đối tượng và bài toán
 
 Hệ thống phục vụ AI coding agents, người bảo trì/nghiên cứu và giảng viên. Bài toán là xây dựng agent Gomoku trên bàn 11×11, học policy và value bằng self-play kiểu AlphaZero, rồi đánh giá sức chơi bằng đối kháng có kiểm soát. Đây vừa là phần mềm chơi game, vừa là nền tảng thí nghiệm; một pipeline chạy xong hoặc loss giảm không đồng nghĩa chơi tốt hơn.
 
-### 1.2 Research questions
+### 1.2 Câu hỏi nghiên cứu
 
 - **RQ1:** Với cùng luật, checkpoint, ngân sách tìm kiếm, opening và phân bố màu, checkpoint AlphaZero có score/rating cao hơn Heuristic hay không?
 - **RQ2:** Các mốc số ván self-play và optimizer steps ảnh hưởng thế nào đến playing strength, không chỉ loss?
@@ -40,13 +40,13 @@ Hệ thống phục vụ AI coding agents, người bảo trì/nghiên cứu và
 
 ### 1.3 Mục tiêu và giới hạn
 
-**Research objective, chưa đạt:** AlphaZero thắng Heuristic với bằng chứng đủ tin cậy trong một rating pool/protocol chung. **Scale objective:** hỗ trợ nghiên cứu 5.000–10.000+ ván. **Optimization objective:** tăng tốc không đánh đổi correctness hoặc data/quality. Số ván và speedup chỉ là operational metrics, không phải chỉ số chất lượng mô hình.
+**Mục tiêu nghiên cứu, chưa đạt:** AlphaZero thắng Heuristic với bằng chứng đủ tin cậy trong một pool/protocol đánh giá chung. **Mục tiêu quy mô:** hỗ trợ nghiên cứu 5.000–10.000+ ván. **Mục tiêu tối ưu hóa:** tăng tốc mà không đánh đổi tính đúng đắn hoặc chất lượng dữ liệu. Số ván và speedup chỉ là chỉ số vận hành, không phải chỉ số chất lượng mô hình.
 
-Phạm vi hiện tại là board 11×11, Normal và Renju như code mô tả; không tuyên bố tương đương đầy đủ luật Renju quốc tế. Không có chứng cứ rằng mọi mục tiêu hiệu năng, GPU soak dài hạn, parity thống kê hoặc Elo đã đạt.
+Phạm vi hiện tại là bàn 11×11, Normal và Renju theo mô tả trong code; không tuyên bố tương đương đầy đủ với luật Renju quốc tế. Không có bằng chứng cho thấy đã đạt mọi mục tiêu hiệu năng, GPU soak dài hạn, parity thống kê hoặc Elo.
 
 ## 2. Phạm vi, yêu cầu và tiêu chí thành công
 
-Trạng thái của yêu cầu được đánh dấu theo phần đầu tài liệu. Ưu tiên: P0 correctness/data integrity; P1 reproducible evaluation và backend parity; P2 scale/performance.
+Trạng thái của yêu cầu được đánh dấu theo phần đầu tài liệu. Ưu tiên: P0 correctness/data integrity; P1 evaluation có thể tái lập và backend parity; P2 quy mô/hiệu năng.
 
 | ID | Yêu cầu / nghiệm thu | Hiện trạng |
 |---|---|---|
@@ -63,9 +63,9 @@ Trạng thái của yêu cầu được đánh dấu theo phần đầu tài li�
 | RQ-SCALE-01 | Self-play liên tục có monitoring, quality checkpoints và điều kiện dừng | Pipeline gate có; chưa có bằng chứng strength sau migration hoặc soak safety |
 | RQ-REPRO-01 | Có thể dựng lại run từ config/seed/code/checkpoint identity/environment/log; replayable tournament records | Tournament khá đầy đủ; training provenance còn thiếu model init seed/code hash và lịch sử checkpoint nguồn |
 
-**Success criteria của nghiên cứu:** (1) luật và training target correctness qua tests; (2) tournament matched-condition với checkpoint SHA-256; (3) theo Elo v1.0, đạt mục tiêu khi `ΔElo > 0` và lower 95% CI `>0`, mục tiêu mạnh khi `ΔElo ≥ +100` và lower 95% CI `>0`; (4) kết quả lặp lại trên nhiều seed/opening và đổi màu; (5) claims C++ quality/parity tách khỏi throughput. Các ngưỡng và cỡ mẫu 100/400/600/800 là đề xuất protocol, chưa được xác nhận bằng pilot/power analysis; phải chốt/version trước nghiên cứu chính thức, không sửa sau khi thấy kết quả.
+**Tiêu chí thành công của nghiên cứu:** (1) correctness của luật và training targets được xác nhận qua tests; (2) tournament trong điều kiện matched với checkpoint SHA-256; (3) theo Elo v1.0, đạt mục tiêu khi `ΔElo > 0` và lower 95% CI `>0`, đạt mục tiêu mạnh khi `ΔElo ≥ +100` và lower 95% CI `>0`; (4) kết quả lặp lại qua nhiều seed/opening và đổi màu; (5) claims về quality/parity C++ được tách khỏi throughput. Các ngưỡng và cỡ mẫu 100/400/600/800 là đề xuất protocol, chưa được xác nhận bằng pilot/power analysis; phải chốt/version trước nghiên cứu chính thức và không sửa sau khi thấy kết quả.
 
-## 3. Tech stack, cấu trúc và code style
+## 3. Nền tảng công nghệ, cấu trúc và code style
 
 ### 3.1 Stack hiện có
 
@@ -88,9 +88,9 @@ docs/         Reports, performance studies, tournament/repro guides
 logs/, data/*.sqlite*, checkpoints/  Runtime artifacts; ignored by Git, local-only
 ```
 
-Một số README mô tả cấu trúc dự kiến; SPEC ưu tiên file/code thực có trong working tree. Entry points đã xác nhận: `scripts/play.py`, `scripts/train.py`, `scripts/arena.py`, `scripts/tournament.py`, `python -m ui.pygame_app`; native build: `scripts/build_gomoku_native.py`.
+Một số README mô tả cấu trúc dự kiến; SPEC ưu tiên file/code thực có trong working tree. Các entry point đã xác nhận gồm `scripts/play.py`, `scripts/train.py`, `scripts/arena.py`, `scripts/tournament.py` và `python -m ui.pygame_app`; lệnh build native là `scripts/build_gomoku_native.py`.
 
-## 4. Kiến trúc và execution paths hiện tại
+## 4. Kiến trúc và luồng thực thi hiện tại
 
 ```mermaid
 flowchart TD
@@ -116,23 +116,22 @@ flowchart TD
     NativePatterns[native/gomoku_native.cpp] -. optional patterns .-> Patterns[gomoku.patterns]
 ```
 
-### 4.1 Responsibilities and data flow
+### 4.1 Trách nhiệm và luồng dữ liệu
 
-1. `Board` owns flat `int8` 121-cell grid, current player, move history; `play/undo/copy` không phụ thuộc luật.
+1. `Board` sở hữu lưới phẳng `int8` gồm 121 ô, người chơi hiện tại và lịch sử nước đi; `play/undo/copy` không phụ thuộc luật.
 2. `Rules` cung cấp `legal_moves`, `forbidden_moves`, `is_win`, `is_terminal`. Players và UI dùng interface này.
-3. `board_to_planes` tạo `(4,11,11)` `uint8`, model trả `(B,121)` policy probabilities và `(B,)` value. MCTS nhận policy/value leaf request, mask policy priors bằng legal moves rồi mở child nodes.
-4. AZ player thực hiện MCTS, lấy move theo visit distribution/temperature. Self-play giữ `(planes, pi, player)` trước nước thật và gán `z` sau terminal.
+3. `board_to_planes` tạo `(4,11,11)` `uint8`; model trả policy probabilities `(B,121)` và value `(B,)`. MCTS nhận yêu cầu policy/value ở leaf, mask policy priors theo legal moves rồi mở child nodes.
+4. AZ player chạy MCTS và chọn move theo visit distribution/temperature. Self-play lưu `(planes, pi, player)` trước nước đi thật và gán `z` sau terminal.
 5. ReplayBuffer lưu dữ liệu compact, augmentation theo đối xứng lúc sample; Trainer tối ưu model, checkpoint và buffer; `scripts/train.py` ghi run metadata, self-play games/moves, root telemetry và training metrics vào `data/selfplay.sqlite`; checkpoint/replay vẫn giữ định dạng và đường dẫn riêng.
 6. Tournament dùng player factory, chạy paired color-swapped games, ghi experiment/game/move records vào `data/tournament.sqlite`; resume dùng DB với `--resume --run-id`, analytics và Elo đọc kết quả từ cùng database, không sinh JSONL/CSV/JSON mặc định.
 
-**Dependency boundaries:** `gomoku/` không phụ thuộc `torch`; rules không nằm trong players/MCTS; board không ra quyết định luật. Native MCTS chỉ sở hữu tree/search mechanics; Python giữ Board, Rules, RNG, feature generation và model inference. Native Patterns tăng tốc `find_patterns`, được tiêu thụ bởi heuristic/tactical pattern consumers; AZ v0 self-play không gọi patterns.
-Normal inference and tournament alias `az` now resolves to `az_v1_threat` using the official AZ Normal checkpoint; explicit `az_v0` remains available. This is search-layer routing only: it does not change checkpoint weights or the training self-play path, which remains AZ v0 unless separately integrated and evaluated.
+**Ranh giới phụ thuộc:** `gomoku/` không phụ thuộc `torch`; rules không nằm trong players/MCTS; board không quyết định luật. Native MCTS chỉ sở hữu cơ chế tree/search; Python giữ Board, Rules, RNG, tạo feature và suy luận model. Native Patterns tăng tốc `find_patterns`, được dùng bởi heuristic/tactical pattern consumers; AZ v0 self-play không gọi patterns.
+Trong inference Normal và tournament, alias `az` hiện trỏ đến `az_v1_threat` dùng checkpoint AZ Normal chính thức; vẫn có thể chọn `az_v0` tường minh. Thay đổi này chỉ định tuyến ở search layer: không đổi weights checkpoint hoặc luồng self-play huấn luyện, vốn vẫn dùng AZ v0 trừ khi được tích hợp và đánh giá riêng.
 
 ## 5. Hợp đồng game engine và luật
 
-### 5.1 Board contract
-
-`SIZE=11`, `EMPTY=0`, `BLACK=1`, `WHITE=2`; flat action `a=11r+c`; initial side Black. `play(r,c)` từ chối tọa độ ngoài bàn/ô chiếm, ghi history rồi đổi player; không tự kiểm tra legality theo rules. `undo()` khôi phục ô cuối và current player. Caller phải kiểm tra luật trước `play`.
+### 5.1 Hợp đồng Board
+`SIZE=11`, `EMPTY=0`, `BLACK=1`, `WHITE=2`; action phẳng `a=11r+c`; bên đi đầu là Black. `play(r,c)` từ chối tọa độ ngoài bàn hoặc ô đã chiếm, ghi history rồi đổi player; không tự kiểm tra legality theo rules. `undo()` khôi phục ô cuối và current player. Caller phải kiểm tra luật trước khi gọi `play`.
 
 ### 5.2 Luật được xác minh
 
@@ -146,25 +145,24 @@ Normal inference and tournament alias `az` now resolves to `az_v1_threat` using 
 
 Renju code xét exact-five trước các điều kiện forbidden khác. Candidate scan chỉ xét ô trong phạm vi 4 bước theo bốn hướng từ Black stone; open-three dựa trên extension tạo open-four và đệ quy kiểm tra hợp lệ. Cache dùng board bytes/current player. Đây là semantics code; không chứng minh toàn bộ quy tắc quốc tế về precedence, định nghĩa pattern phức tạp, foul/game adjudication hoặc tình huống bàn đã có trạng thái thắng.
 
-### 5.3 Acceptance / edge cases
-
-- `AC-RULE-01`: thắng horizontal, vertical, hai diagonal, cắt biên, exact 5 và overline theo ruleset.
-- `AC-RULE-02`: full board không line thắng => terminal draw; Renju không còn legal move do forbidden cells => terminal.
-- `AC-RULE-03`: occupied/out-of-range move bị từ chối; undo rỗng bị từ chối; play/undo round-trip giữ grid/player/history.
-- `AC-RULE-04`: Renju Black exact five vẫn legal kể cả đồng thời hình thành forbidden threats; Black overline/3-3/4-4 fixture bị loại; White không bị mask.
+### 5.3 Tiêu chí nghiệm thu / trường hợp biên
+- `AC-RULE-01`: xác minh thắng theo hàng ngang, hàng dọc, hai đường chéo, trường hợp cắt biên, exact 5 và overline theo ruleset.
+- `AC-RULE-02`: bàn đầy nhưng không có line thắng => terminal draw; Renju hết legal moves do forbidden cells => terminal.
+- `AC-RULE-03`: từ chối nước đi vào ô đã chiếm/ngoài bàn; từ chối undo khi lịch sử rỗng; play/undo round-trip giữ nguyên grid/player/history.
+- `AC-RULE-04`: nước exact five của Black trong Renju vẫn hợp lệ ngay cả khi đồng thời tạo forbidden threats; loại fixture Black tạo overline/3-3/4-4; không mask White.
 - `AC-RULE-05`: mỗi consumer chỉ gọi Rules API; không tạo luật thứ hai ngoài Rules.
 
-Test locations: `tests/test_board.py`, `test_rules_normal.py`, `test_rules_renju.py`, `test_renju_integration.py`, `test_runner.py`. Còn cần differential/reference fixtures hoặc expert review cho biên Renju mà hiện tests không bao phủ.
+Vị trí tests: `tests/test_board.py`, `test_rules_normal.py`, `test_rules_renju.py`, `test_renju_integration.py`, `test_runner.py`. Cần thêm differential/reference fixtures hoặc expert review cho các trường hợp biên Renju mà tests hiện tại chưa bao phủ.
 
 ## 6. Policy-value network
 
-### 6.1 Input/output và kiến trúc
+### 6.1 Đầu vào/đầu ra và kiến trúc
 
 State input `(B,4,11,11)`; channels: own stones, opponent stones, forbidden squares, player color (all ones for Black, zeros for White). Không có last-move/history plane. Cùng bốn channels cho cả hai rulesets. Augmentation dùng 8 dihedral transforms với cùng transform cho feature và policy.
 
 `AZNet(n_blocks=6,n_filters=64)`: stem conv 3×3, BN, ReLU; mỗi residual block hai conv 3×3 + BN + skip + ReLU. Policy head conv 1×1 (2 filters), BN/ReLU, flatten, FC→121 logits. Value head conv 1×1, BN/ReLU, flatten, FC→64→ReLU→1→tanh. `predict` nhận numpy batch, eval/no_grad, trả softmax probabilities float32 và values float32 thuộc `[-1,1]`, giá trị theo current player.
 
-### 6.2 Training objective và defaults
+### 6.2 Mục tiêu huấn luyện và giá trị mặc định
 
 Với logits `l`, policy target `π`, prediction value `v`, terminal target `z`:
 
@@ -179,7 +177,7 @@ Checkpoint training `.pt` gồm `model_state_dict`, optional `optimizer_state_di
 
 ## 7. MCTS / PUCT
 
-### 7.1 Công thức và contract
+### 7.1 Công thức và hợp đồng
 
 Node lưu prior `P`, visit count `N`, value sum `W`; `Q=W/N` theo góc nhìn người chơi tại node. Với child `a`:
 
@@ -214,114 +212,112 @@ while simulations_done < 200:
 return root child visits
 ```
 
-Implementation uses request/receive API (`az/mcts.py`); self-play interleaves requests from multiple games into inference batch. Root tree resets per actual move; no subtree reuse in `run_games`. Temperature is separate from target temperature: action probability `N^(1/τ)`; `τ=0` chooses max visit (random tie). Self-play uses action temperature 1 for first `temp_moves=15`, thereafter 0; `pi_target_temp=1` independently shapes normalized visit target. Exact default target/action mechanics in `az/selfplay.py`.
+Implementation dùng request/receive API (`az/mcts.py`); self-play đan xen requests của nhiều games thành inference batch. Root tree reset sau mỗi nước đi thực tế; `run_games` không tái sử dụng subtree. Temperature dùng để chọn nước khác với target temperature: action probability `N^(1/τ)`; `τ=0` chọn visit count cao nhất (tie ngẫu nhiên). Self-play dùng action temperature 1 trong `temp_moves=15` nước đầu, sau đó 0; `pi_target_temp=1` độc lập định hình visit target đã normalize. Cơ chế target/action mặc định chính xác nằm trong `az/selfplay.py`.
 
-### 7.3 Invariants / corner cases / tests
+### 7.3 Bất biến / trường hợp biên / tests
 
-- Pending request must be received before another request; reset before search.
-- Every accepted policy/value has valid shape/domain at consumer contract; value finite in `[-1,1]`.
-- No legal move => draw/terminal; zero visit counts cannot choose action.
-- Terminal branches count a simulation but no NN call; first simulation can expand root without incrementing any child visits, so root child visit sum need not equal budget.
-- Root-only noise; no noise for tournament by default.
-- For Renju, forbidden move masking must agree with same Rules implementation at every leaf.
-- Tests: win-in-1, backup sign, terminal call counts, forbidden mask, root noise scope, temperature zero, exhausted budget in `tests/test_mcts.py`; parity/terminal/RNG/noise coverage in `tests/test_native_mcts.py`.
+- Phải nhận pending request trước khi gửi request khác; reset trước khi search.
+- Mỗi policy/value được chấp nhận phải đúng shape/domain theo consumer contract; value hữu hạn trong `[-1,1]`.
+- Không có legal move thì draw/terminal; không thể chọn action khi visit counts bằng 0.
+- Nhánh terminal được tính là một simulation nhưng không gọi NN; simulation đầu có thể expand root mà không tăng visit của child nào, nên tổng root child visits không nhất thiết bằng budget.
+- Chỉ thêm noise ở root; mặc định không thêm noise cho tournament.
+- Với Renju, forbidden move masking phải khớp với cùng một implementation Rules tại mọi leaf.
+- Tests trong `tests/test_mcts.py` bao phủ win-in-1, backup sign, terminal call counts, forbidden mask, root noise scope, temperature zero và exhausted budget; `tests/test_native_mcts.py` bao phủ parity/terminal/RNG/noise.
 
-**Research correctness caveat:** unit fixtures prove these cases, not all board states. Add fuzz/differential states and property invariants before claiming universal parity.
+**Lưu ý về correctness nghiên cứu:** unit fixtures chứng minh các trường hợp này, không phải mọi trạng thái bàn. Trước khi khẳng định parity tổng quát, hãy thêm fuzz/differential states và property invariants.
 
-## 8. Self-play, replay và training
+## 8. Self-play, replay và huấn luyện
 
-### 8.1 Contracts / pipeline
+### 8.1 Hợp đồng / pipeline
 
-**Implemented / Unverified — canonical AZ migration:** Normal has one official training/inference pointer, `checkpoints/normal/latest.json`, initialized from the audited 60k generation without changing its weights. Generations, recovery state, rollback history and historical evaluation baselines remain distinct artifacts, not additional official models. Training defaults to loading the validated official generation and its replay, optimizer, RNG and counters; missing or invalid state fails closed. A new model requires explicit fresh mode. Successful training commits the official pointer atomically; quality evaluation remains separate and cannot be inferred from this commit. Record parent checkpoint SHA-256, generation, run ID, and distinguish generated games, games actually sampled for training and lineage games; unknown historical counts remain unknown, never include the unrelated `selfplay_20k_cpp_2w` run. Migration preserves historical checkpoint paths used by tournament evidence and does not alter audited 60k weights.
+**Implemented / Unverified — chuyển đổi AZ chuẩn:** Normal có một con trỏ huấn luyện/suy luận chính thức, `checkpoints/normal/latest.json`, được khởi tạo từ generation 60k đã kiểm tra mà không thay đổi weights. Generations, trạng thái recovery, lịch sử rollback và các baseline đánh giá lịch sử vẫn là artifacts riêng, không phải model chính thức bổ sung. Mặc định, training tải generation chính thức đã xác thực cùng replay, optimizer, RNG và counters; nếu trạng thái thiếu hoặc không hợp lệ, tiến trình dừng an toàn. Muốn tạo model mới phải chọn fresh mode tường minh. Training thành công cập nhật con trỏ chính thức theo cách atomic; không thể suy ra kết quả đánh giá chất lượng từ lần cập nhật này. Ghi parent checkpoint SHA-256, generation, run ID, đồng thời phân biệt số game đã tạo, số game thực sự được lấy mẫu để training và số game thuộc lineage; số liệu lịch sử chưa biết phải giữ là chưa biết, không tính run không liên quan `selfplay_20k_cpp_2w`. Migration giữ nguyên các đường dẫn checkpoint lịch sử dùng làm bằng chứng tournament và không thay đổi weights 60k đã kiểm tra.
 
 
-1. `scripts/train.py` loads YAML merged over `DEFAULT_CONFIG`; initializes or resumes Trainer and ReplayBuffer.
-2. `run_games` creates game-local Board/MCTS/sample list and interleaves up to `parallel_games`; optionally worker process chunks are generated by `run_games_parallel`, returned samples are stored by parent. `parallel_games` is active game concurrency for batching; `--workers` is process parallelism.
-3. With `selfplay_opening_plies=0`, start from an empty board. With `2` or `4`, first play that many seeded random legal moves as an opening; they are recorded in game provenance, not used as training targets. Two stones cannot form a terminal or immediate five-in-a-row threat under Normal rules; four random plies are opening diversity for Renju fine-tuning, not a claim about opening quality. `selfplay_random_opponent_rate` in `[0, 1]` makes that share of games give one side seeded uniform random legal moves: the search still runs and its visit-based `pi` is still stored, so one sample per MCTS move and `samples == moves` still hold, but the played move is random and `MoveRecord.override_applied`/`override_reason='random_opponent'` marks it. Both sides' positions stay in the buffer, which is how White wins and defensive positions enter the data. For each subsequent MCTS move, store features, visit-based `pi`, and player identity. End game: `z=+1/-1/0` from the stored player's final outcome; one sample per MCTS move and no terminal-state sample. `moves_count` counts MCTS moves; full game length includes the recorded opening.
-4. ReplayBuffer fixed-capacity ring: features `uint8`, pi `float16`, z `float32`, rule ID; overwrite oldest when full. Enforces one rule_set per buffer. Each sampled item gets one of 8 rotations/reflections applied to planes and policy together; `z` unchanged.
-5. Trainer samples mini-batches with replacement, optimizes weighted policy CE + value MSE; logs loss components, distinct sample count, throughput and fixed-batch loss.
-6. Commit immutable `generations/<id>/checkpoint.pt`, `replay.npz`, and hash manifest before atomically replacing the official `checkpoints/normal/latest.json`; `best.json` identifies an evaluation-approved generation, not a separate official model. Normal training metadata, game/move records, root telemetry and metrics use `data/normal.sqlite`; tournament/Elo remain separate. Historical databases and tournament/evaluation records remain as evidence; deleted continuation generations are identified by SHA-256 and are no longer reproducible.
+1. `scripts/train.py` nạp YAML đã gộp với `DEFAULT_CONFIG`; khởi tạo Trainer và ReplayBuffer hoặc resume chúng.
+2. `run_games` tạo Board/MCTS/sample list riêng cho từng game và đan xen tối đa `parallel_games`; nếu bật, worker process tạo các chunk qua `run_games_parallel`, rồi parent lưu các samples trả về. `parallel_games` là số game chạy đồng thời để batching; `--workers` là số process song song.
+3. Với `selfplay_opening_plies=0`, bắt đầu từ bàn trống. Với giá trị `2` hoặc `4`, đi trước số nước ngẫu nhiên hợp lệ đã seed tương ứng làm opening; lưu các nước này trong game provenance nhưng không dùng làm training targets. Hai quân không thể tạo terminal hoặc đe dọa ngay lập tức thành năm quân theo luật Normal; bốn plies ngẫu nhiên tạo đa dạng opening cho Renju fine-tuning, không khẳng định opening có chất lượng. `selfplay_random_opponent_rate` trong `[0, 1]` khiến tỷ lệ games đó cho một bên đi các nước hợp lệ ngẫu nhiên, uniform và có seed: search vẫn chạy, visit-based `pi` vẫn được lưu, vì vậy vẫn giữ một sample cho mỗi nước MCTS và `samples == moves`, nhưng nước thực đánh là ngẫu nhiên và được đánh dấu bằng `MoveRecord.override_applied`/`override_reason='random_opponent'`. Vị trí của cả hai bên vẫn nằm trong buffer, nhờ đó dữ liệu có cả các ván White thắng và vị trí phòng thủ. Với mỗi nước MCTS tiếp theo, lưu features, visit-based `pi` và player identity. Khi kết thúc game, gán `z=+1/-1/0` theo kết quả cuối cùng của player đã lưu; mỗi nước MCTS có một sample và không tạo sample cho trạng thái terminal. `moves_count` đếm nước MCTS; tổng độ dài game bao gồm opening đã ghi nhận.
+4. ReplayBuffer là ring buffer có capacity cố định: features `uint8`, pi `float16`, z `float32`, rule ID; khi đầy thì ghi đè mẫu cũ nhất. Mỗi buffer chỉ nhận một `rule_set`. Khi sample, áp dụng cùng một trong 8 phép xoay/đối xứng cho planes và policy; giữ nguyên `z`.
+5. Trainer lấy mini-batches có hoàn lại, tối ưu weighted policy CE + value MSE; ghi loss components, số samples riêng biệt, throughput và fixed-batch loss.
+6. Commit `generations/<id>/checkpoint.pt`, `replay.npz` bất biến và hash manifest trước khi thay atomic con trỏ chính thức `checkpoints/normal/latest.json`; `best.json` định danh generation được evaluation chấp thuận, không phải model chính thức riêng. Normal training metadata, game/move records, root telemetry và metrics được lưu trong `data/normal.sqlite`; tournament/Elo lưu riêng. Historical databases và tournament/evaluation records vẫn là evidence; các continuation generations đã xóa được định danh bằng SHA-256 nhưng không thể tái tạo.
 
-### 8.2 Reproducibility and recovery contract
+### 8.2 Tái lập và hợp đồng recovery
 
-Training driver seed default 0; checkpoints preserve Trainer NumPy RNG state. `--resume` resolves and validates the committed generation pointer and both file hashes; STANDARD resume without `--generation` requires the original run ID both in checkpoint metadata (or prior recovery identity) and in the self-play database, including for an initial checkpoint. An older generation missing both identities requires explicit rollback with `--generation` and a new run ID; it is not silently assigned an owner. `--generation` selects a committed ancestor for explicit rollback and, with STANDARD logging, requires a new run ID. Historical artifacts lacking cursor or pairing identity cannot be claimed verified or migrated automatically. Resume restores optimizer/global step/iteration, replay and frozen eval batch; changing `n_iter` changes the cosine LR horizon. `Trainer.from_pretrained` for Normal→Renju transfers weights but starts fresh optimizer/training state and Renju buffer.
-
-Historical Normal bootstrap runs retain their original metadata and remain readable; the active training CLI does not create a separate bootstrap branch. Explicit `--fresh` starts a new model only in an empty output directory. Default Normal resume preserves model, replay, optimizer and recorded schedule; extension of a cosine horizon is refused rather than silently changing the schedule.
+Seed mặc định của training driver là 0; checkpoint lưu trạng thái RNG NumPy của Trainer. `--resume` phân giải và xác thực con trỏ generation đã commit cùng hash của cả hai file; STANDARD resume không có `--generation` yêu cầu run ID ban đầu xuất hiện cả trong metadata checkpoint (hoặc recovery identity trước đó) lẫn trong database self-play, kể cả với checkpoint ban đầu. Generation cũ thiếu cả hai identity cần rollback tường minh với `--generation` và run ID mới; hệ thống không tự gán chủ sở hữu. `--generation` chọn ancestor đã commit để rollback tường minh và, với STANDARD logging, yêu cầu run ID mới. Không thể xác nhận hoặc tự động chuyển đổi artifacts lịch sử thiếu cursor hoặc pairing identity. Resume khôi phục optimizer/global step/iteration, replay và batch đánh giá cố định; đổi `n_iter` làm thay đổi cosine LR horizon. `Trainer.from_pretrained` dùng để chuyển Normal→Renju chỉ chuyển weights, còn optimizer/training state và Renju buffer bắt đầu mới.
+Các bootstrap run Normal trong lịch sử giữ nguyên metadata ban đầu và vẫn đọc được; training CLI hiện tại không tạo nhánh bootstrap riêng. `--fresh` tường minh chỉ tạo model mới trong output directory trống. Mặc định, Normal resume giữ nguyên model, replay, optimizer và schedule đã ghi nhận; hệ thống từ chối kéo dài cosine horizon thay vì âm thầm đổi schedule.
 
 Self-play record lưu game ID, seed, SHA-256 checkpoint nguồn và digest tensor thực đo sau worker load; replay lưu game ID theo mẫu để truy vết về record. Digest tensor và SHA file checkpoint là hai loại identity khác nhau. Legacy sample không có game ID không được coi là đã có lineage. Các split độc lập không được suy ra chỉ từ hash hoặc fixed eval batch.
 
-Required future run record: immutable run ID; git commit + dirty diff/hash; config snapshot after CLI overrides; ruleset; initial/final checkpoint SHA-256 and parent checkpoint; seed scheme for initialization/game/worker/MCTS; Python/OS/hardware, NumPy/PyTorch/CUDA/compiler/native ABI; exact command; counts of games/samples/optimizer steps; worker/backend settings; logs and exit status. Do not treat fixed-batch loss or sample volume as strength.
+Các thông tin cần ghi cho run trong tương lai gồm: run ID bất biến; git commit và dirty diff/hash; snapshot config sau CLI overrides; ruleset; SHA-256 checkpoint đầu/cuối và parent checkpoint; seed scheme cho initialization/game/worker/MCTS; Python/OS/hardware, NumPy/PyTorch/CUDA/compiler/native ABI; command chính xác; số games/samples/optimizer steps; thiết lập worker/backend; logs và exit status. Không xem fixed-batch loss hoặc số samples là sức chơi.
 
-### 8.3 Failure handling and acceptance
+### 8.3 Xử lý lỗi và tiêu chí nghiệm thu
 
-- Each generation contains immutable checkpoint, replay and a manifest with SHA-256 for both; the atomic pointer replacement is the commit point. `previous` identifies the checkpoint/replay parent actually loaded. After branching from an older generation, `commit_previous` identifies the formerly latest committed generation so rollback can still access the abandoned branch; legacy manifests use `previous` for both. On process interruption before pointer replacement, the previous committed generation remains reachable; explicit rollback only resolves committed history. No automatic deletion of generations. File fsync is performed; Windows directory-entry durability across power loss is not verified.
-- STANDARD training writes a durable, immutable per-run/iteration/source-checkpoint recovery outbox before committing games: replay targets and exact game/move/root payloads plus hashes. Resume reuses those bytes, verifies provenance and strict SQLite identities, and refuses ambiguous legacy games without an outbox. A checkpoint binds the outbox manifest and pre-pointer training metrics; resume completes a missing metrics commit idempotently. Explicit rollback starts with a new run ID and records the selected generation and checkpoint SHA; retry before its generation commit may reuse that ID only for the same source. After commit, resume without `--generation`; reuse with a different source fails closed. Another branch's outbox is never consumed. Orphaned temporary directories and uncommitted generations are retained, not deleted.
-- **Implemented / Unverified:** crash-injection tests exercise commit boundaries but are not power-loss tests. Hashes detect accidental changes when the reference remains trustworthy, not an attacker able to rewrite both data and unanchored manifest. Durability depends on filesystem/SQLite guarantees; Windows directory-entry durability and hardware power loss remain unproven. A run/output directory requires a single writer; concurrent writers are not coordinated or supported. Recovery does not reproduce games lost before the outbox is committed, nor guarantee bitwise-identical retraining after an interrupted optimizer step.
+- Mỗi generation chứa checkpoint, replay bất biến và manifest có SHA-256 của cả hai; thay con trỏ atomic là điểm commit. `previous` xác định parent checkpoint/replay đã tải thực tế. Sau khi rẽ nhánh từ generation cũ hơn, `commit_previous` xác định generation đã commit gần nhất trước đó để rollback vẫn truy cập được nhánh bị bỏ; manifest legacy dùng `previous` cho cả hai. Nếu tiến trình bị ngắt trước khi thay con trỏ, generation đã commit trước đó vẫn truy cập được; rollback tường minh chỉ phân giải lịch sử đã commit. Không tự động xóa generations. Hệ thống thực hiện fsync file; chưa xác minh độ bền của directory entry trên Windows khi mất điện.
+- Training STANDARD ghi recovery outbox bền vững, bất biến theo run/iteration/source-checkpoint trước khi commit games: replay targets và payload game/move/root chính xác cùng hashes. Resume dùng lại các bytes đó, xác minh provenance và identity SQLite nghiêm ngặt, đồng thời từ chối games legacy mơ hồ không có outbox. Checkpoint gắn với manifest outbox và training metrics trước khi cập nhật con trỏ; resume hoàn tất idempotently lần ghi metrics còn thiếu. Rollback tường minh bắt đầu bằng run ID mới và ghi generation đã chọn cùng checkpoint SHA; lần retry trước khi commit generation chỉ được dùng lại ID đó cho cùng source. Sau commit, resume không có `--generation`; dùng lại ID với source khác sẽ dừng an toàn. Outbox của nhánh khác không bao giờ được dùng. Thư mục tạm mồ côi và generations chưa commit được giữ lại, không xóa.
+- **Implemented / Unverified:** các test crash-injection kiểm tra ranh giới commit, không phải thử nghiệm mất điện. Hash phát hiện thay đổi ngoài ý muốn khi reference còn đáng tin cậy, nhưng không chống được kẻ tấn công có thể sửa cả dữ liệu lẫn manifest không được neo. Độ bền phụ thuộc bảo đảm của filesystem/SQLite; độ bền directory entry trên Windows và khi phần cứng mất điện vẫn chưa được chứng minh. Mỗi run/output directory chỉ hỗ trợ một writer; các writer đồng thời không được điều phối hoặc hỗ trợ. Recovery không tái tạo games bị mất trước khi outbox được commit, cũng không bảo đảm retraining giống từng bit sau khi optimizer step bị gián đoạn.
 - Replay NPZ lưu cursor để resume giữ thứ tự ghi đè mẫu cũ nhất. NPZ legacy đầy không có cursor không thể khôi phục thứ tự tuổi: loader cảnh báo và dùng cursor 0 cho mục đích đọc; `Trainer.load` từ chối resume với cursor không rõ. Checkpoint cũ thiếu replay hash không được resume cùng replay mà chưa có quy trình khôi phục được phê duyệt. NPZ legacy chưa đầy khôi phục cursor từ số mẫu.
-- Assert `samples == moves`, pi finite/nonnegative/sums to 1, pi mass only on legal actions, z ∈ {−1,0,+1}; ensure per-game IDs unique and one ruleset per buffer.
-- **Implemented / Unverified:** the Renju fine-tune driver refuses to keep spending games on a one-sided outcome distribution. Once a run has at least `outcome_guard_min_games` games and one side wins at least `outcome_guard_max_side_win_rate` of them, it writes one `outcome_guard_stop` event and exits with status `3`; the run stays resumable, and a resume stops before playing another game. A rate above `1.0` disables the guard, and both defaults keep it off outside `configs/renju.yaml`.
-- **Implemented / Unverified:** a stored `value_loss` or fixed-batch loss on a degenerate dataset is not evidence that the value head generalises. `scripts/renju_value_probe.py` scores a checkpoint's value head on positions from a stored tournament database and reports MSE, sign accuracy, confident fraction and the mean prediction per side to move, so a colour/parity shortcut is visible. `scripts/renju_gate.py` applies the objective-success screen to a stored experiment: at least `--min-games` scored games and score, or the Wilson 95% lower bound with `--basis wilson_low`, at or above `--min-score`; it exits `0` on pass, `1` on fail, `2` on unusable input. Both tools read databases and neither plays nor trains games.
-- Verify resume optimizer/global_step/iteration/buffer and schedule values against same config; test missing/corrupt/mismatched artifacts explicitly.
-- Quality gate: candidate-vs-current-best paired Davidson 95% opening-cluster CI lower bound must be >0 to update `best.pt`; report objective success separately against Heuristic. Loss, score threshold or game count alone never promotes.
+- Xác nhận `samples == moves`, pi hữu hạn/không âm/có tổng bằng 1, pi chỉ có khối lượng trên legal actions, z ∈ {−1,0,+1}; bảo đảm ID từng game là duy nhất và mỗi buffer chỉ có một ruleset.
+- **Implemented / Unverified:** driver fine-tune Renju từ chối tiếp tục tạo games khi kết quả chỉ nghiêng về một bên. Khi run có ít nhất `outcome_guard_min_games` games và một bên thắng ít nhất `outcome_guard_max_side_win_rate` số games đó, driver ghi một event `outcome_guard_stop` rồi thoát với status `3`; có thể resume run này, nhưng lần resume sẽ dừng trước khi chơi game khác. Giá trị trên `1.0` tắt guard; mặc định của cả hai tham số đều giữ guard tắt ngoài `configs/renju.yaml`.
+- **Implemented / Unverified:** `value_loss` hoặc fixed-batch loss được lưu trên dataset suy biến không chứng minh value head tổng quát hóa. `scripts/renju_value_probe.py` chấm value head của checkpoint trên các positions lấy từ tournament database đã lưu và báo MSE, sign accuracy, confident fraction cùng prediction trung bình theo bên sắp đi, nhờ đó có thể nhận ra shortcut theo màu/parity. `scripts/renju_gate.py` áp dụng màn kiểm tra đạt mục tiêu cho experiment đã lưu: yêu cầu tối thiểu `--min-games` games được chấm và score, hoặc Wilson 95% lower bound với `--basis wilson_low`, đạt ít nhất `--min-score`; tool thoát với mã `0` khi đạt, `1` khi không đạt, `2` khi input không dùng được. Cả hai tool chỉ đọc database, không chơi hoặc training games.
+- Xác minh optimizer/global_step/iteration/buffer và giá trị schedule sau resume so với cùng config; kiểm tra tường minh artifacts thiếu/hỏng/không khớp.
+- Quality gate: cận dưới paired Davidson 95% opening-cluster CI giữa candidate và best hiện tại phải >0 mới cập nhật `best.pt`; báo riêng kết quả mục tiêu nghiên cứu so với Heuristic. Chỉ loss, ngưỡng score hoặc số game không bao giờ đủ để promote.
 
-## 9. Python/C++ dual backend
+## 9. Backend kép Python/C++
 
-### 9.1 Implemented boundary
+### 9.1 Ranh giới đã triển khai
 
-**Verified implementation presence:** `native/gomoku_mcts_native.cpp` is a C++17 pybind11 arena-backed search tree (node indices, PUCT selection, expansion, backup, terminal values, visits). Python `NativeMCTS` owns board/rules/RNG/features/network inference and passes legal move/prior/value arrays across binding. `native/gomoku_native.cpp` implements pattern detection `find_patterns`; `gomoku/patterns.py` selects it. `az/backend.py` resolves overall preset `--backend python|cpp` plus independent MCTS/Patterns overrides; unavailable selected extension fails closed, no silent fallback. Python remains default.
+**Đã xác minh có implementation:** `native/gomoku_mcts_native.cpp` là search tree C++17 dùng arena qua pybind11 (node indices, PUCT selection, expansion, backup, terminal values, visits). Python `NativeMCTS` sở hữu board/rules/RNG/features/network inference và truyền legal move/prior/value arrays qua binding. `native/gomoku_native.cpp` triển khai pattern detection `find_patterns`; `gomoku/patterns.py` chọn implementation này. `az/backend.py` phân giải preset tổng thể `--backend python|cpp` cùng các override MCTS/Patterns độc lập; nếu extension được chọn không khả dụng, thao tác dừng an toàn, không fallback im lặng. Mặc định là Python.
 
-`gomoku_native` is not a native game/rules/board engine; no C++ neural network, training or complete self-play engine is evidenced. Native patterns and MCTS are distinct components; standard AZ self-play marks Patterns `not_used`.
+`gomoku_native` không phải native game/rules/board engine; chưa có bằng chứng về C++ neural network, training hoặc self-play engine hoàn chỉnh. Native patterns và MCTS là hai component riêng; AZ self-play tiêu chuẩn đánh dấu Patterns là `not_used`.
 
-### 9.2 Parity levels and acceptance design
+### 9.2 Các mức parity và thiết kế nghiệm thu
 
-Never require bitwise equality across RNG implementations or floating point unless deterministic contract makes it possible. Compare by level:
+Không yêu cầu bitwise equality giữa các cách triển khai RNG hoặc phép tính floating point, trừ khi hợp đồng deterministic cho phép. So sánh theo từng mức:
 
-1. **Exact:** same state → same legal moves, forbidden mask, terminal/win result, game result, moves/sample count when trajectory is intentionally fixed.
-2. **Numerical tolerance:** same fixed model output and deterministic tie handling → same request planes/legal mask, visit counts and simulation count; root/value outputs `abs(delta)≤ε` declared by test. Existing parity tests compare masks/requests/visits/root value on fixtures.
-3. **Statistical:** across paired seeds/openings, compare move/visit distributions, game outcomes/score and training-target distributions with pre-registered confidence intervals/effect tolerance.
-4. **Performance:** identical compiled extension/Python ABI, checkpoint hash, rules, search budget, hardware/load, warm-up and workload; report repeated median/tail and memory.
+1. **Exact:** cùng state phải cho cùng legal moves, forbidden mask, terminal/win result, game result và moves/sample count khi trajectory được cố định có chủ đích.
+2. **Numerical tolerance:** cùng fixed model output và tie handling deterministic phải cho cùng request planes/legal mask, visit counts và simulation count; root/value outputs có `abs(delta)≤ε` theo mức ε do test khai báo. Parity tests hiện có so sánh masks/requests/visits/root value trên fixtures.
+3. **Statistical:** với seeds/openings ghép cặp, so sánh move/visit distributions, game outcomes/score và training-target distributions theo confidence intervals/effect tolerance đã đăng ký trước.
+4. **Performance:** giữ giống nhau extension đã compile/Python ABI, checkpoint hash, rules, search budget, hardware/load, warm-up và workload; báo median/tail qua nhiều lần chạy và memory.
 
-Add tests for Python-vs-C++ exact legal/terminal/forbidden masks across generated fixtures, fixed evaluator parity, full self-play paired per-sample features/pi/z plus winner/end reason across multiple seeds, resume and worker spawn. Compare policies/values with explicit tolerances; test ties separately. For a backend optimization: correctness first, training-target/data-distribution regression second, controlled arena quality third, speedup last. If stochastic outcome equivalence is not established, keep backend experimental even if faster.
+Thêm tests cho legal/terminal/forbidden masks chính xác giữa Python và C++ trên fixtures được tạo, parity của evaluator cố định, self-play đầy đủ so sánh features/pi/z từng mẫu theo cặp cùng winner/end reason qua nhiều seeds, resume và worker spawn. So sánh policies/values với tolerance tường minh; kiểm tra ties riêng. Với tối ưu backend, kiểm tra tính đúng đắn trước, sau đó regression của training-target/data-distribution, chất lượng arena có kiểm soát, cuối cùng mới đến speedup. Nếu chưa xác lập tương đương về kết quả ngẫu nhiên, giữ backend ở trạng thái experimental dù nhanh hơn.
 
-### 9.3 Current evidence and limits
+### 9.3 Bằng chứng và giới hạn hiện tại
 
-Reports document native differential tests, CPU full suite, multiprocessing self-play, checkpoint/resume and tournament smoke. `docs/performance/12-5000-games-readiness.md` later documents a small GPU train/resume smoke (2 iterations, 30 optimizer steps total) and a four-game paired self-play comparison with exact matching samples for that seed. This is stronger than earlier GPU failure report, but not long-run stability or broad stochastic/quality parity. Reports document C++ MCTS no material speedup in small depth-1 tournament, while an optimized self-play workload records improvement; do not blend those workloads into one speedup claim. No sanitizer or long RSS soak is evidenced. Build output is CPython ABI-specific `.pyd`/`.so`; compiler, headers, OS and ABI must match.
+Các báo cáo ghi nhận native differential tests, CPU full suite, multiprocessing self-play, checkpoint/resume và tournament smoke. `docs/performance/12-5000-games-readiness.md` ghi nhận về sau một GPU train/resume smoke nhỏ (2 iterations, tổng cộng 30 optimizer steps) và phép so sánh self-play bốn game theo cặp với samples khớp chính xác ở seed đó. Bằng chứng này tốt hơn báo cáo GPU failure trước đó, nhưng không chứng minh ổn định dài hạn hoặc parity ngẫu nhiên/chất lượng trên diện rộng. Báo cáo cho thấy C++ MCTS không tăng tốc đáng kể trong tournament depth-1 nhỏ, trong khi workload self-play đã tối ưu ghi nhận cải thiện; không gộp hai workload này thành một tuyên bố speedup. Chưa có bằng chứng về sanitizer hoặc RSS soak dài hạn. Output build là `.pyd`/`.so` phụ thuộc CPython ABI; compiler, headers, OS và ABI phải tương thích.
 
 ## 10. Tournament, Elo và đánh giá sức chơi
 
 ### 10.1 Tournament hiện có
 
-`scripts/tournament.py` schedules round-robin pairs; requires even games ≥2 and alternates colors. Paired games share opening and per-side seeds; optional random opening. Budgets can be `sims:N` or `time:S`; they are not cross-agent equivalent (AlphaBeta depth differs from MCTS simulations; time deadlines are soft). Tournament supports Normal/Renju separately, agents random/heuristic/alphabeta/mcts-pure/AZ variants, checkpoint mapping and workers. It preflights agents, hashes checkpoints, and writes experiment/agent/match/game/move/event records to local `data/tournament.sqlite` (or `--db`), which is also the resume and analytics source. Resume requires `--resume --run-id RUN_ID` and validates the stored configuration. STANDARD is the default; NONE is an unsaved measurement baseline, not a research run.
+`scripts/tournament.py` lên lịch các cặp round-robin; yêu cầu số games chẵn ≥2 và luân phiên màu. Các game theo cặp dùng chung opening và seed cho mỗi bên; có thể chọn opening ngẫu nhiên. Budget có thể là `sims:N` hoặc `time:S`; các budget này không tương đương giữa agents (độ sâu AlphaBeta khác số simulations của MCTS; time deadline chỉ là giới hạn mềm). Tournament hỗ trợ Normal/Renju riêng, các agents random/heuristic/alphabeta/mcts-pure/AZ variants, ánh xạ checkpoint và workers. Trước khi chạy, tournament kiểm tra agents, băm checkpoints và ghi experiment/agent/match/game/move/event records vào `data/tournament.sqlite` local (hoặc `--db`), cũng là nguồn cho resume và analytics. Resume yêu cầu `--resume --run-id RUN_ID` và xác thực cấu hình đã lưu. STANDARD là mặc định; NONE là baseline đo lường không lưu dữ liệu, không phải run nghiên cứu.
 
-Logging V2 uses `data/selfplay.sqlite` for self-play/training and `data/tournament.sqlite` for evaluation/tournament/Elo. SQLite and sidecars are local-only and ignored by Git. Historical import is additive/idempotent by source identity and content hash; dry-run scans `logs/` and `evidence/`, and import never deletes or changes source files. The experiment exchange bundle is explicit, additive, and rejects conflicts; it never replaces the target database. Existing evidence snapshots are not assumed disposable.
+Logging V2 dùng `data/selfplay.sqlite` cho self-play/training và `data/tournament.sqlite` cho evaluation/tournament/Elo. SQLite và sidecars chỉ lưu local và được Git bỏ qua. Import lịch sử theo hướng bổ sung/idempotent dựa trên source identity và content hash; dry-run quét `logs/` và `evidence/`, còn import không bao giờ xóa hoặc sửa source files. Experiment exchange bundle được kích hoạt tường minh, chỉ bổ sung dữ liệu và từ chối conflicts; bundle không thay thế target database. Không mặc định các evidence snapshots hiện có là dữ liệu có thể xóa.
 
-Current primary aggregate is score `(W + 0.5D)/N`, WDL, paired/color splits and Wilson interval on score. Wilson interval with draws-as-half is an approximation, not exact multinomial uncertainty and does not account for dependence/multiple comparisons. Do not interpret interval covering .5 as proof equivalence. Seed-paired tests should be analyzed with paired methods or model-level uncertainty where appropriate.
+Chỉ số tổng hợp chính hiện tại là score `(W + 0.5D)/N`, WDL, phân tách theo cặp/màu và Wilson interval trên score. Wilson interval với draws-as-half là xấp xỉ, không phải độ bất định multinomial chính xác và không tính đến phụ thuộc lẫn nhau hoặc multiple comparisons. Không xem khoảng bao trùm .5 là bằng chứng tương đương. Phân tích các tests ghép cặp theo seed bằng phương pháp paired hoặc độ bất định cấp model khi phù hợp.
 
-### 10.2 Elo Evaluation Protocol v1.0 (Planned)
+### 10.2 Quy trình đánh giá Elo v1.0 (Planned)
 
-`az.elo.recalculate_elo` remains the sequential leaderboard. `az.elo.paired_davidson_ci` implements pairwise Davidson ΔElo with a paired opening-cluster bootstrap for the automated Normal `az_v0` promotion gate; the full multi-agent Bradley–Terry/Davidson leaderboard and historical production recalculation remain unimplemented.
+`az.elo.recalculate_elo` vẫn là leaderboard tuần tự. `az.elo.paired_davidson_ci` triển khai Davidson ΔElo theo từng cặp với paired opening-cluster bootstrap cho promotion gate Normal `az_v0` tự động; leaderboard Bradley–Terry/Davidson đầy đủ cho nhiều agents và phép tính lại lịch sử production vẫn chưa được triển khai.
 
 **Rating pools và định danh.** Normal và Renju là hai pool độc lập, không so Elo chéo luật. Trong mỗi pool, `Heuristic` là anchor cố định `R=1200`; các model khác cùng protocol ước lượng relative rating trên cùng graph đối thủ. `model_id` bất biến gồm ruleset + checkpoint SHA-256 (hoặc code/config identity với agent không có checkpoint) + agent/search config; backend/compiler/extension version thuộc `execution_id` và được log như factor, không làm một checkpoint thành model khác. Cùng checkpoint AZ Python/C++ mặc định cùng model rating; chỉ tách thành paired backend contrast khi nghiên cứu parity. Nếu model graph không nối được tới anchor thì không báo rating tuyệt đối.
 
-**Ước lượng chính: Bradley–Terry.** Với skill `θ_i` theo log-odds và game i-vs-j, `P(i beats j)=σ(θ_i−θ_j)`; đổi sang Elo bằng `R_i=1200+(400/ln 10)(θ_i−θ_Heuristic)` để heuristic neo 1200. Mô hình chính phải xử lý hòa bằng Davidson extension của Bradley–Terry (tie parameter, draws recorded as draws), và điều chỉnh màu nếu pilot cho thấy hiệu ứng màu; báo cả mô hình/identifiability/fit checks. Không loại hòa hoặc mã hóa thành thắng/thua. Bootstrap 95% CI resample **opening pair cluster** (hai game dùng cùng opening/seed, đổi màu), giữ hai ván đi cùng nhau; dùng cùng bootstrap draws để có CI cho `ΔElo = Elo_AZ − 1200`. Nếu mẫu cluster ít, fit lỗi hoặc CI không ổn định: kết quả `Unknown/inconclusive`, không ép ra rating.
+**Ước lượng chính: Bradley–Terry.** Với skill `θ_i` theo log-odds và game i-vs-j, `P(i beats j)=σ(θ_i−θ_j)`; đổi sang Elo bằng `R_i=1200+(400/ln 10)(θ_i−θ_Heuristic)` để heuristic neo 1200. Mô hình chính phải xử lý hòa bằng mở rộng Davidson của Bradley–Terry (tie parameter, ghi draw là draw), và điều chỉnh màu nếu pilot cho thấy hiệu ứng màu; báo cáo model, identifiability và fit checks. Không loại hòa hoặc mã hóa thành thắng/thua. Bootstrap 95% CI lấy mẫu lại **opening pair cluster** (hai game dùng cùng opening/seed và đổi màu), giữ hai game đi cùng nhau; dùng cùng bootstrap draws để có CI cho `ΔElo = Elo_AZ − 1200`. Nếu số cluster ít, fit lỗi hoặc CI không ổn định, kết quả là `Unknown/inconclusive`; không ép ra rating.
 
-**Leaderboard tham khảo (không phải suy luận chính).** Sequential Elo dùng logistic expected score `E_A=1/(1+10^((R_B-R_A)/400))`, `R'_A=R_A+16(S_A-E_A)`, `S_A=1/0.5/0` cho W/D/L; cập nhật đối thủ theo `S_B=1-S_A`. Heuristic giữ cố định ở 1200 làm anchor; trong trận hai model không-anchor, update cả hai theo kết quả đối xứng. Giữ lịch sử theo trận và thứ tự deterministic. Đây chỉ là leaderboard operational vì phụ thuộc thứ tự trận/K và draws; không thay BT estimate/CI. Tests kiểm tra expected score, K=16, anchor bất biến, side-swap invariance, và zero-sum change khi cả hai rating được cập nhật.
-
-**Protocol thi đấu.** Đánh giá Normal/Renju riêng; fixed checkpoint hash, rule/config snapshot, seed derivation, openings và protocol version. Heuristic baseline version/config đóng băng ở rating 1200. AZ: cấu hình MCTS cố định 200 simulations mỗi lần search; action temperature `0` (chọn max visits, tie-break RNG theo seed), Dirichlet/root exploration noise tắt. Tactical/threat override được phép bypass MCTS nếu luật search variant quy định; ghi rõ override và 0 simulations. Không dùng softmax exploration trong evaluation. Tournament đổi màu trên từng opening: 2 games/opening pair; cùng opening và paired seed, chỉ đổi ai cầm Black. Đối thủ có cùng thuật toán nhận đúng budget tương ứng; mọi baseline không cùng đơn vị search phải ghi rõ budget/latency và không diễn giải như compute-equivalent. Freeze environment/backend identity; log seed, opening, ruleset, checkpoint/config SHA-256, MCTS sims, temp/noise, player colors, result/end reason, move count, latency/search telemetry. Fail-fast nếu manifest thiếu/mismatch hoặc checkpoint đổi trong run.
+**Leaderboard tham khảo (không phải suy luận chính).** Sequential Elo dùng logistic expected score `E_A=1/(1+10^((R_B-R_A)/400))`, `R'_A=R_A+16(S_A-E_A)`, `S_A=1/0.5/0` cho W/D/L; cập nhật đối thủ theo `S_B=1-S_A`. Heuristic giữ cố định ở 1200 làm anchor; trong trận giữa hai model không-anchor, cập nhật cả hai theo kết quả đối xứng. Giữ lịch sử theo trận và thứ tự deterministic. Đây chỉ là leaderboard vận hành vì phụ thuộc thứ tự trận/K và draws; không thay thế BT estimate/CI. Tests kiểm tra expected score, K=16, anchor bất biến, side-swap invariance và zero-sum change khi cập nhật cả hai rating.
+**Protocol thi đấu.** Đánh giá Normal/Renju riêng; dùng checkpoint hash, rule/config snapshot, seed derivation, openings và protocol version cố định. Đóng băng version/config của Heuristic baseline tại rating 1200. Với AZ, cấu hình MCTS cố định 200 simulations mỗi lần search; action temperature `0` (chọn max visits, tie-break RNG theo seed), tắt Dirichlet/root exploration noise. Cho phép tactical/threat override bỏ qua MCTS nếu quy tắc search variant quy định; ghi rõ override và 0 simulations. Không dùng softmax exploration trong evaluation. Tournament đổi màu trên từng opening: 2 games/opening pair; giữ nguyên opening và paired seed, chỉ đổi bên cầm Black. Đối thủ cùng thuật toán nhận budget tương ứng; với baseline có đơn vị search khác nhau, ghi rõ budget/latency và không diễn giải chúng là compute-equivalent. Đóng băng environment/backend identity; ghi seed, opening, ruleset, checkpoint/config SHA-256, MCTS sims, temp/noise, màu người chơi, kết quả/end reason, số nước và latency/search telemetry. Dừng ngay nếu manifest thiếu/không khớp hoặc checkpoint đổi trong run.
 
 **Các lựa chọn cố định cho protocol v1.0:** dùng `HeuristicPlayer` làm anchor với code/config identity SHA-256 theo ruleset; không có file config riêng, patterns backend cố định `python`. AZ dùng MCTS backend `python`, `n_simulations=200`, temperature `0`, root noise tắt. Theo mặc định hiện có của tournament, `random_opening_plies=0` (bắt đầu từ bàn trống); dùng `paired-crc32`, đăng ký `--seed` trước mỗi run và dùng lại cùng seed từng tác tử cùng opening trong cặp đổi màu. Không đổi opening/seed scheme giữa các tranche; muốn đổi phải tăng protocol version. Kết luận chỉ áp dụng cho protocol bắt đầu từ bàn trống.
 
-**Cỡ mẫu và mở rộng định trước.** Screening: 100 games/pair = 50 paired openings, chỉ quyết định có tiếp tục/kiểm tra lỗi dữ liệu, không tuyên bố đạt mục tiêu. Main: 400 games/pair = 200 paired openings. Trước chạy phải đăng ký danh sách opening/seeds, model comparisons và bootstrap seed. Sau 400, nếu CI 95% của ΔElo chứa 0 hoặc precision chưa đạt, thêm tranche cố định 200 games (100 paired openings), tối đa 800 games/pair; phân tích ở mốc định trước, không xem CI liên tục để dừng tùy ý. Nếu đến 800 vẫn chưa phân định thì báo inconclusive. Nếu CI đã tách 0 tại mốc main, không cần mở rộng trừ khi độ chính xác yêu cầu đã đăng ký chưa đạt. Mốc sample-size là protocol đề xuất, chưa có power analysis cho dự án; chạy pilot 100 trước và kiểm tra CI bootstrap/cluster variance, sau đó chốt hoặc version protocol mới trước main study.
+**Cỡ mẫu và mở rộng định trước.** Screening: 100 games/pair = 50 paired openings, chỉ quyết định có tiếp tục/kiểm tra lỗi dữ liệu, không tuyên bố đạt mục tiêu. Main: 400 games/pair = 200 paired openings. Trước khi chạy, đăng ký danh sách opening/seeds, model comparisons và bootstrap seed. Sau 400, nếu CI 95% của ΔElo chứa 0 hoặc precision chưa đạt, thêm tranche cố định 200 games (100 paired openings), tối đa 800 games/pair; phân tích tại các mốc định trước, không theo dõi CI liên tục để dừng tùy ý. Nếu đến 800 vẫn chưa phân định thì báo inconclusive. Nếu CI đã tách 0 tại mốc main, không cần mở rộng trừ khi chưa đạt độ chính xác đã đăng ký. Mốc sample-size là protocol đề xuất, chưa có power analysis cho dự án; chạy pilot 100 trước và kiểm tra CI bootstrap/cluster variance, sau đó chốt hoặc version protocol mới trước main study.
 
-**Báo cáo và quyết định.** Mỗi so sánh trình bày BT Elo, `ΔElo`, 95% paired-cluster bootstrap CI, games, W/D/L, score `(W+0.5D)/N`, màu/opening strata, illegal/forfeit/draw breakdown, latency/search and resource counters, model IDs, protocol and log hash. “Đạt mục tiêu”: `ΔElo > 0` và cận dưới CI 95% `>0`. “Mục tiêu mạnh”: `ΔElo ≥ +100` và cận dưới CI 95% `>0`. Đạt một tiêu chí không khẳng định tổng quát ngoài pool/opponents/protocol đã đo. Với heuristic 1200, chiến thắng/thua tuyệt đối ở từng trận vẫn được ghi W/L và ảnh hưởng đúng vào BT/leaderboard; trận illegal move/forfeit là loss cho bên vi phạm, không loại khỏi mẫu; hòa là draw trong likelihood và 0.5 score/Elo. Không hoàn tất/aborted game không là W/D/L; phải resume cùng identity hoặc loại theo rule đã đăng ký và báo số loại.
-#### Automated `az_v0` screening gate v1.4 (Implemented / Unverified)
+**Báo cáo và quyết định.** Mỗi so sánh trình bày BT Elo, `ΔElo`, 95% paired-cluster bootstrap CI, số games, W/D/L, score `(W+0.5D)/N`, strata theo màu/opening, phân loại illegal/forfeit/draw, latency/search và resource counters, model IDs, protocol và log hash. “Đạt mục tiêu” nghĩa là `ΔElo > 0` và cận dưới CI 95% `>0`. “Mục tiêu mạnh” nghĩa là `ΔElo ≥ +100` và cận dưới CI 95% `>0`. Đạt tiêu chí không khẳng định kết quả tổng quát ngoài pool/opponents/protocol đã đo. Với heuristic 1200, mọi trận thắng/thua vẫn được ghi W/L và ảnh hưởng đúng vào BT/leaderboard; trận illegal move/forfeit là loss cho bên vi phạm, không loại khỏi mẫu; draw được dùng trong likelihood và tính 0.5 score/Elo. Game không hoàn tất/aborted không được tính là W/D/L; phải resume với cùng identity hoặc loại theo rule đã đăng ký và báo số lượng bị loại.
+#### Screening gate tự động `az_v0` v1.4 (Implemented / Unverified)
 
-The continuous Normal pipeline checks every 5,000 newly generated self-play games, requiring an iteration size that reaches the gate exactly. It plays exactly 100 paired color-swapped games against frozen Heuristic with 200 simulations per move, temperature 0, root noise off, and four randomized opening plies. Tournament MCTS/Patterns backends and worker count follow the training command, and the selected execution settings are recorded in SQLite. The fixed tactical holdout remains a separate Python evaluation. The cluster bootstrap seed and W/D/L stay in SQLite. If no best exists, a paired 95% ΔElo CI lower bound >0 against Heuristic permits promotion. If a best exists, a Heuristic-only gate cannot establish superiority to that best: retain it and do not promote without a separate best comparison. Tactical accuracy and the 100-game screening do not by themselves establish the research objective. Historical 25k exposure to the tactical positions remains unknown.
+Pipeline Normal chạy kiểm tra mỗi khi tạo thêm 5.000 self-play games, yêu cầu kích thước iteration sao cho gate đạt đúng mốc. Pipeline chơi chính xác 100 games theo cặp đổi màu với Heuristic đã đóng băng, 200 simulations mỗi nước, temperature 0, tắt root noise và dùng bốn opening plies ngẫu nhiên. MCTS/Patterns backends và số worker của tournament theo training command; các thiết lập thực thi được chọn sẽ ghi vào SQLite. Tactical holdout cố định vẫn là một lần evaluation Python riêng. Cluster bootstrap seed và W/D/L được lưu trong SQLite. Nếu chưa có best, cận dưới paired 95% ΔElo CI >0 so với Heuristic cho phép promotion. Nếu đã có best, gate chỉ so với Heuristic không thể chứng minh model mới vượt best đó: giữ best và không promote nếu thiếu phép so sánh riêng với best. Tactical accuracy và screening 100 games không tự chúng chứng minh đạt mục tiêu nghiên cứu. Mức độ tiếp xúc lịch sử với tactical positions trong run 25k vẫn chưa biết.
 
-Historical v1.2 records retain their original protocol: 100 games versus the current champion when present, otherwise Heuristic, without this tactical screening.
+Các bản ghi v1.2 lịch sử giữ nguyên protocol ban đầu: 100 games đấu với champion hiện tại nếu có, nếu không thì đấu Heuristic, không có tactical screening này.
 
 
-**Log schema tối thiểu / acceptance.** Mỗi game cần `protocol_id`, `ruleset`, `game_id`, `pair_id/opening_id`, `seed/opening`, `model_a_id/model_b_id`, checkpoint/config SHA-256, backend/compiler/extension version trong `execution_id`, `black_model/white_model`, MCTS budget, temperature/noise, `winner` (Black/White/draw), `end_reason`, illegal/forfeit actor, moves, runtime/search telemetry. Rating artifact phải có BT/Davidson fit version, anchor, parameter/K settings, bootstrap seed/cluster count, CI, exclusions, input-log SHA-256 và sequential leaderboard trail. `AT-ELO-01`: expected-score, K=16 update cho win/draw/loss, anchor cố định 1200 và zero-sum chỉ khi hai non-anchor ratings cùng được cập nhật. `AT-ELO-02`: deterministic replay logs tái tạo W/D/L, score, paired clusters và sequential ratings. `AT-ELO-03`: toy synthetic symmetric pool ước lượng quanh anchor; mạnh hơn/yếu hơn fixtures cho đúng thứ tự; draw-only/one-sided/unconnected pools trả warning/inconclusive, không rating bịa. `AT-ELO-04`: bootstrap resample cặp opening, giữ đổi màu, trả CI hữu hạn và tái lập seed. `AT-ELO-05`: hash/config/ruleset mismatch, duplicate/missing game IDs và illegal outcomes bị phát hiện; Normal/Renju không gộp. `AT-ELO-06`: screening 100, main 400, staged extension 600/800 và stopping rule được test bằng pure scheduling/decision logic, không chạy tournament tốn kém trong unit tests.
+**Log schema tối thiểu / tiêu chí nghiệm thu.** Mỗi game cần có `protocol_id`, `ruleset`, `game_id`, `pair_id/opening_id`, `seed/opening`, `model_a_id/model_b_id`, checkpoint/config SHA-256, backend/compiler/extension version trong `execution_id`, `black_model/white_model`, MCTS budget, temperature/noise, `winner` (Black/White/draw), `end_reason`, illegal/forfeit actor, moves và runtime/search telemetry. Rating artifact phải có BT/Davidson fit version, anchor, parameter/K settings, bootstrap seed/cluster count, CI, exclusions, input-log SHA-256 và sequential leaderboard trail. `AT-ELO-01`: expected-score, K=16 update cho win/draw/loss, anchor cố định 1200 và zero-sum chỉ khi cùng cập nhật hai non-anchor ratings. `AT-ELO-02`: deterministic replay tái tạo W/D/L, score, paired clusters và sequential ratings từ logs. `AT-ELO-03`: toy synthetic symmetric pool ước lượng quanh anchor; fixtures mạnh hơn/yếu hơn cho đúng thứ tự; draw-only/one-sided/unconnected pools trả warning/inconclusive, không tạo rating giả. `AT-ELO-04`: bootstrap lấy mẫu theo cặp opening, giữ đổi màu, trả CI hữu hạn và tái lập theo seed. `AT-ELO-05`: phát hiện hash/config/ruleset mismatch, duplicate/missing game IDs và illegal outcomes; không gộp Normal/Renju. `AT-ELO-06`: kiểm tra screening 100, main 400, staged extension 600/800 và stopping rule bằng pure scheduling/decision logic, không chạy tournament tốn kém trong unit tests.
 
 Leaderboard dưới đây là schema, không phải kết quả:
 
@@ -332,191 +328,188 @@ Leaderboard dưới đây là schema, không phải kết quả:
 | Alpha-Beta | Normal | TBD | TBD | TBD | TBD | TBD | TBD |
 | Random | Normal | TBD | TBD | TBD | TBD | TBD | TBD |
 
-Vẽ learning curve với X là số self-play games (cùng definition ở mọi run), Y là BT Elo; show CI/error bars, AZ−Heuristic ΔElo, checkpoint hash và protocol ID. Dựng panel riêng cho Normal/Renju; không nối rating khác protocol như cùng một chuỗi.
+Vẽ learning curve với trục X là số self-play games (dùng cùng định nghĩa trong mọi run) và trục Y là BT Elo; hiển thị CI/error bars, AZ−Heuristic ΔElo, checkpoint hash và protocol ID. Dựng panel riêng cho Normal/Renju; không nối ratings từ các protocol khác nhau thành cùng một chuỗi.
 
 
-### 10.3 Existing strength evidence
+### 10.3 Bằng chứng hiện có về sức chơi
 
-`docs/report.md` T35 records 2,400 completed games across separate Normal fixed, Renju fixed, and Normal time-budget groups. In its fixed Normal pool, Heuristic beat AZ v0 and AZ threat each 100–0; Renju Heuristic beat AZ Renju 100–0. The time-budget AZ threat vs AlphaBeta result does not compare against Heuristic and is a different protocol. Audit of the frozen archive verified all 107 recorded file SHA-256 values, 24 matchups × 100 games, sequential IDs, color balance and W/D/L summaries against raw game records. T35 fixed AZ searches use 200 simulations; 1,133 tactical/threat override moves bypassed MCTS and logged 0 simulations. Its legacy seed scheme did not reuse each agent's seed across color-swapped games; manifests lack Heuristic source hash, explicit backend, evaluation temperature/noise and opening-plies metadata. The exact historical Heuristic identity and v1.0 equivalence are therefore Unknown. T35 is historical evidence, not Elo, not proof about every checkpoint/config, and not evidence that AZ met its objective. Historical initial report also records 1,000 Normal self-play games and 500 Renju fine-tune games; run losses do not prove playing strength. 5,000-game config is not a completed 5,000-game training result.
+`docs/report.md` T35 ghi nhận 2.400 games hoàn tất trong các nhóm riêng biệt gồm Normal fixed, Renju fixed và Normal time-budget. Trong pool Normal fixed, Heuristic thắng AZ v0 và AZ threat đều với tỷ số 100–0; trong pool Renju, Heuristic thắng AZ Renju 100–0. Kết quả AZ threat đấu AlphaBeta với time budget không so sánh với Heuristic và dùng protocol khác. Audit frozen archive xác minh cả 107 giá trị file SHA-256 đã ghi, 24 matchups × 100 games, ID liên tiếp, cân bằng màu và tổng hợp W/D/L so với raw game records. AZ searches trong T35 fixed dùng 200 simulations; 1.133 nước tactical/threat override bỏ qua MCTS và ghi 0 simulations. Seed scheme legacy không dùng lại seed của từng agent giữa các game đổi màu; manifests thiếu Heuristic source hash, backend tường minh, temperature/noise evaluation và metadata opening-plies. Vì vậy, identity chính xác của Heuristic lịch sử và mức tương đương với v1.0 đều Unknown. T35 là bằng chứng lịch sử, không phải Elo, không chứng minh mọi checkpoint/config đều có kết quả tương tự và không chứng minh AZ đạt mục tiêu. Báo cáo ban đầu cũng ghi nhận 1.000 Normal self-play games và 500 Renju fine-tune games; việc mất run không chứng minh sức chơi. Config 5.000 games không phải kết quả training đã hoàn tất 5.000 games.
 
 ### 10.4 Kế hoạch chẩn đoán khi AlphaZero thua Heuristic (Planned)
 
 Chạy theo thứ tự, giữ nguyên ruleset/checkpoint/protocol và lưu artifacts; mỗi bước phân biệt lỗi thực thi với giới hạn chất lượng:
 
-1. **Tái lập baseline:** replay các match IDs từ raw logs, đối chiếu checkpoint/config/rules hashes, màu, illegal/forfeit và seed. Nếu không khớp hoặc run cũ thiếu provenance, xem T35 là bằng chứng lịch sử chứ không dùng làm baseline định lượng mới.
-2. **Search correctness:** trên fixture tactic (win-in-1, block-in-1, fork, forced loss, Renju forbidden), kiểm tra legal mask, prior sau mask, visit counts, root value/sign, terminal handling, temperature=0 choice và repeatability. Cùng fixed evaluator so Python/native; không thay model để debug MCTS.
-3. **Policy/value và targets:** audit các trạng thái self-play đã log: `pi` finite, normalized, legal-only; tính entropy/top-k/agreement với selected move; so target visit distribution với model policy; đối chiếu `z` theo player-to-move và outcome. Đánh giá value calibration/Brier/MSE theo game outcome trên held-out games/positions tách theo game/seed, không dùng fixed training batch làm test.
-4. **Tactical error taxonomy:** từ loss games phân loại bỏ lỡ thắng ngay, không chặn thắng, bỏ fork/forced defense, Renju legality, endgame/draw. Replay position với legal-move listing; so MCTS candidate ranking/visits, network prior/value và Heuristic response. Tactical override/threat-space là ablation riêng; không gán hiệu quả cho base network.
-5. **Search correctness under fixed budget:** mỗi lần MCTS thực sự chạy dùng đúng 200 simulations trên cùng checkpoint, positions/openings/seeds và no noise; ghi Elo/score, move latency và tactical error rates. Không thay simulation budget để chẩn đoán; tactical override bypass search phải được log riêng và không tính là budget khác.
-6. **Checkpoint/training diagnosis:** theo từng checkpoint đo matched Elo, independent outcome/value/policy metrics, replay age/diversity, target entropy, game length/WDL by color, optimizer/global steps/config/hash. Kiểm tra overfit, collapse, data leakage, checkpoint mismatch; loss reduction không phải promotion criterion.
+1. **Tái lập baseline:** phát lại match IDs từ raw logs, đối chiếu checkpoint/config/rules hashes, màu, illegal/forfeit và seed. Nếu kết quả không khớp hoặc run cũ thiếu provenance, xem T35 là bằng chứng lịch sử, không dùng làm baseline định lượng mới.
+2. **Tính đúng đắn của search:** trên tactical fixtures (win-in-1, block-in-1, fork, forced loss, Renju forbidden), kiểm tra legal mask, prior sau khi mask, visit counts, root value/sign, terminal handling, lựa chọn khi temperature=0 và repeatability. So sánh Python/native với cùng fixed evaluator; không đổi model để debug MCTS.
+3. **Policy/value và targets:** audit các trạng thái self-play đã ghi: `pi` hữu hạn, đã normalize và chỉ gồm legal moves; tính entropy/top-k/agreement với selected move; so sánh target visit distribution với model policy; đối chiếu `z` theo player-to-move và outcome. Đánh giá value calibration/Brier/MSE theo game outcome trên held-out games/positions được tách theo game/seed; không dùng fixed training batch làm test.
+4. **Phân loại lỗi chiến thuật:** phân loại loss games theo các lỗi bỏ lỡ thắng ngay, không chặn nước thắng, bỏ fork/forced defense, Renju legality và endgame/draw. Phát lại position cùng danh sách legal moves; so sánh MCTS candidate ranking/visits, network prior/value và phản ứng của Heuristic. Tactical override/threat-space là ablation riêng; không gán tác dụng cho base network.
+5. **Tính đúng đắn của search với budget cố định:** mỗi lần MCTS thực sự chạy phải dùng đúng 200 simulations trên cùng checkpoint, positions/openings/seeds và không noise; ghi Elo/score, move latency và tactical error rates. Không đổi simulation budget để chẩn đoán; tactical override bỏ qua search phải được log riêng và không tính là budget khác.
+6. **Chẩn đoán checkpoint/training:** với từng checkpoint, đo matched Elo, metrics outcome/value/policy độc lập, replay age/diversity, target entropy, game length/WDL theo màu, optimizer/global steps/config/hash. Kiểm tra overfit, collapse, data leakage và checkpoint mismatch; loss giảm không phải tiêu chí promotion.
 
-Acceptance `AC-DIAG-01`: mỗi diagnosis có immutable position/game IDs, checkpoint hash, rules/config, hypothesis, metric and pass/fail evidence. `AC-DIAG-02`: search fix chỉ được chấp nhận khi invariant tests qua và paired evaluation không có confirmed quality regression. `AC-DIAG-03`: kết luận nguyên nhân phải có canary/control isolating variable; nếu nhiều nguyên nhân cùng phù hợp dữ liệu thì ghi Unknown, không chọn giải thích hậu nghiệm.
+Tiêu chí nghiệm thu `AC-DIAG-01`: mỗi diagnosis có position/game IDs bất biến, checkpoint hash, rules/config, hypothesis, metric và pass/fail evidence. `AC-DIAG-02`: chỉ chấp nhận search fix khi invariant tests đạt và paired evaluation không có quality regression đã xác nhận. `AC-DIAG-03`: kết luận nguyên nhân phải có canary/control cô lập biến; nếu nhiều nguyên nhân cùng phù hợp dữ liệu thì ghi Unknown, không chọn giải thích hậu nghiệm.
 
-### 10.5 Ablation study plan (Planned)
+### 10.5 Kế hoạch ablation study (Planned)
 
-`scripts/ablation.py` hiện có ablations Alpha-Beta pruning và MCTS Pure rollout budgets; không có AZ Elo ablation framework. AZ studies phải dùng protocol v1.0, cùng frozen evaluation set, heuristic anchor, paired opening/color seeds, fixed checkpoint identity where applicable, no evaluation noise/temperature and same rules/config except biến nghiên cứu. Báo Elo/ΔElo+paired CI, W/D/L/score, compute/search telemetry, training data counts; register comparisons and multiplicity handling before running. Tách screening (pilot) khỏi confirmatory result.
+`scripts/ablation.py` hiện có ablations cho Alpha-Beta pruning và MCTS Pure rollout budgets; chưa có framework AZ Elo ablation. Các nghiên cứu AZ phải dùng protocol v1.0, cùng frozen evaluation set, heuristic anchor, paired opening/color seeds, fixed checkpoint identity khi phù hợp, tắt evaluation noise/temperature và giữ nguyên rules/config ngoại trừ biến nghiên cứu. Báo Elo/ΔElo+paired CI, W/D/L/score, compute/search telemetry và training data counts; đăng ký các comparisons và cách xử lý multiplicity trước khi chạy. Tách screening (pilot) khỏi kết quả confirmatory.
 
-| Factor | Screening levels (đề xuất) | Isolation / fairness rule |
+| Yếu tố | Mức screening (đề xuất) | Quy tắc cô lập / công bằng |
 |---|---|---|
 | MCTS simulations | 200 (fixed) | Không phải factor ablation; giữ nguyên trong mọi run AZ, kể cả self-play generation và evaluation |
-| Network architecture | 3×32, 6×64 baseline, 9×96 | Match training data, optimizer steps, search budget; báo parameter count, peak memory/inference cost; không coi equal steps là equal FLOPs |
-| Self-play scale | 1k / 2.5k / 5k / 10k cumulative games | Cùng recipe/seed plan; checkpoints trên learning curve, same Elo protocol; xem games, distinct samples, optimizer steps và compute cùng nhau |
-| Backend | Python vs C++ search, same checkpoint; backend self-play retraining separate | First exact/differential parity, then paired multi-seed targets/outcomes, then Elo non-regression; runtime speedup không là quality outcome |
+| Network architecture | 3×32, 6×64 baseline, 9×96 | Match training data, optimizer steps và search budget; báo parameter count, peak memory/inference cost; không xem equal steps là equal FLOPs |
+| Quy mô self-play | 1k / 2.5k / 5k / 10k games tích lũy | Cùng recipe/seed plan; checkpoints trên learning curve, cùng Elo protocol; xem games, distinct samples, optimizer steps và compute cùng nhau |
+| Backend | Python so với C++ search, cùng checkpoint; retraining self-play với backend riêng | Trước hết xác minh exact/differential parity, sau đó so targets/outcomes nhiều seeds theo cặp, cuối cùng kiểm tra Elo non-regression; runtime speedup không phải quality outcome |
 
-Một run/seed không đủ cho kết luận nghiên cứu. Dùng paired training seeds; số seed cho confirmatory ablation phải được chọn từ variance/power pilot và đăng ký trước. Để giới hạn chi phí, dùng screening nhỏ để loại lỗi/large regressions, chỉ confirm các contrasts có ý nghĩa; không chạy full Cartesian product. Baseline v1 remains 6×64 and 200 simulations for all AZ MCTS runs; simulation count is not a tunable factor or subject to protocol revision.
+Một run/seed không đủ để đưa ra kết luận nghiên cứu. Dùng paired training seeds; chọn số seed cho confirmatory ablation dựa trên variance/power pilot và đăng ký trước. Để giới hạn chi phí, dùng screening nhỏ để loại lỗi/regression lớn, chỉ xác nhận các contrasts có ý nghĩa; không chạy full Cartesian product. Baseline v1 vẫn là 6×64 và 200 simulations cho mọi AZ MCTS run; số simulations không phải factor có thể điều chỉnh hoặc thay đổi theo protocol.
 
 
-Acceptance `AC-ABL-01`: manifest chứng minh chỉ factor mục tiêu đổi, các control giữ nguyên. `AC-ABL-02`: mỗi point có checkpoint hash và cùng evaluation protocol/model pool. `AC-ABL-03`: statistical comparison giữ paired openings/training seeds và điều chỉnh multiple comparisons hoặc ghi exploratory. `AC-ABL-04`: report Elo quality alongside compute; không chọn cấu hình theo throughput/loss đơn lẻ. `AC-ABL-05`: backend quality gate không kém control ngoài non-inferiority tolerance đăng ký trước; tolerance hiện Unknown, phải chốt sau pilot.
+Tiêu chí nghiệm thu `AC-ABL-01`: manifest chứng minh chỉ factor mục tiêu thay đổi, các controls giữ nguyên. `AC-ABL-02`: mỗi point có checkpoint hash và cùng evaluation protocol/model pool. `AC-ABL-03`: statistical comparison giữ paired openings/training seeds và điều chỉnh multiple comparisons hoặc ghi exploratory. `AC-ABL-04`: báo chất lượng Elo cùng compute; không chọn cấu hình theo throughput/loss đơn lẻ. `AC-ABL-05`: backend quality gate không kém control ngoài non-inferiority tolerance đã đăng ký; tolerance hiện Unknown và phải chốt sau pilot.
 
-## 11. Performance và benchmark
+## 11. Hiệu năng và benchmark
 
-Collect move latency mean/p50/p95/p99, MCTS sims/sec and NN leaf calls, games/min, training samples/optimizer steps/sec, wall-time decomposition, CPU/GPU utilization, peak RSS/VRAM, worker scaling and failure rate. Tag workload CPU/search-bound, inference/GPU-bound, process/IPC-bound, storage-bound; report both total run throughput and per-component counters. Node count is not comparable to simulations or neural evaluations.
+Thu thập move latency mean/p50/p95/p99, MCTS sims/sec và NN leaf calls, games/min, training samples/optimizer steps/sec, phân rã wall-time, CPU/GPU utilization, peak RSS/VRAM, worker scaling và failure rate. Gắn nhãn workload là CPU/search-bound, inference/GPU-bound, process/IPC-bound hoặc storage-bound; báo cả throughput toàn run và counters từng component. Không thể so sánh node count với simulations hoặc neural evaluations.
+Quy trình benchmark: cố định hardware/software/extension/checkpoint hash, rules, opening/state corpus, simulation/time budget, batch/workers/threads, warm-up, repetitions, system load và CUDA synchronization; xáo trộn/thực hiện xen kẽ thứ tự backend; dùng cùng positions/seeds; báo median và độ phân tán, không chỉ một lần chạy. Tách correctness/throughput của search với lượng công việc cố định khỏi chất lượng policy theo wall-clock. Mọi tối ưu thay đổi scheduling, batching, tie-breaking hoặc RNG phải so sánh self-play distributions và arena outcomes có kiểm soát.
 
-Benchmark protocol: pin hardware/software/extension/checkpoint hash, rules, opening/state corpus, simulation/time budget, batch/workers/threads, warm-up, repetitions, system load and CUDA synchronization; randomize/interleave backend order; use same positions/seeds; report median and spread, not one run. Separate fixed-work search correctness/throughput from wall-clock policy quality. Any optimization changing scheduling, batching, tie-breaking or RNG must compare self-play distributions and controlled arena outcomes.
+Các số liệu lịch sử chỉ áp dụng cho workload được trích dẫn: `docs/benchmarks.md`, `docs/performance/`, `docs/bao-cao-dual-backend.md`. Cụ thể, ước tính 129.59 games/min và dự phóng 38.6 phút cho 5k self-play là ngoại suy tuyến tính từ benchmark 50 games, bỏ qua overhead training/evaluation/checkpoint và không phải soak 5k. Không khẳng định các con số trong mục này là hiệu năng hiện tại áp dụng chung.
 
-Historical numbers belong only to cited workload: `docs/benchmarks.md`, `docs/performance/`, `docs/bao-cao-dual-backend.md`. In particular 129.59 games/min estimate and 38.6 minute projected 5k self-play are linear extrapolation from 50-game benchmark, omit training/evaluation/checkpoint overhead, and do not constitute 5k soak. No figures in this section are asserted as current universal performance.
+## 12. Khả năng tái lập và lưu trữ
 
-## 12. Reproducibility và persistence
+- Nguồn config: giá trị mặc định trong `config.py` + `configs/*.yaml` + CLI overrides. Lưu config đã phân giải đầy đủ cùng logs.
+- Lưu trữ training: giữ nguyên checkpoint `.pt` và replay buffer `.npz`. SQLite V2 schema v1 đã có; training CLI ghi run/game/move/training-step records và root search telemetry đã nén ở chế độ STANDARD; NONE bỏ qua việc thu thập telemetry và ghi database. Các root fields được ghi sau mỗi lần search mà không đổi lựa chọn hoặc tiêu thụ RNG.
+- Lưu trữ tournament: `scripts/tournament.py` ghi các hàng experiment, agent, match, game và move vào `data/tournament.sqlite`, đồng thời giữ manifests/JSONL/CSV legacy cho resume/readers. `--logging-level none` bỏ qua telemetry và output bền vững cho baseline tạm thời; không thể resume và không dùng cho run nghiên cứu. Replay Elo tuần tự cơ bản đã được triển khai; import lịch sử chưa được triển khai.
+- Trao đổi experiment: tournament experiment bundles tường minh giữ metadata, games/moves, event history và Elo rows; import xác thực canonical content hash và thêm rows theo transaction. Self-play run bundles chưa được triển khai.
+- Dữ liệu local: `.gitignore` bỏ qua `*.sqlite*` và `*.sqlite3*`; khi kiểm tra không có SQLite database nào được track. Import/export phải được gọi tường minh và không bao giờ ghi đè destination database.
+- Hiệu năng logging: các self-play tests dùng synthetic evaluator, chạy ba lần với Python/Normal và native-C++/Normal ở 200 simulations, đo overhead STANDARD lần lượt là 1.49% và 3.24%; runtime deltas của Python/Renju và native-C++/Renju lần lượt là −0.09% và 0.34%. Các tournament tests `az_v0` đấu random ở 200 simulations đo lần lượt 1.20% với Python-MCTS/Normal, −0.06% với C++-MCTS/Python-patterns/Normal, 0.30% với Python-MCTS/Renju và 0.59% với C++-MCTS/Python-patterns/Renju. Renju self-play dùng synthetic evaluator; overhead của workload training production chưa được xác minh.
+- Dùng content hash, không dùng basename mutable `last.pt`, để định danh model. Lưu source hash và parent hash bất biến; không ghi đè evidence.
+- Version hóa ruleset, evaluation protocol và backend implementation; lưu dependencies và lệnh build native. Ghi lại `python --version`, `torch.__version__`, CUDA availability/device, OS, CPU, GPU, compiler và extension ABI thực tế.
+- Chạy lại trong environment sạch, có tài liệu và config cố định. Ghi giới hạn tái lập ngẫu nhiên, CUDA nondeterminism và process RNG scheme; phân biệt khả năng tái lập chính xác game logs với replication thống kê.
+Manifest experiment đề xuất (đề xuất định dạng; SPEC này không thay đổi code): `schema_version`, `run_id`, `git_commit`, `dirty_tree_hash`, `command`, `resolved_config`, `ruleset/rules_version`, `seed_root/derivation`, `model_id/parent_hash`, `backend/components/extension_hash`, environment/hardware/compiler, worker/thread settings, số game/sample/step, start/end/exit status, artifact paths+SHA-256, evaluation protocol ID, tournament raw-log hash và các giới hạn.
+### 12.1 Cổng nghiệm thu về khả năng tái lập và chất lượng (trạng thái triển khai khác nhau)
 
-- Config source: `config.py` defaults + `configs/*.yaml` + CLI overrides. Preserve fully resolved config with logs.
-- Training persistence: `.pt` checkpoint and `.npz` replay buffer remain unchanged. SQLite V2 schema v1 is present; the training CLI writes run/game/move/training-step records and compressed root search telemetry in STANDARD mode; NONE skips telemetry collection and database writes. Root fields are captured after each search without changing selection or consuming RNG.
-- Tournament persistence: `scripts/tournament.py` writes experiment, agent, match, game and move rows to `data/tournament.sqlite`, while retaining legacy manifests/JSONL/CSV for resume/readers. `--logging-level none` skips telemetry and durable output for transient baselines; it cannot resume and is not for research runs. Basic sequential Elo replay is implemented; historical imports remain unimplemented.
-- Experiment exchange: explicit tournament experiment bundles preserve metadata, games/moves, event history and Elo rows; imports validate a canonical content hash and add rows transactionally. Self-play run bundles are not implemented.
-- Local data: `.gitignore` ignores `*.sqlite*` and `*.sqlite3*`; no SQLite database was tracked when checked. Import/export is explicit and never overwrites the destination database.
-- Logging performance: three-repeat Python/Normal and native-C++/Normal synthetic-evaluator self-play tests at 200 simulations measured 1.49% and 3.24% STANDARD overhead; Python/Renju and native-C++/Renju runtime deltas were −0.09% and 0.34%. Tournament `az_v0`-vs-random tests at 200 simulations measured 1.20% Python-MCTS/Normal, −0.06% C++-MCTS/Python-patterns/Normal, 0.30% Python-MCTS/Renju, and 0.59% C++-MCTS/Python-patterns/Renju. Renju self-play uses a synthetic evaluator; production training workload overhead remains unverified.
-- Use content hash, not mutable basename `last.pt`, to identify a model. Store immutable source and parent hashes; do not overwrite evidence.
-- Version the ruleset, evaluation protocol and backend implementation; archive dependencies and native build command. Capture actual `python --version`, `torch.__version__`, CUDA availability/device, OS, CPU, GPU, compiler and extension ABI.
-- Re-run from a clean, documented environment and frozen config. Document stochastic reproducibility limits, CUDA nondeterminism and process RNG scheme; distinguish repeatability of exact game logs from statistical replication.
+`RG-01 Run identity`: mọi training/evaluation run lưu resolved config, code/dirty-tree identity, toàn bộ seed streams/derivations, ruleset, environment, backend/ABI và artifact SHA-256; kiểm tra bằng cách tải manifest và xác minh từng artifact/hash được tham chiếu. Thiếu identity thì kết quả là `Unknown`, không phải “gần như tái lập được”.
 
-Proposed experiment manifest (format proposal; no code change in this spec): `schema_version`, `run_id`, `git_commit`, `dirty_tree_hash`, `command`, `resolved_config`, `ruleset/rules_version`, `seed_root/derivation`, `model_id/parent_hash`, `backend/components/extension_hash`, environment/hardware/compiler, worker/thread settings, game/sample/step counts, start/end/exit status, artifact paths+SHA-256, evaluation protocol ID, tournament raw-log hash and limitations.
+`RG-02 Seed discipline`: dùng seed tường minh, độc lập cho model initialization, self-play game, worker, action/tie-breaking, opening và bootstrap; tạo child seeds deterministic từ `(root_seed, purpose, game/pair_id, color)` và lưu mapping. Cùng code/environment/config/seed phải tạo lại setup và records deterministic ở nơi backend/device hỗ trợ phép tính deterministic; nếu không, ghi chính xác các trường nondeterministic và xác minh replication thống kê.
 
-### 12.1 Reproducibility and quality acceptance gates (mixed implementation status)
+`RG-03 Checkpoint integrity`: checkpoint bất biến, định danh bằng content trong experiment records; resume phải khớp parent hash dự kiến, ruleset, architecture và resolved config; train logs liên kết mỗi checkpoint được promote với parent và iteration/game count. Kiểm tra việc từ chối mismatch/corruption và hash/metadata sau round-trip.
 
-`RG-01 Run identity`: every training/evaluation run persists resolved config, code/dirty-tree identity, all seed streams/derivations, ruleset, environment, backend/ABI and artifact SHA-256; test by loading manifest and verifying every referenced artifact/hash. Missing identity makes result `Unknown`, not “approximately reproducible”.
+`RG-04 Python/C++ parity`: cùng rule state phải tạo legal moves, terminal outcome và forbidden mask giống nhau; cùng fixed evaluator/RNG/tie policy phải tạo visits/simulations/root value tương đương trong numeric tolerance đã khai báo; self-play theo cặp so sánh features, `pi`, `z`, winner và end reason trên seeds đăng ký trước. Mismatch nào cũng chặn promotion native cho đến khi được giải thích và sửa.
 
-`RG-02 Seed discipline`: use explicit independent seeds for model initialization, self-play game, worker, action/tie-breaking, opening and bootstrap; derive child seeds deterministically from `(root_seed, purpose, game/pair_id, color)` and persist mapping. Same code/environment/config/seed must reproduce deterministic setup and records where backend/device support deterministic operations; otherwise document exact nondeterministic fields and verify statistical replication.
+`RG-05 Quality regression`: với Normal `az_v0`, gate v1.2 định kỳ dùng 100 games theo cặp đấu với best, hoặc Heuristic nếu chưa có best. Chỉ promote khi cận dưới paired 95% CI của ΔElo so với opponent được chọn >0. Nếu CI cắt qua 0, giữ best mà không mở rộng; nếu cận trên CI thấp hơn 0 so với best, từ chối candidate và dừng session. Gate chỉ so với best không đánh giá mục tiêu nghiên cứu so với Heuristic. Giới hạn 100 games làm tăng độ bất định và không thay thế protocol nghiên cứu 400 games. Các backends khác và tournament model variants vẫn cần gate matched riêng.
 
-`RG-03 Checkpoint integrity`: checkpoints immutable/content-addressed in experiment records; resume must match expected parent hash, ruleset, architecture and resolved config; train logs link each promoted checkpoint to parent and iteration/game count. Test mismatch/corruption rejection and round-trip hashes/metadata.
+`RG-06 Quality-regression tests`: unit/integration gates kiểm tra rules, MCTS sign/masking/terminal, sample integrity, checkpoint/resume và tournament fairness; tactical suite cố định gồm games/positions phát hiện điểm yếu mà người dùng nhận thấy; mọi thay đổi model được chấp nhận phải có Elo evidence theo matched protocol và paired games. Lưu regression fixtures cùng provenance và không tune theo held-out confirmation positions.
 
-`RG-04 Python/C++ parity`: same rule state produces identical legal moves, terminal outcome and forbidden mask; same fixed evaluator/RNG/tie policy produces equal visits/simulations/root value within declared numeric tolerance; paired self-play compares features, `pi`, `z`, winner and end reason over pre-registered seeds. Any mismatch blocks native promotion until explained and fixed.
+`RG-07 Research reproducibility`: lần chạy độc lập từ manifest dựng lại matchup schedule và toàn bộ W/D/L từ raw logs; rating/CI output phải tái tạo chính xác với cùng deterministic analysis seed/version. CI chỉ được khác khi bootstrap/model code hoặc inputs/version khác, và phải ghi lại khác biệt đó. Báo các giới hạn và games bị loại.
 
-`RG-05 Quality regression`: for Normal `az_v0`, the periodic v1.2 gate uses 100 paired games against best, or Heuristic when best does not exist. Promote only when the paired 95% CI for ΔElo vs the selected opponent has lower bound >0. CI crossing zero retains best without extension; CI upper bound below zero vs best rejects the candidate and stops the session. A best-only gate does not evaluate the Heuristic research objective. The 100-game limit increases uncertainty and is not the 400-game research protocol. Other backends and tournament model variants still need their own matched gate.
+## 13. CLI, UI và lệnh
 
-`RG-06 Quality-regression tests`: unit/integration gates cover rules, MCTS sign/masking/terminal, sample integrity, checkpoint/resume and tournament fairness; a frozen game/position tactical suite catches consumer-visible weakness; every accepted model change has paired matched-protocol Elo evidence. Store regression fixtures with provenance and do not tune against held-out confirmation positions.
+Các lệnh dưới đây là giao diện được ghi trong source/README, không phải lệnh đã chạy trong lần audit này. Chạy trong `AlphaZero_Gomoku`; Python executable thực tế phụ thuộc environment đang hoạt động (README tham chiếu `..\\.venv`; báo cáo native dùng `.venv` trong project, đây là khác biệt environment cần giải quyết).
 
-`RG-07 Research reproducibility`: independent rerun from manifest reconstructs matchup schedule and all W/D/L from raw logs; rating/CI output reproduces exactly for the same deterministic analysis seed/version. CI may differ only when bootstrap/model code or inputs/version differ, which must be recorded. Report limitations and excluded games.
-
-## 13. CLI, UI và commands
-
-Commands below are source/README-documented interfaces, not executed during this audit. Run in `AlphaZero_Gomoku`; actual Python executable depends on active environment (README references `..\.venv`; native report used a project `.venv`, which itself is an environment discrepancy to resolve).
-
-| Command | Purpose / relevant inputs | Outputs / constraints |
+| Lệnh | Mục đích / input liên quan | Output / giới hạn |
 |---|---|---|
-| `python scripts/play.py --mode ai-vs-ai --black-agent random --white-agent heuristic --ruleset normal` | CLI game; supports human-vs-AI/AI-vs-AI, Normal/Renju, seeds, agent depth/rollouts/checkpoints | Render result; agent args validated; soft time budget |
-| `python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure` | Pygame UI | Interactive; tests in `tests/test_ui.py`; runtime display not verified here |
-| `python scripts/train.py --iterations 701` | Resume the official Normal generation through absolute iteration 701; missing checkpoint fails closed; `--fresh` requires an empty output directory | Generation and recovery artifacts under `checkpoints/normal/`, Normal records in `data/normal.sqlite`; no training run is implied by this example |
-| `python scripts/arena.py --a heuristic --b az_v0 --games 100 --budget sims:200` | Two-player evaluation | WDL/summary game logs; not Elo |
-| `python scripts/tournament.py --agents random,heuristic,alphabeta,az_v0 --rules normal --games 100 --budget sims:200 --seed 1 --db data/tournament.sqlite` | Round robin; even `--games`; options for checkpoints, workers, random openings, pair/resume, backends and output | Run directory and selected experiment/game/move rows in SQLite; legacy JSONL/manifest/CSV/summary remain; no Elo calculation |
-| `python scripts/build_gomoku_native.py --module mcts --cxx g++` | Build native MCTS; also `--module patterns` | ABI-specific extension; build requires compatible compiler, Python headers and pybind11 headers (possibly sourced from PyTorch include) |
-| `python -m pytest -q` | Test suite | Project-wide tests; exact environment required; full suite was not run for the Logging V2 change (see implementation report). |
+| `python scripts/play.py --mode ai-vs-ai --black-agent random --white-agent heuristic --ruleset normal` | Chơi game qua CLI; hỗ trợ human-vs-AI/AI-vs-AI, Normal/Renju, seeds, agent depth/rollouts/checkpoints | Hiển thị kết quả; xác thực agent args; time budget mềm |
+| `python -m ui.pygame_app --mode human-vs-ai --agent mcts-pure` | Pygame UI | Tương tác; có tests trong `tests/test_ui.py`; chưa xác minh display lúc chạy |
+| `python scripts/train.py --iterations 701` | Resume generation Normal chính thức đến iteration tuyệt đối 701; checkpoint thiếu thì dừng an toàn; `--fresh` yêu cầu output directory trống | Generation và recovery artifacts trong `checkpoints/normal/`, Normal records trong `data/normal.sqlite`; ví dụ này không hàm ý đã chạy training |
+| `python scripts/arena.py --a heuristic --b az_v0 --games 100 --budget sims:200` | Evaluation hai người chơi | WDL/summary game logs; không phải Elo |
+| `python scripts/tournament.py --agents random,heuristic,alphabeta,az_v0 --rules normal --games 100 --budget sims:200 --seed 1 --db data/tournament.sqlite` | Round robin; `--games` phải chẵn; hỗ trợ checkpoints, workers, random openings, pair/resume, backends và output | Run directory và các experiment/game/move rows được chọn trong SQLite; vẫn giữ JSONL/manifest/CSV/summary legacy; không tính Elo |
+| `python scripts/build_gomoku_native.py --module mcts --cxx g++` | Build native MCTS; cũng hỗ trợ `--module patterns` | Extension phụ thuộc ABI; build cần compiler tương thích, Python headers và pybind11 headers (có thể lấy từ PyTorch include) |
+| `python -m pytest -q` | Chạy test suite | Tests toàn project; cần environment chính xác; không chạy full suite cho thay đổi Logging V2 (xem implementation report). |
 
-Do not infer undocumented CLI support from README command examples alone; confirm flags in script parser. Native selection is explicit; unavailable extension fails with actionable error, not fallback.
+Không suy ra CLI hỗ trợ flags chưa được tài liệu hóa chỉ từ ví dụ command trong README; xác nhận flags trong script parser. Phải chọn native tường minh; nếu extension không có, báo lỗi có hướng xử lý thay vì fallback.
 
-## 14. Testing strategy và traceability
+## 14. Chiến lược kiểm thử và truy xuất
 
-Tests use pytest in `tests/`. Run focused tests after implementation; full suite only at integration/release gate, with CPU/GPU/backend matrix where available. Latest performance/native reports document different snapshots/counts (e.g. 260/3 skipped and later 261/2 skipped); do not combine these into one current pass claim. This audit did not execute tests.
+Tests dùng pytest trong `tests/`. Sau khi triển khai, chạy tests tập trung; chỉ chạy full suite ở integration/release gate, với ma trận CPU/GPU/backend nếu có. Các báo cáo performance/native mới nhất ghi nhận snapshots/counts khác nhau (ví dụ 260/3 skipped và sau đó 261/2 skipped); không gộp thành một tuyên bố pass hiện tại. Lần audit này không chạy tests.
 
-| Concern | Existing tests/evidence | Required extension / acceptance |
+| Mối quan tâm | Tests/bằng chứng hiện có | Phần cần bổ sung / tiêu chí nghiệm thu |
 |---|---|---|
-| Board, Normal, Renju | `test_board.py`, `test_rules_normal.py`, `test_rules_renju.py`, `test_renju_integration.py` | Add edge and differential/reference fixtures; Renju exact-five/overline/3-3/4-4 interactions |
-| Feature/model contract | `test_features.py`, `test_model.py` | Tensor dimensions/dtype, symmetry feature-policy alignment, finite value/probability and checkpoint roundtrip |
+| Board, Normal, Renju | `test_board.py`, `test_rules_normal.py`, `test_rules_renju.py`, `test_renju_integration.py` | Thêm edge và differential/reference fixtures; kiểm tra tương tác Renju exact-five/overline/3-3/4-4 |
+| Hợp đồng feature/model | `test_features.py`, `test_model.py` | Tensor dimensions/dtype, feature-policy alignment theo symmetry, value/probability hữu hạn và checkpoint roundtrip |
 | MCTS | `test_mcts.py` | win-in-1, sign, forbidden mask, terminal calls, root noise, visit policy, no-legal-moves, tie/temperature |
-| Replay/self-play | `test_replay_buffer.py`, `test_selfplay.py` | legal-target support, policy sum, one sample per ply, z perspective, ruleset separation, reproducible worker IDs |
-| Trainer/resume | `test_trainer.py`, reports | loss math, optimizer/scheduler restore under unchanged config, corrupt/missing buffer and checkpoint behavior |
-| Tournament/fairness | `test_tournament.py`, `test_evaluator.py`, reports | color/opening pairing, seed derivation, immutable output/resume/shards, illegal moves, budgets and config/checkpoint hashes |
-| Native parity | `test_native_mcts.py`, `test_native_patterns.py`, `test_backend.py` | generated-state exact masks/terminal, multi-seed output/target parity, explicit numerical tolerance, statistical quality gate |
-| Elo v1.0 (planned) | Basic sequential Elo calculation/replay tests exist in `az/elo.py` / `tests/test_elo.py`; no advanced protocol evidence | `AT-ELO-01..06`: K=16 research-protocol math, BT/Davidson fit, paired-opening bootstrap, protocol/data validation, staged sample decision |
-| CLI/UI/classical | `test_play_cli.py`, `test_ui.py`, `test_alphabeta.py`, `test_mcts_pure.py`, `test_heuristic.py` | smoke actual runtime for changed path; headless UI environment limits documented |
-| Performance | scripts/reports, benchmark tests | stable corpus and controlled repeated measurements; no speed acceptance without correctness/quality gates |
+| Replay/self-play | `test_replay_buffer.py`, `test_selfplay.py` | legal-target support, tổng policy, một sample mỗi ply, z perspective, tách ruleset, worker IDs có thể tái lập |
+| Trainer/resume | `test_trainer.py`, reports | loss math, khôi phục optimizer/scheduler với config không đổi, xử lý buffer/checkpoint thiếu hoặc hỏng |
+| Tournament/fairness | `test_tournament.py`, `test_evaluator.py`, reports | ghép cặp màu/opening, seed derivation, output/resume/shards bất biến, illegal moves, budgets và config/checkpoint hashes |
+| Native parity | `test_native_mcts.py`, `test_native_patterns.py`, `test_backend.py` | masks/terminal chính xác trên states được tạo, parity output/target nhiều seeds, numeric tolerance tường minh, quality gate thống kê |
+| Elo v1.0 (planned) | Có tests tính/replay sequential Elo cơ bản trong `az/elo.py` / `tests/test_elo.py`; chưa có bằng chứng về protocol nâng cao | `AT-ELO-01..06`: phép tính K=16 của protocol nghiên cứu, BT/Davidson fit, paired-opening bootstrap, xác thực protocol/data, quyết định sample theo giai đoạn |
+| CLI/UI/classical | `test_play_cli.py`, `test_ui.py`, `test_alphabeta.py`, `test_mcts_pure.py`, `test_heuristic.py` | Chạy smoke test thực tế cho đường đi đã đổi; ghi nhận giới hạn môi trường UI headless |
+| Performance | scripts/reports, benchmark tests | corpus ổn định và phép đo lặp có kiểm soát; không chấp nhận speed nếu chưa qua correctness/quality gates |
 
-**Test invocation:** `python -m pytest -q` (full documented command); focused examples: `python -m pytest -q tests/test_rules_renju.py tests/test_mcts.py`, `python -m pytest -q tests/test_native_mcts.py tests/test_backend.py` after building extension. `CUDA_VISIBLE_DEVICES=-1` can force CPU for native report workflow; use platform-appropriate environment syntax on Windows. No performance gate should run expensive training/tournament without explicit authorization.
+**Lệnh chạy tests:** `python -m pytest -q` (lệnh đầy đủ được tài liệu hóa); ví dụ tests tập trung: `python -m pytest -q tests/test_rules_renju.py tests/test_mcts.py`, `python -m pytest -q tests/test_native_mcts.py tests/test_backend.py` sau khi build extension. Có thể dùng `CUDA_VISIBLE_DEVICES=-1` để buộc CPU trong quy trình native report; trên Windows, dùng cú pháp environment phù hợp với nền tảng. Không chạy performance gate cần training/tournament tốn kém nếu chưa được cho phép tường minh.
 
 ## 15. Code style
 
-Follow existing modules: Python 3 type hints, `snake_case` functions/modules, `PascalCase` classes, constants uppercase; narrow responsibilities, NumPy arrays for board/tensors, torch confined to `az/`, rules passed by interface, dataclasses for records. C++ bindings expose narrow contracts and throw Python-visible exceptions on invalid shapes/indices. Tests assert user-visible semantics, not source text. Preserve existing function signatures/contracts unless all callers migrate.
+Tuân theo các module hiện có: type hints Python 3, function/module dùng `snake_case`, class dùng `PascalCase`, constants viết hoa; trách nhiệm hẹp, NumPy arrays cho board/tensors, chỉ dùng torch trong `az/`, truyền rules qua interface, dùng dataclasses cho records. C++ bindings cung cấp contracts hẹp và ném exceptions mà Python nhận được khi shape/index không hợp lệ. Tests kiểm tra semantics người dùng nhìn thấy, không kiểm tra văn bản source. Giữ nguyên function signatures/contracts trừ khi đã chuyển đổi mọi caller.
 
 ```python
 def board_to_planes(board, rules, player: int) -> np.ndarray:
-    """Encode the position from the perspective of the player to move."""
+    """Mã hóa vị trí theo góc nhìn của người chơi sắp đi."""
     planes = np.zeros((N_PLANES, SIZE, SIZE), dtype=np.uint8)
     planes[0] = (board.grid == player).reshape(SIZE, SIZE)
     planes[1] = (board.grid == opponent).reshape(SIZE, SIZE)
     return planes
 ```
 
-Style snippet illustrates current compact array-first convention; it omits actual forbidden/color planes for readability and is not replacement code.
+Đoạn code style minh họa convention hiện tại, ưu tiên array gọn; để dễ đọc, ví dụ bỏ qua các planes forbidden/color thực tế và không dùng thay cho code triển khai.
 
-## 16. Boundaries
+## 16. Ranh giới
 
-- **Always:** check Graphify before source investigation per repository rules; inspect current worktree and keep user changes; source-over-stale-doc precedence; label verified vs unverified; preserve rule/interface/value-sign/data provenance contracts; use exact model/config/ruleset identities; report commands/tests actually run; keep `gomoku/` free of torch; isolate Normal/Renju replay buffers and evidence.
-- **Ask first:** changes beyond this `SPEC.md`; rules interpretation not settled by code/official assignment; changes to training hyperparameters, dependencies, public APIs, checkpoint schema, rating protocol, or benchmark hardware/resource envelope; expensive training, tournament, soak, or artifact migration.
-- **Never:** fabricate results or infer strength from loss/game count/speed; claim Python/C++ production parity from a smoke test; silently fallback from requested C++; mix rule sets in one buffer/pool; overwrite/delete checkpoints, logs, shards, or outputs; introduce hardcoded rule logic outside rules interface; commit credentials or generated training artifacts.
+- **Luôn:** kiểm tra Graphify trước khi khảo sát source theo quy tắc repository; xem worktree hiện tại và giữ nguyên thay đổi của người dùng; ưu tiên source hơn tài liệu cũ; gắn nhãn verified/unverified; giữ contracts về rule/interface/value-sign/data provenance; dùng đúng identities của model/config/ruleset; chỉ báo commands/tests thực sự đã chạy; giữ `gomoku/` không phụ thuộc torch; tách replay buffers và evidence của Normal/Renju.
+- **Hỏi trước:** thay đổi ngoài `SPEC.md` này; cách hiểu rules mà code/ủy quyền chính thức chưa phân định; thay đổi training hyperparameters, dependencies, public APIs, checkpoint schema, rating protocol hoặc giới hạn hardware/resource cho benchmark; chạy training, tournament, soak tốn kém hoặc migration artifacts.
+- **Không bao giờ:** bịa kết quả hoặc suy sức chơi từ loss/game count/speed; khẳng định parity Python/C++ production dựa trên smoke test; âm thầm fallback khi đã yêu cầu C++; gộp rule sets trong một buffer/pool; ghi đè/xóa checkpoints, logs, shards hoặc outputs; thêm logic luật hardcode ngoài rules interface; commit credentials hoặc training artifacts được tạo ra.
 
-This task authorizes the scoped logging implementation and this SPEC/report update. No historical evidence/log/checkpoint/replay data was migrated, renamed, or deleted; benchmark and expensive training/tournament execution remain unperformed. No commit was requested or created.
+Tác vụ này cho phép triển khai logging trong phạm vi đã định và cập nhật SPEC/report này. Không migration, đổi tên hoặc xóa dữ liệu evidence/log/checkpoint/replay lịch sử; chưa chạy benchmark hoặc training/tournament tốn kém. Không yêu cầu hoặc tạo commit.
 
-## 17. Current state, gaps và roadmap
+## 17. Trạng thái hiện tại, khoảng trống và lộ trình
 
-### 17.1 Current state (evidence-backed)
+### 17.1 Trạng thái hiện tại (có bằng chứng)
 
-- Board, Normal/Renju rules, feature encoding, AZNet, MCTS, replay/trainer/self-play and classical opponents exist in source; tests cover key game/search/training contracts.
-- Tournament and raw telemetry/provenance pipeline exists, with color balancing, paired seeds/openings, resume/sharding protections, checkpoint hashing and separate rule selection.
-- Optional native C++ MCTS and pattern extensions exist; Python is default; code explicitly fails closed on unsupported requested native backend.
-- Reports document Normal training 1,000 games and Renju fine-tuning 500 games. Separate config targets 5,000 but is not proof it ran.
-- Reported T35 sample: Heuristic 100/100 against AZ v0 and AZ threat in fixed Normal pairs, and 100/100 against AZ Renju in fixed Renju pair. Therefore primary objective is not met on these runs.
-- Basic sequential Elo recalculation and event persistence exist; leaderboard, uncertainty model, and research-protocol acceptance remain unimplemented.
+- Source có Board, luật Normal/Renju, feature encoding, AZNet, MCTS, replay/trainer/self-play và classical opponents; tests bao phủ các contracts chính về game/search/training.
+- Có pipeline tournament và raw telemetry/provenance, với cân bằng màu, paired seeds/openings, bảo vệ resume/sharding, checkpoint hashing và chọn rules riêng.
+- Có native C++ MCTS và pattern extensions tùy chọn; Python là mặc định; code dừng an toàn nếu native backend được yêu cầu nhưng không hỗ trợ.
+- Reports ghi nhận 1.000 Normal training games và 500 Renju fine-tuning games. Config riêng đặt mục tiêu 5.000 nhưng không chứng minh đã chạy.
+- T35 sample được báo cáo: Heuristic thắng AZ v0 và AZ threat 100/100 trong các cặp Normal fixed, và thắng AZ Renju 100/100 trong cặp Renju fixed. Vì vậy các run này chưa đạt mục tiêu chính.
+- Đã có tính lại sequential Elo cơ bản và lưu event; leaderboard, uncertainty model và tiêu chí protocol nghiên cứu chưa được triển khai.
 
-### 17.2 Gaps and research risks
+### 17.2 Khoảng trống và rủi ro nghiên cứu
 
-1. Strength gap is immediate: sampled T35 matches show Heuristic dominance. Training more without diagnosing policy targets, openings, model/checkpoint provenance, MCTS budget and game trajectories may scale weak data rather than improve.
-2. Basic Elo does not establish the planned rating/uncertainty protocol; no production historical results were recalculated.
-3. Renju semantics need authoritative rule adjudication for international parity beyond current fixtures.
-4. Training metrics lack independent game/position holdout; historical logs omit sufficient environment/code/init-seed/parent-checkpoint provenance for bitwise reproduction.
-5. Native parity evidence has advanced from initial reports, but broad multiseed/data/quality parity, sanitizer and long-duration soak remain unproven.
-6. GPU short smoke and projected 5k throughput do not prove hours-long stability, 10k scaling, or improved playing strength.
-7. Requirements mention Python 3.12 while reports use Python 3.10; shared unpinned requirements and environment locations conflict.
+1. Khoảng cách sức chơi là rõ ràng: các trận T35 được lấy mẫu cho thấy Heuristic áp đảo. Training thêm mà chưa chẩn đoán policy targets, openings, model/checkpoint provenance, MCTS budget và game trajectories có thể làm dữ liệu yếu tăng lên thay vì cải thiện.
+2. Elo cơ bản chưa đáp ứng protocol rating/uncertainty đã dự kiến; chưa tính lại kết quả lịch sử production.
+3. Cần thẩm định luật Renju có thẩm quyền để xác nhận semantics quốc tế ngoài các fixtures hiện có.
+4. Training metrics thiếu game/position holdout độc lập; logs lịch sử thiếu provenance môi trường/code/init-seed/parent-checkpoint cần thiết để tái tạo từng bit.
+5. Bằng chứng native parity đã tiến triển so với các báo cáo ban đầu, nhưng parity đa seed/dữ liệu/chất lượng trên diện rộng, sanitizer và soak dài hạn vẫn chưa được chứng minh.
+6. GPU smoke ngắn và throughput 5k dự phóng không chứng minh độ ổn định nhiều giờ, khả năng scale tới 10k hoặc sức chơi được cải thiện.
+7. Requirements đề cập Python 3.12 trong khi reports dùng Python 3.10; requirements dùng chung không pin phiên bản và vị trí environment đang mâu thuẫn.
 
-### 17.3 Target state and build order
+### 17.3 Trạng thái mục tiêu và thứ tự xây dựng
 
-| Order / module id | Target and acceptance | Dependencies |
+| Thứ tự / module id | Mục tiêu và tiêu chí nghiệm thu | Phụ thuộc |
 |---|---|---|
-| 1 `game-rules` | Canonicalize Normal/Renju behavior; edge/reference/differential tests and documented rule scope pass | — |
-| 2 `ai-search` | Multi-state MCTS/network/self-play invariants; diagnose Heuristic loss with fixed test positions, tactical coverage and training-target audits | game-rules |
-| 3 `native-parity` | Broad deterministic differential + multiseed trajectory/target parity; GPU/CPU integration and soak; only then promote backend | game-rules |
-| 4 `selfplay-training` | Reliable recoverable runs, complete manifest, independent quality evaluation milestones at 0/500/1k/2.5k/5k/10k; explicit stop/continue rules | ai-search |
-| 5 `evaluation` | Immutable protocol/match logs, Elo/Bradley–Terry estimate + uncertainty, frozen baselines, checkpoint learning curve; establish AZ vs Heuristic objective empirically | selfplay-training |
-| 6 `reproducibility` | Clean-environment replay of published training/tournament run from manifest and verified artifacts | selfplay-training, evaluation |
+| 1 `game-rules` | Chuẩn hóa hành vi Normal/Renju; edge/reference/differential tests và phạm vi rules được tài liệu hóa đều đạt | — |
+| 2 `ai-search` | Bất biến MCTS/network/self-play trên nhiều states; chẩn đoán việc thua Heuristic bằng test positions cố định, tactical coverage và audit training-targets | game-rules |
+| 3 `native-parity` | Differential tests deterministic trên diện rộng cùng parity trajectory/target nhiều seeds; tích hợp GPU/CPU và soak; chỉ sau đó mới promote backend | game-rules |
+| 4 `selfplay-training` | Runs đáng tin cậy, có thể phục hồi, manifest đầy đủ, các mốc đánh giá chất lượng độc lập tại 0/500/1k/2.5k/5k/10k; quy tắc stop/continue tường minh | ai-search |
+| 5 `evaluation` | Protocol/match logs bất biến, ước lượng Elo/Bradley–Terry cùng uncertainty, baselines đóng băng, checkpoint learning curve; kiểm tra thực nghiệm mục tiêu AZ so với Heuristic | selfplay-training |
+| 6 `reproducibility` | Chạy lại trong environment sạch một training/tournament run đã công bố từ manifest và artifacts đã xác minh | selfplay-training, evaluation |
 
-Dependency order follows the approved capability map; `native-parity` and `selfplay-training` can proceed after their shared prerequisites without a dependency between them. Ordering is future work, not current implementation structure. Trustworthy logs remain a prerequisite for conclusions.
+Thứ tự phụ thuộc theo capability map đã duyệt; `native-parity` và `selfplay-training` có thể tiếp tục sau khi đáp ứng các prerequisite chung mà không phụ thuộc lẫn nhau. Đây là thứ tự công việc tương lai, không phải cấu trúc implementation hiện tại. Logs đáng tin cậy vẫn là điều kiện để đưa ra kết luận.
 
-**Priority decision:** First diagnose and measure quality regression against Heuristic using exact historical protocols and fixed tactical test positions; do not launch 5k/10k run just because config exists. In parallel tighten Renju rule/test contract and training provenance. Then establish evaluation uncertainty, broaden backend parity, and scale self-play with staged resource/quality checkpoints. Optimization only after identifying bottleneck and passing parity/quality gates.
+**Quyết định ưu tiên:** Trước tiên chẩn đoán và đo regression chất lượng so với Heuristic theo đúng historical protocols và tactical test positions cố định; không khởi chạy 5k/10k chỉ vì config tồn tại. Đồng thời củng cố hợp đồng luật/test Renju và training provenance. Sau đó thiết lập uncertainty của evaluation, mở rộng backend parity và tăng self-play theo các mốc tài nguyên/chất lượng. Chỉ tối ưu sau khi xác định bottleneck và đạt parity/quality gates.
 
-### 17.4 Training roadmap by quality gates (Planned)
+### 17.4 Lộ trình training theo quality gates (Planned)
 
-Milestones are cumulative iterations in one Normal `az_v0` lineage, not separate model versions or baselines. Migration used the latest valid checkpoint state at iteration 200, global step 184,000, Normal rules, optimizer state, 50,000 replay samples and 512 frozen eval samples. SQLite preserves historical runs but is not asserted to contain every historical game. The former 1,000-game checkpoint is not used as a baseline. Every 5,000 newly generated games, run the v1.2 gate for exactly 100 games against best, or Heuristic when no best exists, using 200 AZ simulations, four opening plies and the Python evaluation backend.
+Các milestone là iteration tích lũy trong cùng lineage Normal `az_v0`, không phải phiên bản model hoặc baseline riêng. Migration dùng trạng thái checkpoint hợp lệ mới nhất ở iteration 200, global step 184,000, luật Normal, optimizer state, 50.000 replay samples và 512 frozen eval samples. SQLite giữ lại các runs lịch sử nhưng không khẳng định chứa mọi game lịch sử. Checkpoint 1.000-game trước đây không được dùng làm baseline. Cứ mỗi 5.000 games mới được tạo, chạy gate v1.2 chính xác 100 games đấu với best, hoặc Heuristic nếu chưa có best, dùng 200 AZ simulations, bốn opening plies và Python evaluation backend.
 
-| Cumulative self-play games | Checkpoint/evaluation gate | Decision |
+| Số self-play games tích lũy | Checkpoint/evaluation gate | Quyết định |
 |---|---|---|
-| Every +5,000 | Save latest/replay; record hash, iteration and optimizer steps; evaluate against best or, if absent, Heuristic | Promote only if lower 95% ΔElo CI vs selected opponent >0 |
+| Mỗi +5.000 | Lưu latest/replay; ghi hash, iteration và optimizer steps; đánh giá với best hoặc Heuristic nếu chưa có best | Chỉ promote nếu cận dưới 95% ΔElo CI so với opponent được chọn >0 |
 
-**Stop/continue rule:** data/rule/checkpoint integrity failure stops immediately. A confirmed regression (CI upper <0 vs best) rejects the candidate and stops that training session; an inconclusive result retains best without further games. Self-play continues from latest only after integrity passes; loss and completed-game count never promote. Historical SQLite run IDs and outcomes remain untouched.
+**Quy tắc dừng/tiếp tục:** lỗi toàn vẹn data/rule/checkpoint thì dừng ngay. Regression đã xác nhận (CI upper <0 so với best) từ chối candidate và dừng training session; kết quả inconclusive giữ best và không tạo thêm games. Self-play chỉ tiếp tục từ latest sau khi qua kiểm tra toàn vẹn; loss và số games hoàn tất không bao giờ là căn cứ promote. Giữ nguyên lịch sử SQLite run IDs và outcomes.
 
-Acceptance `AC-TRAIN-MILESTONE-01`: every evaluation checkpoint has hash, iteration/game count, optimizer steps and versioned Elo output or explicit Unknown. `AC-TRAIN-MILESTONE-02`: promotion decision reproduces from stored W/D/L, bootstrap seed and checkpoint hashes. `AC-TRAIN-MILESTONE-03`: reports distinguish self-play games, optimizer steps, Elo CI and hardware/compute; missing stage data is a gap, not interpolated result.
+Tiêu chí nghiệm thu `AC-TRAIN-MILESTONE-01`: mỗi evaluation checkpoint có hash, iteration/game count, optimizer steps và Elo output có version hoặc trạng thái Unknown tường minh. `AC-TRAIN-MILESTONE-02`: quyết định promotion tái tạo được từ W/D/L đã lưu, bootstrap seed và checkpoint hashes. `AC-TRAIN-MILESTONE-03`: reports phân biệt self-play games, optimizer steps, Elo CI và hardware/compute; thiếu dữ liệu ở giai đoạn nào thì ghi là khoảng trống, không nội suy kết quả.
 
-## 18. Open questions và giới hạn bằng chứng
+## 18. Câu hỏi còn mở và giới hạn bằng chứng
 
-1. Which authoritative Renju ruleset (including opening/forfeit nuances) is the acceptance authority? Current implementation is documented, but international legality is not independently validated.
-2. Elo v1.0 fixes the proposed anchor, thresholds and sample sizes, but their suitability is not yet validated: choose the frozen Heuristic implementation/config and use the 100-game pilot to assess paired-cluster variance/power before preregistering a main run. A protocol change requires a new version.
-3. The proposed BT/Davidson model, color adjustment and 400/600/800 stopping schedule require synthetic-data tests and pilot fit diagnostics; confirm whether draw frequency or pool connectivity requires modifying the model before official study.
-4. Which interpreter/environment is canonical: shared Python 3.12 requirements or report-tested Python 3.10 venv? Resolve before published reruns.
-5. Historical game log provenance does not fully bind source commit, initialization seed and parent checkpoint; exact reproduction may be impossible for earlier runs.
-6. This document audit read source, tests, configs and selected performance/report artifacts; did not run test suite, native build, GUI, training, or tournament. Check-in report claims are cited as report evidence, not independently revalidated in this turn.
+1. Cơ quan nào có thẩm quyền xác định ruleset Renju (bao gồm các chi tiết opening/forfeit) dùng làm tiêu chuẩn nghiệm thu? Implementation hiện được tài liệu hóa, nhưng tính hợp lệ theo luật quốc tế chưa được xác minh độc lập.
+2. Elo v1.0 đề xuất anchor, thresholds và sample sizes nhưng chưa xác nhận tính phù hợp: chọn implementation/config Heuristic được đóng băng và dùng pilot 100 games để đánh giá paired-cluster variance/power trước khi đăng ký main run. Thay đổi protocol cần version mới.
+3. Cần synthetic-data tests và pilot fit diagnostics cho BT/Davidson model, color adjustment và stopping schedule 400/600/800; xác nhận draw frequency hoặc pool connectivity có đòi hỏi điều chỉnh model trước nghiên cứu chính thức không.
+4. Interpreter/environment nào là chuẩn: shared Python 3.12 requirements hay venv Python 3.10 đã được báo cáo kiểm thử? Phải giải quyết trước khi công bố reruns.
+5. Provenance game logs lịch sử chưa gắn đầy đủ source commit, initialization seed và parent checkpoint; có thể không tái tạo chính xác các run trước đây.
+6. Lần audit tài liệu này đã đọc source, tests, configs và một số artifacts performance/report; không chạy test suite, native build, GUI, training hoặc tournament. Các claims trong check-in reports được trích dẫn như bằng chứng từ report, không được xác minh lại độc lập trong lượt này.

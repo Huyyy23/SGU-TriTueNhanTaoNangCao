@@ -10,8 +10,8 @@ Kiểm thử end-to-end Python/C++ cho Self-play và Tournament (Normal và Renj
 
 ### `scripts/arena.py`
 - Thêm CLI `--backend` (`auto|cpp|python`, mặc định `auto`), `--mcts-backend`, `--patterns-backend` (`python|cpp`).
-- Thay `backend = "python"` hardcoded bằng `configure_backends(...)` từ `az/backend.py`; giá trị được lưu vào `cli_config["backend"]`, manifest `backend_metadata`, metadata sự kiện và truyền vào `make_named_player(..., backends=backends)`.
-- Fallback nhất quán với Tournament: `auto` chọn C++ nếu có compiler và module tương thích, ngược lại Python; `cpp` explicitly fail closed (không fallback âm thầm).
+- Thay `backend = "python"` được mã hóa cứng bằng `configure_backends(...)` từ `az/backend.py`; giá trị được lưu vào `cli_config["backend"]`, manifest `backend_metadata`, metadata sự kiện và truyền vào `make_named_player(..., backends=backends)`.
+- Fallback nhất quán với Tournament: `auto` chọn C++ nếu có compiler và module tương thích, ngược lại chọn Python; `cpp` từ chối chạy khi không sẵn sàng (không âm thầm fallback).
 
 ### `scripts/tournament.py`
 - `make_named_player(...)` nhận tham số `backends: dict | None` và giải quyết `mcts_backend` / `patterns_backend` trước khi gọi `create_player`; arena truyền `backends` vào mỗi agent AZ.
@@ -65,9 +65,9 @@ Chạy bằng `.venv/Scripts/python.exe scripts/profile_cpp_backend.py`.
 | Parallel cpp self-play 4 ván / 2 workers | ~5729–6843 ms | Worker load .pyd, không build |
 
 **Kết luận profiling:**
-- **NN inference là chi phí dominant** (nghìn inference call mỗi ván, mỗi lần ~0.9–1.3 ms CPU; trên GPU sẽ khác). MCTS tree chỉ là một phần nhỏ.
-- Chỉ chuyển MCTS tree sang C++ **không mang lại tốc độ self-play tổng thể** trên workload này (cpp thậm chí chậm hơn python do gọi liên tục qua ranh giới pybind11: `request()` / `receive()` mỗi lá, plus play/undo và mask/python glue).
-- Overhead Python↔C++: mỗi lá MCTS phải gọi `request()` (C++) → Python tính planes/mask → `receive()` (C++), mỗi tick có nhiều lần chéo ranh giới. Đây là coût không thể loại trừ mà không viết toàn bộ vòng lặp MCTS+inference ở C++, điều SPEC cấm (không thay đổi thuật toán AlphaZero, không chuyển inference sang C++).
+- **NN inference là chi phí chủ đạo** (hàng nghìn inference call mỗi ván, mỗi lần ~0.9–1.3 ms CPU; trên GPU sẽ khác). MCTS tree chỉ là một phần nhỏ.
+- Chỉ chuyển cây MCTS sang C++ **không giúp tăng tốc self-play tổng thể** trên workload này (cpp thậm chí chậm hơn python do gọi liên tục qua ranh giới pybind11: `request()` / `receive()` mỗi lá, cộng với play/undo và lớp kết nối Python).
+- Overhead Python↔C++: mỗi lá MCTS phải gọi `request()` (C++) → Python tính planes/mask → `receive()` (C++), mỗi tick có nhiều lần đi qua ranh giới. Không thể loại bỏ chi phí này nếu không viết toàn bộ vòng lặp MCTS+inference bằng C++, điều SPEC cấm (không thay đổi thuật toán AlphaZero, không chuyển inference sang C++).
 
 → **Không tốiưu thành phần nào thêm** vì không có bằng chứng bottleneck ở MCTS tree; phần lớn thời gian ở inference PyTorch (vẫn phải giữ Python theo SPEC).
 

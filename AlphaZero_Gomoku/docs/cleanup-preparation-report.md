@@ -1,70 +1,61 @@
-# Gomoku AlphaZero — Cleanup Preparation Report (Final)
-
-Date: 2026-11-21. Branch: `main`. Read-only audit; no deletions, commits, resets, or code changes.
-
-## 1. Decision summary
-
-| Bucket | Size | Action |
+# Gomoku AlphaZero — Báo cáo chuẩn bị dọn dẹp (Bản cuối)
+Ngày: 2026-11-21. Nhánh: `main`. Kiểm tra chỉ đọc; không xóa, commit, reset hay thay đổi mã.
+## 1. Tóm tắt quyết định
+| Nhóm | Dung lượng | Hành động |
 |---|---:|---|
-| KEEP (core runtime) | ~26G | Retain: `checkpoints/` active, `data/*.sqlite`, `evidence/`, `logs/` |
-| COMMIT (source/tests/docs) | ~few MB | Commit in 7 feature groups (§5) |
-| IGNORE (gitignored runtime) | mixed | Already ignored; add patterns (§4) |
-| SAFE DELETE (verified) | ≈ 3.0G | Delete after commit (§3) |
-| NEED REVIEW | ≈ 1.2G+ (checkpoint history ≈ 20.6G extra) | Require explicit approval (§6) |
+| GIỮ (runtime cốt lõi) | ~26G | Giữ lại: `checkpoints/` đang hoạt động, `data/*.sqlite`, `evidence/`, `logs/` |
+| ĐƯA VÀO COMMIT (mã nguồn/kiểm thử/tài liệu) | ~vài MB | Commit theo 7 nhóm tính năng (§5) |
+| BỎ QUA (runtime đã bị gitignore) | hỗn hợp | Đã được ignore; thêm các mẫu (§4) |
+| XÓA AN TOÀN (đã xác minh) | ≈ 3.0G | Xóa sau khi commit (§3) |
+| CẦN XEM XÉT | ≈ 1.2G+ (lịch sử checkpoint ≈ 20.6G bổ sung) | Cần phê duyệt rõ ràng (§6) |
+## 2. Kiểm tra checkpoint (`checkpoints/`, 21G)
+- Đích resume đang hoạt động: `checkpoints/normal/latest.json` → thế hệ `2156cbadc8c546ebac27ec0925f42a82` (~55M: `checkpoint.pt` + `manifest.json` + `replay.npz`).
+- `normal/generations/`: 204 thư mục × ~54M ≈ 11.0G. Chỉ cần thế hệ đang hoạt động để resume; 203 thế hệ còn lại dùng làm lịch sử/khôi phục.
+- `normal/recovery/`: 201 thư mục, 9.5G. Được `az/trainer.py`, `az/training_recovery.py`, `scripts/train.py`, `tests/test_train_resume_logging.py` tham chiếu — **không xóa nếu chưa xem xét chính sách khôi phục huấn luyện**.
+- Thư mục smoke/kiểm thử: `_check/` 6.9M, `_smoke/` 7.0M, `_smoke2/` 8.1M. Không có tham chiếu trong mã dự án (chỉ có kết quả khớp trong `.venv`). ỨNG VIÊN XÓA AN TOÀN.
+- Các liên kết cũ ở cấp cao nhất: `latest.pt` 5.7M, `buffer_latest.npz` 37M. CẦN XEM XÉT (xác nhận không có tham chiếu trong cấu hình/script).
+- Biến thể Renju: `renju_last.pt` 5.7M, `renju_buffer_last.npz` 8.7M. GIỮ nếu còn huấn luyện Renju; nếu không thì CẦN XEM XÉT.
+**Phân loại:**
+- GIỮ: `normal/latest.json` + thư mục thế hệ đang hoạt động + các đường dẫn được cấu hình tham chiếu.
+- XÓA AN TOÀN (có khả năng): `_check/`, `_smoke/`, `_smoke2/` (~22M) sau khi kiểm tra phụ thuộc của bài kiểm thử.
+- CẦN XEM XÉT: 203 thế hệ không hoạt động (~11G), `recovery/` (9.5G), các liên kết cũ cấp cao nhất (~43M), tệp Renju (~14M). Cần quyết định chính sách lưu giữ.
+## 3. Danh sách XÓA AN TOÀN (đã xác minh, ≈ 3.0G)
 
-## 2. Checkpoint audit (`checkpoints/`, 21G)
-
-- Active resume target: `checkpoints/normal/latest.json` → generation `2156cbadc8c546ebac27ec0925f42a82` (~55M: `checkpoint.pt` + `manifest.json` + `replay.npz`).
-- `normal/generations/`: 204 dirs × ~54M ≈ 11.0G. Only the active one is needed for resume; the other 203 are history/rollback.
-- `normal/recovery/`: 201 dirs, 9.5G. Referenced by `az/trainer.py`, `az/training_recovery.py`, `scripts/train.py`, `tests/test_train_resume_logging.py` — **do not delete without training-recovery policy review**.
-- Smoke/test dirs: `_check/` 6.9M, `_smoke/` 7.0M, `_smoke2/` 8.1M. No project code references (only `.venv` matches). SAFE DELETE candidate.
-- Top-level legacy pointers: `latest.pt` 5.7M, `buffer_latest.npz` 37M. NEED REVIEW (confirm no config/script references).
-- Renju variant: `renju_last.pt` 5.7M, `renju_buffer_last.npz` 8.7M. KEEP if renju training active; else NEED REVIEW.
-
-**Classification:**
-- KEEP: `normal/latest.json` + active generation dir + config-referenced paths.
-- SAFE DELETE (likely): `_check/`, `_smoke/`, `_smoke2/` (~22M) after test-dependency check.
-- NEED REVIEW: 203 non-active generations (~11G), `recovery/` (9.5G), top-level legacy pointers (~43M), renju artifacts (~14M). Retention policy decision required.
-
-## 3. SAFE DELETE list (verified, ≈ 3.0G)
-
-Evidence: all candidates are untracked (`git ls-files` returns none); core pipeline (`az/`, `scripts/`, `players/`, `configs/`) has zero references; only self-contained experiment `analyze.py`/`build.py` or audit docs reference them.
-
-| Path | Size | Verdict | Justification |
+Bằng chứng: không ứng viên nào được theo dõi (`git ls-files` không trả về kết quả); pipeline cốt lõi (`az/`, `scripts/`, `players/`, `configs/`) không có tham chiếu nào; chỉ `analyze.py`/`build.py` của các thử nghiệm độc lập hoặc tài liệu kiểm tra có tham chiếu đến chúng.
+| Đường dẫn | Dung lượng | Kết luận | Lý do |
 |---|---:|---|---|
-| `gomoku_logging_backup_20261119T173723541431Z/` (root) | 2.4G | SAFE DELETE | Log backup; no code/config/runtime refs |
-| `AlphaZero_Gomoku/az_100pilot_botfozch/` | 337M | SAFE DELETE | Self-contained experiment |
-| `AlphaZero_Gomoku/az_contpilot_wzdps5fu/` | 101M | SAFE DELETE | Cross-ref only by `az_finalprobe/experiment.py`; delete together |
-| `AlphaZero_Gomoku/az_finalprobe_71723je1/` | 35M | SAFE DELETE | Self-contained probe |
-| `AlphaZero_Gomoku/az_readiness_native_wo5zl7ml/` | 18M | SAFE DELETE | Self-contained readiness run |
-| `AlphaZero_Gomoku/az_crashproof_mkxtuk9c/` | 7.9M | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/tactical_experiment_20261120/` | 8.2M | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/defensive_holdout_50k_eval/` | 1.0M | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/value_calibration_50k_data/` | 669K | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/value_calibration_50k_mcts/` | 225K | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/value_calibration_50k_stats/` | 83K | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/defensive_holdout_50k_data/` | 152K | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/defensive_gate_ablation_50k/` | 395K | SAFE DELETE | Only referenced by `final_50k_pilot/data/build_holdout.py` |
-| `AlphaZero_Gomoku/tactical_50k_analysis_20261120/` | 336K | SAFE DELETE | Self-contained |
-| `AlphaZero_Gomoku/checkpoints_selfplay_20k/` | 1.9M | NEED REVIEW | No code refs; only historical docs; confirm run IDs |
-| `AlphaZero_Gomoku/pytest-of-User/` | 30M | SAFE DELETE | pytest temp, no references, gitignored |
-| root `pytest-of-User/` | 1.5M | SAFE DELETE | pytest temp |
-| `AlphaZero_Gomoku/_check/`, `_smoke/`, `_smoke2/` (under checkpoints/) | 22M | SAFE DELETE (likely) | Smoke artifacts; verify no test depends |
+| `gomoku_logging_backup_20261119T173723541431Z/` (gốc) | 2.4G | XÓA AN TOÀN | Bản sao lưu log; không có tham chiếu mã/cấu hình/runtime |
+| `AlphaZero_Gomoku/az_100pilot_botfozch/` | 337M | XÓA AN TOÀN | Thử nghiệm độc lập |
+| `AlphaZero_Gomoku/az_contpilot_wzdps5fu/` | 101M | XÓA AN TOÀN | Chỉ được `az_finalprobe/experiment.py` tham chiếu chéo; xóa cùng nhau |
+| `AlphaZero_Gomoku/az_finalprobe_71723je1/` | 35M | XÓA AN TOÀN | Thử nghiệm độc lập |
+| `AlphaZero_Gomoku/az_readiness_native_wo5zl7ml/` | 18M | XÓA AN TOÀN | Lần chạy kiểm tra mức độ sẵn sàng độc lập |
+| `AlphaZero_Gomoku/az_crashproof_mkxtuk9c/` | 7.9M | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/tactical_experiment_20261120/` | 8.2M | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/defensive_holdout_50k_eval/` | 1.0M | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/value_calibration_50k_data/` | 669K | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/value_calibration_50k_mcts/` | 225K | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/value_calibration_50k_stats/` | 83K | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/defensive_holdout_50k_data/` | 152K | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/defensive_gate_ablation_50k/` | 395K | XÓA AN TOÀN | Chỉ được `final_50k_pilot/data/build_holdout.py` tham chiếu |
+| `AlphaZero_Gomoku/tactical_50k_analysis_20261120/` | 336K | XÓA AN TOÀN | Độc lập |
+| `AlphaZero_Gomoku/checkpoints_selfplay_20k/` | 1.9M | CẦN XEM XÉT | Không có tham chiếu mã; chỉ có trong tài liệu lịch sử; xác nhận ID lần chạy |
+| `AlphaZero_Gomoku/pytest-of-User/` | 30M | XÓA AN TOÀN | Tệp tạm pytest, không có tham chiếu, đã gitignore |
+| `pytest-of-User/` ở gốc | 1.5M | XÓA AN TOÀN | Tệp tạm pytest |
+| `AlphaZero_Gomoku/_check/`, `_smoke/`, `_smoke2/` (trong checkpoints/) | 22M | XÓA AN TOÀN (có khả năng) | Tệp smoke; xác minh không có bài kiểm thử phụ thuộc |
 
-**Total SAFE DELETE ≈ 3.0G** (backup 2.4G dominates).
+**Tổng XÓA AN TOÀN ≈ 3.0G** (bản sao lưu 2.4G chiếm phần lớn).
+## 4. Các mục thêm vào `.gitignore` (đề xuất, chưa áp dụng)
+Hiện đã ignore: `checkpoints/`, `logs/`, `evidence/`, `*.sqlite*`, `pytest-of-*/`, `__pycache__/`, `.venv/`, `*.pt`, `*.npz`, `*.pyd`/`*.so`. Còn thiếu: thư mục thử nghiệm, JSON hiệu năng thô, exports, bản sao lưu, lab05, thư mục native.
+Thêm các dòng sau vào `.gitignore` ở gốc:
 
-## 4. `.gitignore` additions (proposed, not applied)
-
-Currently ignored: `checkpoints/`, `logs/`, `evidence/`, `*.sqlite*`, `pytest-of-*/`, `__pycache__/`, `.venv/`, `*.pt`, `*.npz`, `*.pyd`/`*.so`. Gap: experiment dirs, raw perf JSON, exports, backup, lab05, native dir.
-
-Add to **root** `.gitignore`:
-```
+```gitignore
 lab05 - game/
 gomoku_logging_backup_*/
 ```
 
-Add to **`AlphaZero_Gomoku/.gitignore`**:
-```
+Thêm các dòng sau vào `AlphaZero_Gomoku/.gitignore`:
+
+```gitignore
 # Experiment run directories (dated/pilot)
 az_*pilot*/
 az_*probe*/
@@ -91,61 +82,59 @@ pip-install-*/
 torchinductor_*/
 pytest-of-*/
 ```
+Thêm vào **`AlphaZero_Gomoku/.gitignore`**:
+Kiểm tra rủi ro: `git check-ignore` xác nhận `.sqlite`, `.pyd`, `checkpoints/` đã được ignore. `lab05 - game/` và `raw-*.json` CHƯA được ignore → có nguy cơ commit nhầm. Không có tệp nhị phân/cơ sở dữ liệu nào được theo dõi (`git ls-files` không trả về kết quả).
+## 5. Nhóm commit (7 nhóm tính năng)
 
-Risk check: `git check-ignore` confirms `.sqlite`, `.pyd`, `checkpoints/` already ignored. `lab05 - game/` and `raw-*.json` are NOT ignored → accidental commit risk. No tracked binary/DB artifacts exist (`git ls-files` returned none).
-
-## 5. Commit grouping (7 feature groups)
-
-| # | Group | Core files | Risk | Tests |
+| # | Nhóm | Tệp cốt lõi | Rủi ro | Kiểm thử |
 |---|---|---|---|---|
-| 1 | MCTS native backend + batching | `az/mcts.py`, `scripts/bench_batching.py`, `tests/test_mcts.py`, `tests/test_native_mcts.py` (new), `native/*` | HIGH (search correctness) | test_mcts, test_native_mcts |
-| 2 | Self-play / trainer loop | `az/selfplay.py`, `az/trainer.py`, `az/replay_buffer.py`, tests | HIGH (training correctness) | test_selfplay (+237), test_trainer (+316), test_replay_buffer (+75) |
-| 3 | Logging v2 + experiment exchange | `az/logging_v2.py` (new), `az/experiment_exchange.py` (new), `az/backend_logging.py`, `az/game_log.py`, `scripts/migrate_logs_to_sqlite.py`, `scripts/exchange_experiment.py`, tests | Medium (data ingestion) | test_logging (rewritten), test_logging_v2 (new) |
-| 4 | Elo + tournament/arena | `az/elo.py` (new), `scripts/recalculate_elo.py`, `scripts/tournament.py`, `scripts/arena.py`, `players/factory.py`, tests | Medium | test_elo (new), test_tournament (+342), test_arena (+66) |
-| 5 | Renju fine-tune + model | `az/renju_finetune.py`, `az/model.py`, `config*.yaml`, tests | Medium-high (game rules) | test_rules_normal (+12), test_patterns (+11) |
-| 6 | Player/agent factory + UI | `players/az_player.py`, `ui/pygame_app.py`, `ui/pygame_frontend.py` (new), tests | Low-medium | test_ui (+221 new) |
-| 7 | Config/docs/tasks/housekeeping | `config.py`, configs, docs/*, tasks/*, README, `.gitignore` | Low | test_config (+21) |
+| 1 | Backend MCTS native + batching | `az/mcts.py`, `scripts/bench_batching.py`, `tests/test_mcts.py`, `tests/test_native_mcts.py` (mới), `native/*` | CAO (tính đúng đắn của tìm kiếm) | test_mcts, test_native_mcts |
+| 2 | Vòng lặp self-play / trainer | `az/selfplay.py`, `az/trainer.py`, `az/replay_buffer.py`, các bài kiểm thử | CAO (tính đúng đắn của huấn luyện) | test_selfplay (+237), test_trainer (+316), test_replay_buffer (+75) |
+| 3 | Logging v2 + trao đổi thử nghiệm | `az/logging_v2.py` (mới), `az/experiment_exchange.py` (mới), `az/backend_logging.py`, `az/game_log.py`, `scripts/migrate_logs_to_sqlite.py`, `scripts/exchange_experiment.py`, các bài kiểm thử | Trung bình (nạp dữ liệu) | test_logging (viết lại), test_logging_v2 (mới) |
+| 4 | Elo + tournament/arena | `az/elo.py` (mới), `scripts/recalculate_elo.py`, `scripts/tournament.py`, `scripts/arena.py`, `players/factory.py`, các bài kiểm thử | Trung bình | test_elo (mới), test_tournament (+342), test_arena (+66) |
+| 5 | Tinh chỉnh Renju + model | `az/renju_finetune.py`, `az/model.py`, `config*.yaml`, các bài kiểm thử | Trung bình-cao (luật chơi) | test_rules_normal (+12), test_patterns (+11) |
+| 6 | Factory player/agent + UI | `players/az_player.py`, `ui/pygame_app.py`, `ui/pygame_frontend.py` (mới), các bài kiểm thử | Thấp-trung bình | test_ui (+221 mới) |
+| 7 | Cấu hình/tài liệu/tasks/bảo trì | `config.py`, configs, docs/*, tasks/*, README, `.gitignore` | Thấp | test_config (+21) |
 
-**Test-weakening check:** No assertion weakening detected. `test_logging.py` assertions rewritten to new logging-v2 schema (semantic, tied to feature). `test_az_player.py` added `@pytest.mark.skipif(not RUN_SLOW)` gates (pre-existing pattern, not weakening). `test_trainer.py`/`test_selfplay.py` are large net additions. New untracked tests all additive.
+**Kiểm tra việc làm yếu bài kiểm thử:** Không phát hiện làm yếu assertion. Assertion trong `test_logging.py` được viết lại theo schema logging-v2 mới (ngữ nghĩa gắn với tính năng). `test_az_player.py` thêm các điều kiện `@pytest.mark.skipif(not RUN_SLOW)` (mẫu có từ trước, không phải làm yếu kiểm thử). `test_trainer.py`/`test_selfplay.py` có lượng bổ sung ròng lớn. Các bài kiểm thử mới chưa được theo dõi đều bổ sung thêm.
 
-**High-risk signature changes to verify before commit:** evaluator `evaluate` lost `logger` param; `GameLogger` API reduced; `Trainer.train_steps` return type changed; `Trainer.save` signature changed to pointer path; `ReplayBuffer.add` gained optional `game_id`; `normal_5000.yaml` deleted.
+**Các thay đổi chữ ký rủi ro cao cần xác minh trước khi commit:** evaluator `evaluate` bỏ tham số `logger`; API `GameLogger` được thu gọn; kiểu trả về của `Trainer.train_steps` thay đổi; chữ ký `Trainer.save` đổi thành đường dẫn pointer; `ReplayBuffer.add` thêm `game_id` tùy chọn; xóa `normal_5000.yaml`.
+## 6. CẦN XEM XÉT (chưa đủ bằng chứng)
 
-## 6. NEED REVIEW (insufficient evidence)
-
-| Item | Size | Missing evidence |
+| Mục | Dung lượng | Bằng chứng còn thiếu |
 |---|---:|---|
-| `final_50k_pilot/` | 51M | Own `analyze.py`/`build.py`/`evaluate.py`/`test_pilot.py`; verify regenerable |
-| `checkpoints_selfplay_20k/` | 1.9M | No code refs; only historical docs; confirm run IDs not needed for resume |
-| `docs/exports/` | 2.3M | Verify referenced by benchmark reports |
-| `docs/performance/raw-*.json` (12 files) | 329K | Referenced by `09-deep-profiling.md` and `11-production-benchmark.md` (keep for reproducibility) |
-| `checkpoints/normal/` non-active 203 generations | ~11G | Training retention/rollback policy |
-| `checkpoints/normal/recovery/` | 9.5G | Referenced by trainer/training_recovery; confirm retention policy |
-| Top-level legacy pointers (`latest.pt`, `buffer_latest.npz`) | ~43M | Confirm no config/script references |
-| Renju artifacts (`renju_last.pt`, `renju_buffer_last.npz`) | ~14M | Confirm renju training inactive |
-| `data/az_25k_continuation_v1*` + eval DBs | ~1.1G | Confirm run IDs not needed for resume (`az/logging_v2.py`) |
-| Experiment dirs (`final_50k_pilot`, `defensive_*`, `tactical_*`, `value_calibration_*`) | ~80M+ | Each has own analyze/build/evaluate; verify regenerable |
-| `"lab05 - game/"` | small | Ownership (unrelated lab deliverable) |
-| `docs/untracked-and-junk-inventory.md` | small | Self-audit doc ownership |
+| `final_50k_pilot/` | 51M | Có `analyze.py`/`build.py`/`evaluate.py`/`test_pilot.py` riêng; xác minh có thể tạo lại |
+| `checkpoints_selfplay_20k/` | 1.9M | Không có tham chiếu mã; chỉ có trong tài liệu lịch sử; xác nhận không cần ID lần chạy để resume |
+| `docs/exports/` | 2.3M | Xác minh các báo cáo benchmark có tham chiếu |
+| `docs/performance/raw-*.json` (12 tệp) | 329K | Được `09-deep-profiling.md` và `11-production-benchmark.md` tham chiếu (giữ để tái lập kết quả) |
+| 203 thế hệ không hoạt động trong `checkpoints/normal/` | ~11G | Chính sách lưu giữ/khôi phục huấn luyện |
+| `checkpoints/normal/recovery/` | 9.5G | Được trainer/training_recovery tham chiếu; xác nhận chính sách lưu giữ |
+| Các pointer cũ ở cấp cao nhất (`latest.pt`, `buffer_latest.npz`) | ~43M | Xác nhận không có tham chiếu cấu hình/script |
+| Tệp Renju (`renju_last.pt`, `renju_buffer_last.npz`) | ~14M | Xác nhận việc huấn luyện Renju đã dừng |
+| `data/az_25k_continuation_v1*` + cơ sở dữ liệu eval | ~1.1G | Xác nhận không cần ID lần chạy để resume (`az/logging_v2.py`) |
+| Thư mục thử nghiệm (`final_50k_pilot`, `defensive_*`, `tactical_*`, `value_calibration_*`) | ~80M+ | Mỗi thư mục có analyze/build/evaluate riêng; xác minh có thể tạo lại |
+| `"lab05 - game/"` | nhỏ | Quyền sở hữu (sản phẩm bàn giao lab không liên quan) |
+| `docs/untracked-and-junk-inventory.md` | nhỏ | Quyền sở hữu tài liệu tự kiểm tra |
 
-## 7. Cleanup order (recommended)
+## 7. Thứ tự dọn dẹp (đề xuất)
 
-1. **Run regression tests** for groups 1–2 (`test_mcts`, `test_selfplay`, `test_trainer`, `test_replay_buffer`) and group 3 (`test_logging`, `test_logging_v2`) before any commit.
-2. **Commit** in 7 feature groups (§5); separate commit for `normal_5000.yaml` deletion with migration note.
-3. **Apply `.gitignore` additions** (§4) — commit as part of group 7 or separate housekeeping commit.
-4. **SAFE DELETE** (§3) ≈ 3.0G: pytest temp, experiment run dirs, backup, smoke dirs. Run `du -sh` before/after to confirm.
-5. **NEED REVIEW** (§6): resolve each item with explicit approval; estimated additional reclaimable up to ~20.6G if checkpoint history approved for pruning.
+1. **Chạy kiểm thử hồi quy** cho nhóm 1–2 (`test_mcts`, `test_selfplay`, `test_trainer`, `test_replay_buffer`) và nhóm 3 (`test_logging`, `test_logging_v2`) trước mọi commit.
+2. **Commit** theo 7 nhóm tính năng (§5); tạo commit riêng để xóa `normal_5000.yaml` kèm ghi chú di chuyển.
+3. **Áp dụng các mục thêm vào `.gitignore`** (§4), commit trong nhóm 7 hoặc commit bảo trì riêng.
+4. **XÓA AN TOÀN** (§3) ≈ 3.0G: tệp tạm pytest, thư mục chạy thử nghiệm, bản sao lưu, thư mục smoke. Chạy `du -sh` trước/sau để xác nhận.
+5. **CẦN XEM XÉT** (§6): giải quyết từng mục sau khi có phê duyệt rõ ràng; ước tính có thể giải phóng thêm tối đa ~20.6G nếu được duyệt cắt bỏ lịch sử checkpoint.
 
-## 8. Estimated reclaimable
+## 8. Ước tính dung lượng có thể giải phóng
 
-- SAFE DELETE (no risk): ≈ 3.0G.
-- NEED REVIEW (contingent): ≈ 1.2G+ (experiment data + docs) + up to ~20.6G (checkpoint history if approved).
-- Core runtime retained: ~26G (`checkpoints/` active + `data/` + `evidence/` + `logs/`).
-- `.venv/` (~4.1G) already ignored, not counted.
+- XÓA AN TOÀN (không rủi ro): ≈ 3.0G.
+- CẦN XEM XÉT (tùy điều kiện): ≈ 1.2G+ (dữ liệu thử nghiệm + tài liệu) + tối đa ~20.6G (lịch sử checkpoint nếu được duyệt).
+- Runtime cốt lõi được giữ lại: ~26G (`checkpoints/` đang hoạt động + `data/` + `evidence/` + `logs/`).
+- `.venv/` (~4.1G) đã được ignore, không tính vào đây.
 
-## 9. Notes
+## 9. Ghi chú
 
-- No deletions, commits, resets, or code changes performed. All audits read-only.
-- `native/*.cpp` source should be committed; only `*.pyd`/`*.so` binaries are junk (none at project level currently).
-- `graphify-out/` (~31M) already ignored per root `.gitignore`.
-- Cross-reference dependency: `az_contpilot_wzdps5fu` is referenced by `az_finalprobe_71723je1/experiment.py` — delete together if approved.
-- `final_50k_pilot/data/build_holdout.py` references `defensive_gate_ablation_50k/` — delete together if approved.
+- Không xóa, commit, reset hay thay đổi mã. Toàn bộ kiểm tra chỉ đọc.
+- Nên commit mã nguồn `native/*.cpp`; chỉ các tệp nhị phân `*.pyd`/`*.so` là rác (hiện không có ở cấp dự án).
+- `graphify-out/` (~31M) đã được ignore theo `.gitignore` ở gốc.
+- Phụ thuộc tham chiếu chéo: `az_contpilot_wzdps5fu` được `az_finalprobe_71723je1/experiment.py` tham chiếu — nếu được duyệt thì xóa cùng nhau.
+- `final_50k_pilot/data/build_holdout.py` tham chiếu `defensive_gate_ablation_50k/` — nếu được duyệt thì xóa cùng nhau.
