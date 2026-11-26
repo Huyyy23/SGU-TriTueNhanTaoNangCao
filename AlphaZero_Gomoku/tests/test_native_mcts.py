@@ -17,6 +17,7 @@ def test_native_standard_root_telemetry_captures_one_search_without_researching(
     native, _ = run_search(NativeMCTS, board, rules, simulations=2)
     game = _Game(
         game_id=0, provenance={"game_id": "test"}, board=board, mcts=native, started=time.perf_counter(),
+        rng=np.random.default_rng(0),
         mcts_logging="STANDARD", search_started=time.perf_counter(),
         move_records=[], root_data=[],
     )

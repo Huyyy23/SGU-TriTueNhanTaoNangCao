@@ -103,7 +103,7 @@ def test_frontend_discovers_valid_checkpoint_pointers():
     app = PygameFrontend()
     assert app.checkpoint_options
     assert all(path.endswith(".json") or path.endswith(".pt") for path in app.checkpoint_options)
-    assert any(path.endswith("latest.json") for path in app.checkpoint_options)
+    assert any(path.endswith(".pt") for path in app.checkpoint_options)
     assert app.checkpoints[BLACK] in app.checkpoint_options
 
 
@@ -204,7 +204,7 @@ def test_frontend_rejects_wrong_ruleset_checkpoint():
     app = PygameFrontend()
     app.ruleset = "renju"
     app.agent_indices[WHITE] = AGENT_CHOICES.index("az_v0")
-    app.checkpoints[WHITE] = "checkpoints/normal/latest.json"
+    app.checkpoints[WHITE] = "models/az_normal_weights.pt"
     app._start_game()
     assert app.page == "menu"
     assert "rules" in app.message.lower()
