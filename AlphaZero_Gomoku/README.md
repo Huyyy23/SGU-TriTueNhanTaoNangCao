@@ -7,7 +7,7 @@ git clone https://github.com/Huyyy23/SGU-TriTueNhanTaoNangCao.git
 cd SGU-TriTueNhanTaoNangCao
 ```
 
-Cài môi trường ảo và dependency trong thư mục gốc repository. Sau đó vào `AlphaZero_Gomoku` để chạy game. Trên Windows, đặt `$python = "..\\.venv\\Scripts\\python.exe"` và gọi `& $python`; trên macOS/Linux dùng `../.venv/bin/python`.
+Cài môi trường ảo và dependency từ thư mục gốc repository. Sau đó vào `AlphaZero_Gomoku` để chạy game. Trên Windows, biến `$python` trỏ đến `.venv\Scripts\python.exe` ở thư mục gốc; trên macOS/Linux gọi `../.venv/bin/python`.
 
 Đồ án xây dựng trò Gomoku trên bàn 11×11 với luật Normal và Renju, giao diện Pygame, CLI, các tác tử tìm kiếm cổ điển và mạng AlphaZero. Hướng dẫn này giúp giảng viên cài đặt, mở trò chơi bằng checkpoint có sẵn và chạy các kiểm tra nhỏ mà không huấn luyện lại.
 
@@ -17,23 +17,32 @@ Cài Python 3.10. Python 3.10.6 là môi trường đã dùng cho các thí nghi
 
 ```powershell
 py -3.10 -m venv .venv
-.venv\\Scripts\\python -m pip install -r AlphaZero_Gomoku\\requirements.txt
+.venv\\Scripts\\python.exe -m pip install -r AlphaZero_Gomoku\\requirements.txt
 cd AlphaZero_Gomoku
 $python = "..\\.venv\\Scripts\\python.exe"
 ```
 
-Trên macOS hoặc Linux, chạy `python3.10 -m venv .venv` ở thư mục gốc, sau đó `.venv/bin/python -m pip install -r AlphaZero_Gomoku/requirements.txt` và `cd AlphaZero_Gomoku`. Gọi Python bằng `../.venv/bin/python`. PyTorch cài bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần bản PyTorch CUDA tương ứng. GUI cần máy có màn hình.
+Trên macOS hoặc Linux, tạo và cài môi trường ảo từ thư mục gốc repository, sau đó chạy game từ `AlphaZero_Gomoku`:
+
+```sh
+python3.10 -m venv .venv
+.venv/bin/python -m pip install -r AlphaZero_Gomoku/requirements.txt
+cd AlphaZero_Gomoku
+python=../.venv/bin/python
+```
+
+PyTorch cài bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần bản PyTorch CUDA tương ứng. GUI cần máy có màn hình.
 
 
 ## Chơi trò chơi
 
-Khởi động GUI với người chơi cầm Đen và AlphaZero cầm Trắng theo luật Normal. GUI tự tìm checkpoint Normal và Renju trong clone:
+Khởi động GUI với người chơi cầm Đen và AlphaZero cầm Trắng theo luật Normal. GUI dùng checkpoint generation Normal nếu generation cục bộ có mặt; nếu không, GUI dùng weights Normal được commit trong repository. Khi chọn luật Renju, GUI chọn weights Renju.
 
 ```powershell
 & $python -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset normal
 ```
 
-Nếu cần chọn weights tường minh, chạy từ thư mục `AlphaZero_Gomoku`:
+Đổi luật sang Renju và dùng checkpoint Renju có sẵn:
 
 ```powershell
 & $python -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset renju --checkpoint checkpoints/renju/az_renju_weights.pt
@@ -99,7 +108,7 @@ $smoke = [guid]::NewGuid().ToString('N')
 & $python scripts/tournament.py --agents random,heuristic --games 2 --budget sims:1 --backend python --db "data/tournament-smoke-$smoke.sqlite"
 ```
 
-Mỗi lệnh dùng tên duy nhất để không ghi đè kết quả thí nghiệm đã có. Lệnh self-play minh họa huấn luyện một model tạm và cần mạng khởi tạo; nó không phải đường chạy game mặc định.
+Mỗi lần chạy dùng tên duy nhất để tránh ghi đè kết quả thí nghiệm cũ. Self-play minh họa tạo model tạm và cần mạng tải weights lúc cài dependency. Lệnh này không cần thiết để chơi game.
 
 
 ## Backend C++ tuỳ chọn
@@ -110,7 +119,7 @@ Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là 
 
 `experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, W/D/L là thắng, hòa, thua của tác tử A. `score_pct` tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. Dòng metric và ablation ghi chỉ số ở `metric`/`value`, không dùng cột W/D/L. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
 
-Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại có đối chiếu trực tiếp W/D/L với từng game trong `data/tournament.sqlite`; chỉ số Normal/Renju được đối chiếu với SQLite và log tương ứng. T35 ban đầu được ghi theo bảng báo cáo vì SQLite local không chứa run ngày 14/11. Các đánh giá Renju và tactical được ghi theo audit khi không có game-level DB. SQLite và audit trong `.audit/` bị Git ignore, nên clone mới có thể không có các nguồn cục bộ đó. Báo cáo chính thức nằm trong `report/` và `docs/`.
+Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại được đối chiếu với từng game trong SQLite local; Normal 75k và Renju 1.500 được đối chiếu với database và training metrics. Normal 1.000 ván được đối chiếu với JSONL gốc. T35 ban đầu được chép từ bảng trong báo cáo vì database local không có games ngày 14/11. Tactical 25k, chặn Renju và một số đánh giá checkpoint được lấy từ audit/report, không có record từng game trong clone Git. Đường dẫn các nguồn cục bộ cho biết bản gốc trên máy nghiên cứu, không bảo đảm file đó được phân phối trong GitHub. Báo cáo PDF và bảng diễn giải có trong `report/`.
 
 ## Tài liệu kỹ thuật
 
