@@ -17,9 +17,9 @@ Cài Python 3.10. Python 3.10.6 là môi trường đã dùng cho các thí nghi
 
 ```powershell
 py -3.10 -m venv .venv
-.venv\\Scripts\\python.exe -m pip install -r AlphaZero_Gomoku\\requirements.txt
+.venv\Scripts\python.exe -m pip install -r AlphaZero_Gomoku\requirements.txt
 cd AlphaZero_Gomoku
-$python = "..\\.venv\\Scripts\\python.exe"
+$python = "..\.venv\Scripts\python.exe"
 ```
 
 Trên macOS hoặc Linux, tạo và cài môi trường ảo từ thư mục gốc repository, sau đó chạy game từ `AlphaZero_Gomoku`:
@@ -28,10 +28,17 @@ Trên macOS hoặc Linux, tạo và cài môi trường ảo từ thư mục g�
 python3.10 -m venv .venv
 .venv/bin/python -m pip install -r AlphaZero_Gomoku/requirements.txt
 cd AlphaZero_Gomoku
-python=../.venv/bin/python
 ```
 
 PyTorch cài bản CPU từ PyPI. GPU NVIDIA là tuỳ chọn và cần bản PyTorch CUDA tương ứng. GUI cần máy có màn hình.
+
+Trên macOS hoặc Linux, sau khi vào `AlphaZero_Gomoku`, đặt `PYTHON=../.venv/bin/python` rồi dùng các lệnh tương ứng:
+
+```sh
+$PYTHON -m ui.pygame_app --mode human-vs-ai --human-color black --agent az --ruleset normal
+$PYTHON scripts/play.py --mode human-vs-ai --human-color black --agent az --ruleset normal
+$PYTHON -m pytest -q
+```
 
 
 ## Chơi trò chơi
@@ -117,9 +124,9 @@ Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là 
 
 ## Dữ liệu thực nghiệm
 
-`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, W/D/L là thắng, hòa, thua của tác tử A. `score_pct` tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. Dòng metric và ablation ghi chỉ số ở `metric`/`value`, không dùng cột W/D/L. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
+`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, W/D/L và `score_pct` là kết quả của tác tử A; score tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. `black_wins` và `white_wins` là số ván thắng của A khi cầm màu tương ứng. Dòng metric và ablation ghi chỉ số ở `metric`/`value`; các phép đánh giá checkpoint có W/D/L thì dùng cùng quy ước của tournament. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
 
-Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại được đối chiếu với từng game trong SQLite local; Normal 75k và Renju 1.500 được đối chiếu với database và training metrics. Normal 1.000 ván được đối chiếu với JSONL gốc. T35 ban đầu được chép từ bảng trong báo cáo vì database local không có games ngày 14/11. Tactical 25k, chặn Renju và một số đánh giá checkpoint được lấy từ audit/report, không có record từng game trong clone Git. Đường dẫn các nguồn cục bộ cho biết bản gốc trên máy nghiên cứu, không bảo đảm file đó được phân phối trong GitHub. Báo cáo PDF và bảng diễn giải có trong `report/`.
+Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại được đối chiếu với từng game trong SQLite local; Normal 75k và Renju 1.500 được đối chiếu với database và training metrics. Normal 1.000 ván được đối chiếu với JSONL gốc. T35 ban đầu được chép từ bảng trong báo cáo vì database local không có games ngày 14/11. Tactical 25k, chặn Renju và một số đánh giá checkpoint được lấy từ audit/report, không có record từng game trong clone Git. Đường dẫn `data/` và `.audit/` chỉ hoạt động trên máy nghiên cứu có artifact đó; các thư mục này bị bỏ khỏi Git clone. Báo cáo PDF và bảng diễn giải có trong `report/`.
 
 ## Tài liệu kỹ thuật
 
