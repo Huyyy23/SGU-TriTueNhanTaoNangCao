@@ -108,7 +108,7 @@ Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là 
 
 ## Dữ liệu thực nghiệm
 
-`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. W/D/L là thắng, hòa, thua của tác tử A. `score_pct` tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
+`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, W/D/L là thắng, hòa, thua của tác tử A. `score_pct` tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. Dòng metric và ablation ghi chỉ số ở `metric`/`value`, không dùng cột W/D/L. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
 
 Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại có đối chiếu trực tiếp W/D/L với từng game trong `data/tournament.sqlite`; chỉ số Normal/Renju được đối chiếu với SQLite và log tương ứng. T35 ban đầu được ghi theo bảng báo cáo vì SQLite local không chứa run ngày 14/11. Các đánh giá Renju và tactical được ghi theo audit khi không có game-level DB. SQLite và audit trong `.audit/` bị Git ignore, nên clone mới có thể không có các nguồn cục bộ đó. Báo cáo chính thức nằm trong `report/` và `docs/`.
 
