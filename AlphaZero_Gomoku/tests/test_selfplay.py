@@ -185,6 +185,23 @@ def test_split_games_is_even_and_covers_every_game():
     assert split_games(0, 4) == []
 
 
+def test_parallel_selfplay_honors_absolute_game_offset_across_calls():
+    cfg = small_cfg(n_simulations=2, n_blocks=1, n_filters=8,
+                    provenance={"run_id": "offset-test"})
+    model = AZNet(n_blocks=1, n_filters=8)
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        first = run_games_parallel(pool, model, NormalRules(), cfg, 2, seed=19, workers=2)
+        second = run_games_parallel(pool, model, NormalRules(),
+                                    {**cfg, "_game_offset": 2}, 2, seed=19, workers=2)
+
+    records = first + second
+    assert sorted(record.game_id for record in records) == [0, 1, 2, 3]
+    identities = [record.config["provenance"]["game_id"] for record in records]
+    seeds = [record.config["provenance"]["game_seed"] for record in records]
+    assert len(set(identities)) == len(set(seeds)) == 4
+    assert all(record.config["provenance"]["run_id"] == "offset-test" for record in records)
+
+
 def test_parallel_selfplay_stores_every_move_once():
     cfg = small_cfg(n_simulations=2, n_blocks=1, n_filters=8)
     buffer = ReplayBuffer(capacity=1000)
@@ -342,6 +359,67 @@ def test_openings_are_deterministic_across_batching_and_processes():
         indices = np.flatnonzero(buffer.game_ids[:len(buffer)] == record.config["provenance"]["game_id"])
         assert len(indices) == record.moves_count
         assert all(buffer.features[i, :2].sum() >= 2 for i in indices)
+
+
+def test_random_opponent_is_off_by_default():
+    record = next(run_games(UniformEvaluator(), NormalRules(), small_cfg(n_simulations=2), 1, seed=5))
+    assert (record.first_player, record.second_player) == ("selfplay", "selfplay")
+    assert "random_opponent_side" not in record.config["provenance"]
+
+
+def test_random_opponent_plays_legal_moves_and_keeps_sample_contract():
+    cfg = small_cfg(n_simulations=2, temp_moves=3, selfplay_random_opponent_rate=1.0,
+                    mcts_logging_level="STANDARD", backend="python",
+                    mcts_backend="python", patterns_backend="python",
+                    provenance={"run_id": "random-opponent"})
+    rules = NormalRules()
+    samples = []
+    record = next(run_games(UniformEvaluator(), rules, cfg, 1, seed=13, samples_out=samples))
+
+    assert {record.first_player, record.second_player} == {"selfplay", "random_opponent"}
+    opponent_side = record.config["provenance"]["random_opponent_side"]
+    assert opponent_side in (1, 2)
+    assert len(samples) == record.moves_count == len(record.moves)
+
+    board = Board()
+    random_moves = 0
+    for move, (planes, pi, z) in zip(record.moves, samples):
+        assert move.player == board.current_player
+        assert move.row * SIZE + move.col in rules.legal_moves(board)
+        if move.player == opponent_side:
+            random_moves += 1
+            assert move.override_applied and move.override_reason == "random_opponent"
+        np.testing.assert_array_equal(planes, board_to_planes(board, rules, move.player))
+        board.play(move.row, move.col)
+    assert random_moves > 0
+
+    again = next(run_games(UniformEvaluator(), rules, cfg, 1, seed=13))
+    assert [(m.player, m.row, m.col) for m in again.moves] == [
+        (m.player, m.row, m.col) for m in record.moves
+    ]
+
+
+@pytest.mark.parametrize("value", [-0.1, 1.5, "0.5", True, None])
+def test_selfplay_rejects_invalid_random_opponent_rate(value):
+    with pytest.raises(ValueError, match="selfplay_random_opponent_rate"):
+        next(run_games(UniformEvaluator(), NormalRules(),
+                       small_cfg(selfplay_random_opponent_rate=value), 1))
+
+
+def test_four_opening_plies_are_recorded_and_legal():
+    cfg = small_cfg(n_simulations=2, temp_moves=5, selfplay_opening_plies=4,
+                    mcts_logging_level="STANDARD")
+    record = next(run_games(UniformEvaluator(), NormalRules(), cfg, 1, seed=21))
+    opening = record.config["provenance"]["opening_actions"]
+    assert len(opening) == 4
+    board = Board()
+    for action in opening:
+        assert action in NormalRules().legal_moves(board)
+        board.play(*divmod(action, SIZE))
+    assert record.moves[0].move_index == 4
+    assert record.moves[0].temperature == 1.0
+
+
 def cpp_available() -> bool:
     try:
         import gomoku_mcts_native  # noqa: F401

@@ -1,5 +1,28 @@
 base: normal.yaml
 model_id: az_renju
 rule_set: renju
-n_iter: 20
+# Batch several concurrent games in each GPU process; keep process count modest.
+parallel_games: 4
+n_iter: 100
+games_per_iter: 50
+learning_rate: 1.0e-3
 train_steps_per_iter: 200
+buffer_size: 50000
+n_blocks: 6
+n_filters: 64
+n_simulations: 200
+checkpoint_buffer: true
+
+# Data diversity: four seeded random opening plies and a stronger root noise keep
+# self-play from replaying one short Black-win line. In a quarter of the games one
+# side plays random legal moves, which puts White wins into the replay buffer.
+selfplay_opening_plies: 4
+dirichlet_eps: 0.35
+selfplay_random_opponent_rate: 0.4
+log_moves: true
+mcts_logging_level: NONE
+
+# Stop instead of training on a one-sided outcome distribution: after 500 games,
+# stop when either side wins 98% or more of them.
+outcome_guard_min_games: 500
+outcome_guard_max_side_win_rate: 0.98

@@ -65,3 +65,40 @@ def test_two_selfplay_opening_plies_are_accepted(tmp_path):
     path = tmp_path / "opening.yaml"
     path.write_text("selfplay_opening_plies: 2\n", encoding="utf-8")
     assert load_config(path)["selfplay_opening_plies"] == 2
+
+
+def test_four_selfplay_opening_plies_are_accepted(tmp_path):
+    path = tmp_path / "opening.yaml"
+    path.write_text("selfplay_opening_plies: 4\n", encoding="utf-8")
+    assert load_config(path)["selfplay_opening_plies"] == 4
+
+
+def test_new_health_keys_have_off_by_default_values():
+    config = load_config()
+    assert config["selfplay_random_opponent_rate"] == 0.0
+    assert config["outcome_guard_min_games"] == 0
+    assert config["outcome_guard_max_side_win_rate"] > 1.0
+
+
+@pytest.mark.parametrize("value", ["-0.1", "1.5", "'0.5'", "true", "null"])
+def test_invalid_random_opponent_rate_is_rejected(tmp_path, value):
+    path = tmp_path / "random.yaml"
+    path.write_text(f"selfplay_random_opponent_rate: {value}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="selfplay_random_opponent_rate"):
+        load_config(path)
+
+
+@pytest.mark.parametrize("value", ["-1", "1.5", "'500'"])
+def test_invalid_outcome_guard_min_games_is_rejected(tmp_path, value):
+    path = tmp_path / "guard.yaml"
+    path.write_text(f"outcome_guard_min_games: {value}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="outcome_guard_min_games"):
+        load_config(path)
+
+
+@pytest.mark.parametrize("value", ["0.4", "1.5", "'0.98'"])
+def test_invalid_outcome_guard_rate_is_rejected(tmp_path, value):
+    path = tmp_path / "guard.yaml"
+    path.write_text(f"outcome_guard_max_side_win_rate: {value}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="outcome_guard_max_side_win_rate"):
+        load_config(path)

@@ -16,8 +16,8 @@ from az.mcts import LeafRequest, MCTS, NativeMCTS
 from az.backend import configure_backends
 from az.logging_v2 import encode_mcts_root
 from az.replay_buffer import ReplayBuffer
-from config import _validate_selfplay_opening_plies
-from gomoku.board import BLACK, SIZE, Board
+from config import _validate_selfplay_opening_plies, _validate_selfplay_random_opponent_rate
+from gomoku.board import BLACK, SIZE, WHITE, Board
 from gomoku.features import board_to_planes
 
 
@@ -30,12 +30,14 @@ class _Game:
     board: Board
     mcts: MCTS
     started: float
+    rng: np.random.Generator
     positions: list[tuple[np.ndarray, np.ndarray, int]] = field(default_factory=list)
     mean_batch: float = 1.0
     mcts_logging: str = "NONE"
     search_started: float = 0.0
     move_records: list[MoveRecord] | None = None
     root_data: list[dict] | None = None
+    opponent_side: int = 0
 
 def _tensor_digest(state_dict) -> str:
     digest = hashlib.sha256()
@@ -85,6 +87,7 @@ def run_games(
     `parallel_games: 1` runs the same code path as a single game, in order.
     """
     _validate_selfplay_opening_plies(cfg)
+    _validate_selfplay_random_opponent_rate(cfg)
     if cfg["rule_set"] != rules.name:
         raise ValueError(f"config rule_set '{cfg['rule_set']}' does not match rules '{rules.name}'.")
     backends = cfg.get("backend_metadata")
@@ -155,6 +158,12 @@ def _new_game(game_id: int, rules, cfg: dict, rng: np.random.Generator, provenan
         opening_actions.append(action)
         board.play(*divmod(action, SIZE))
     provenance["opening_actions"] = opening_actions
+    opponent_side = 0
+    if cfg.get("selfplay_random_opponent_rate", 0.0) > 0.0 and rng.random() < float(
+        cfg["selfplay_random_opponent_rate"]
+    ):
+        opponent_side = BLACK if rng.random() < 0.5 else WHITE
+        provenance["random_opponent_side"] = opponent_side
     mcts_cls = NativeMCTS if cfg.get("mcts_backend", "python") == "cpp" else MCTS
     mcts = mcts_cls(
         rules=rules,
@@ -167,11 +176,13 @@ def _new_game(game_id: int, rules, cfg: dict, rng: np.random.Generator, provenan
     )
     mcts.reset(board)
     logging_enabled = cfg.get("mcts_logging_level", "NONE") == "STANDARD"
+    record_moves = bool(cfg.get("log_moves", False)) or logging_enabled
     return _Game(
         game_id=game_id, provenance=provenance, board=board, mcts=mcts, started=time.perf_counter(),
+        rng=rng, opponent_side=opponent_side,
         mcts_logging="STANDARD" if logging_enabled else "NONE",
-        search_started=time.perf_counter() if logging_enabled else 0.0,
-        move_records=[] if logging_enabled else None,
+        search_started=time.perf_counter() if record_moves else 0.0,
+        move_records=[] if record_moves else None,
         root_data=[] if logging_enabled else None,
     )
 
@@ -202,7 +213,12 @@ def _advance(
 
     temperature = 1.0 if len(game.board.history) < cfg["temp_moves"] else 0.0
     root_value = game.mcts.root_value() if logging_enabled else 0.0
-    selected_action = game.mcts.select_move(temperature)
+    if game.opponent_side == player:
+        # Random-opponent game: keep the search target, but play a seeded legal move
+        # so the game leaves the self-play line and the replay buffer sees defenses.
+        selected_action = int(game.rng.choice(rules.legal_moves(game.board)))
+    else:
+        selected_action = game.mcts.select_move(temperature)
     if logging_enabled:
         forbidden_mask = np.zeros(SIZE * SIZE, dtype=bool)
         forbidden = rules.forbidden_moves(game.board) if hasattr(rules, "forbidden_moves") else ()
@@ -213,18 +229,21 @@ def _advance(
             counts, root_policy, pi, priors, q_values, legal_mask, forbidden_mask
         )
         game.root_data.append({"move_index": move_index, "encoding": encoding, "data": data})
+    if game.move_records is not None:
         row, col = divmod(selected_action, SIZE)
         game.move_records.append(MoveRecord(
             move_index=move_index, player=player, row=row, col=col, value_before=root_value,
             policy_top_k=[], simulations=cfg["n_simulations"], temperature=temperature,
             latency_sec=search_finished - game.search_started,
             simulations_run=game.mcts.simulations_done,
+            override_applied=game.opponent_side == player,
+            override_reason="random_opponent" if game.opponent_side == player else None,
         ))
     game.board.play(*divmod(selected_action, SIZE))
 
     if not rules.is_terminal(game.board):
         game.mcts.reset(game.board)
-        if logging_enabled:
+        if game.search_started:
             game.search_started = time.perf_counter()
         return None
 
@@ -254,8 +273,8 @@ def _finish_game(
         game_id=game.game_id,
         timestamp=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         rule_set=rules.name,
-        first_player="selfplay",
-        second_player="selfplay",
+        first_player="random_opponent" if game.opponent_side == BLACK else "selfplay",
+        second_player="random_opponent" if game.opponent_side == WHITE else "selfplay",
         winner="draw" if winner is None else ("black" if winner == BLACK else "white"),
         first_player_won=winner == BLACK,
         end_reason="five_in_row" if won else "board_full",
@@ -300,6 +319,7 @@ def run_games_parallel(
     if cfg["rule_set"] != rules.name:
         raise ValueError(f"config rule_set '{cfg['rule_set']}' does not match rules '{rules.name}'.")
     _validate_selfplay_opening_plies(cfg)
+    _validate_selfplay_random_opponent_rate(cfg)
 
     backends = cfg.get("backend_metadata")
     if backends is None:
@@ -319,7 +339,7 @@ def run_games_parallel(
     expected_digest = _tensor_digest(state_dict)
     run_id = (cfg.get("provenance") or {}).get("run_id") or uuid.uuid4().hex
     payloads = []
-    offset = 0
+    offset = int(cfg.get("_game_offset", 0))
     for chunk in split_games(n_games, workers):
         payloads.append((state_dict, rules.name, {**worker_cfg,
                          "_game_offset": offset, "_selfplay_run_id": run_id,
@@ -346,7 +366,7 @@ def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
 
     import torch
 
-    torch.set_num_threads(1)
+    torch.set_num_threads(int(cfg.get("_worker_cpu_threads", 1)))
 
     if cfg.get("patterns_backend"):
         from gomoku.patterns import set_backend
@@ -358,7 +378,7 @@ def _play_chunk(payload: tuple) -> tuple[list[GameRecord], list[tuple]]:
 
     model = AZNet(n_blocks=cfg["n_blocks"], n_filters=cfg["n_filters"])
     model.load_state_dict(state_dict)
-    model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+    model.to(torch.device(cfg.get("_worker_device", "cpu")))
 
     samples: list[tuple] = []
     records = list(run_games(model, rules, cfg, n_games, seed=seed, samples_out=samples, model_iter=model_iter))

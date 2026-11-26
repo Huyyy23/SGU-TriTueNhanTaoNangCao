@@ -110,11 +110,15 @@ def _run_promotion_pair(
     run_id: str,
     games: int,
     seed: int,
+    backends: dict | None = None,
+    workers: int = 1,
 ) -> tuple[str, str, str]:
     from az.backend import configure_backends
     from az.elo import PROMOTION_EVAL_OPENING_PLIES
     from az.logging_v2 import connect, initialize
     from scripts.tournament import AgentSpec, Budget, Defaults, agent_settings, run_tournament
+    if backends is None:
+        backends = configure_backends("python", mcts_backend="python", patterns_backend="python")
 
     candidate_label = f"az_v0@checkpoint={candidate.resolve()}"
     opponent_label = (
@@ -141,11 +145,11 @@ def _run_promotion_pair(
         connection.close()
     run_tournament(
         entries, games=games, budget=budget, ruleset="normal", seed=seed, run_id=run_id,
-        workers=1, opening_plies=PROMOTION_EVAL_OPENING_PLIES, torch_threads=1, resume=resume,
+        workers=workers, opening_plies=PROMOTION_EVAL_OPENING_PLIES, torch_threads=1, resume=resume,
         pair=f"{candidate_label},{opponent_label}",
-        backends=configure_backends("python", mcts_backend="python", patterns_backend="python"),
+        backends=backends,
         db_path=db_path, logging_level="standard",
-        extra_config={"model_id": "az_v0", "promotion_protocol": "az-v0-promotion-v1.3"},
+        extra_config={"model_id": "az_v0", "promotion_protocol": "az-v0-promotion-v1.4"},
     )
     return candidate_label, opponent_label, run_id
 
@@ -210,6 +214,8 @@ def _evaluate_promotion(
     seed: int,
     logging_db,
     logging_v2,
+    backends: dict | None = None,
+    workers: int = 1,
 ) -> dict | None:
     from az.elo import (
         PROMOTION_EVAL_BOOTSTRAPS,
@@ -262,6 +268,7 @@ def _evaluate_promotion(
         checkpoint_path, "heuristic", None, config_path=config_path, db_path=tournament_db,
         run_id=f"{run_id}-promotion-{trainer.n_iter}-heuristic-0",
         games=PROMOTION_EVAL_GAMES_PER_PAIR, seed=base_seed,
+        backends=backends, workers=workers,
     )
     connection = connect(tournament_db)
     try:
@@ -287,7 +294,9 @@ def _evaluate_promotion(
         "promote": not has_champion and comparison["ci95"][0] > 0,
         "status": "inconclusive_no_champion_comparison" if has_champion else "evaluated",
         "confirmed_regression": False,
-        "protocol": "az-v0-promotion-v1.3",
+        "protocol": "az-v0-promotion-v1.4",
+        "evaluation_backends": backends,
+        "evaluation_workers": workers,
         "opening_plies": PROMOTION_EVAL_OPENING_PLIES,
     }
     result["candidate_generation"] = candidate_generation
@@ -489,7 +498,7 @@ def main(argv: list[str] | None = None) -> int:
     startup_evaluation = _evaluate_promotion(
         trainer, checkpoint_path, best_path, pointer_path, config_path=args.config,
         tournament_db=tournament_db_path, run_id=run_id, seed=args.seed,
-        logging_db=db, logging_v2=logging_v2,
+        logging_db=db, logging_v2=logging_v2, backends=backends, workers=args.workers,
     )
     if startup_evaluation is not None:
         checkpoint_path, _ = resolve_generation(pointer_path)
@@ -621,7 +630,7 @@ def main(argv: list[str] | None = None) -> int:
         promotion = _evaluate_promotion(
             trainer, checkpoint_path, best_path, pointer_path, config_path=args.config,
             tournament_db=tournament_db_path, run_id=run_id, seed=args.seed,
-            logging_db=db, logging_v2=logging_v2,
+            logging_db=db, logging_v2=logging_v2, backends=backends, workers=args.workers,
         )
         if promotion is not None:
             checkpoint_path, _ = resolve_generation(pointer_path)

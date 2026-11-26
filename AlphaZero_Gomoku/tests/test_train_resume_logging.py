@@ -61,7 +61,7 @@ def test_promotion_waits_5000_games_and_plays_100_total(tmp_path, monkeypatch, h
     calls = []
 
     def run_pair(candidate, opponent, opponent_checkpoint, **kwargs):
-        calls.append((opponent, opponent_checkpoint, kwargs["games"]))
+        calls.append((opponent, opponent_checkpoint, kwargs["games"], kwargs["backends"], kwargs["workers"]))
         return "candidate", "opponent", kwargs["run_id"]
 
     monkeypatch.setattr(train, "_run_promotion_pair", run_pair)
@@ -76,7 +76,9 @@ def test_promotion_waits_5000_games_and_plays_100_total(tmp_path, monkeypatch, h
     )
     args = (trainer, checkpoint, best, tmp_path / "buffer.npz")
     kwargs = dict(config_path="normal.yaml", tournament_db=tmp_path / "tournament.sqlite",
-                  run_id="test", seed=0, logging_v2=logging_v2)
+                  run_id="test", seed=0, logging_v2=logging_v2,
+                  backends={"requested_backend": "cpp", "mcts": "cpp", "patterns": "cpp"},
+                  workers=2)
     assert train._evaluate_promotion(*args, logging_db=None, **kwargs) is None
     assert not calls
 
@@ -91,13 +93,36 @@ def test_promotion_waits_5000_games_and_plays_100_total(tmp_path, monkeypatch, h
         result = train._evaluate_promotion(*args, logging_db=db, **kwargs)
         assert train._evaluate_promotion(*args, logging_db=db, **kwargs) == result
         assert db.execute("SELECT count(*) FROM events WHERE event=?", ("promotion_evaluation_600",)).fetchone()[0] == 1
-    assert calls == [("heuristic", None, 100)]
+    assert calls == [("heuristic", None, 100, kwargs["backends"], 2)]
     assert result["promote"] is (not has_best)
     assert result["tactical"]["accuracy"]["overall"]["correct"] == 12
     assert result["comparisons"]["heuristic"]["ci95"] == [1, 2]
     assert result["research_objective_met"] is None
     assert trainer.promotion_eval_games == 30000
 
+
+
+def test_promotion_tournament_uses_selected_cpp_backend_and_workers(tmp_path, monkeypatch):
+    from scripts import train, tournament
+
+    candidate = tmp_path / "candidate.pt"
+    candidate.write_bytes(b"checkpoint")
+    backends = {"requested_backend": "cpp", "mcts": "cpp", "patterns": "cpp"}
+    seen = {}
+
+    def capture(*args, **kwargs):
+        seen.update(kwargs)
+        return tmp_path / "tournament.sqlite", {}
+
+    monkeypatch.setattr(tournament, "run_tournament", capture)
+    train._run_promotion_pair(
+        candidate, "heuristic", None, config_path="configs/normal.yaml",
+        db_path=tmp_path / "tournament.sqlite", run_id="gate", games=100, seed=7,
+        backends=backends, workers=2,
+    )
+    assert seen["backends"] == backends
+    assert seen["workers"] == 2
+    assert seen["extra_config"]["promotion_protocol"] == "az-v0-promotion-v1.4"
 
 def test_gate_propagates_tactical_failure_without_advancing(tmp_path, monkeypatch):
     from types import SimpleNamespace
@@ -140,6 +165,29 @@ def test_gate_rejects_crossed_boundary_without_running_evaluation(tmp_path):
             run_id="test", seed=0, logging_db=None, logging_v2=logging_v2)
 
 
+
+
+
+def test_training_passes_backend_and_workers_to_promotion_gate(tmp_path, monkeypatch):
+    from config import DEFAULT_CONFIG
+    from scripts import train
+
+    cfg = {**DEFAULT_CONFIG, "n_blocks": 1, "n_filters": 8, "n_iter": 0,
+           "buffer_size": 32, "rule_set": "normal"}
+    backend = {"requested_backend": "cpp", "mcts": "cpp", "patterns": "cpp"}
+    calls = []
+    monkeypatch.setattr(train, "load_config", lambda _: dict(cfg))
+    monkeypatch.setattr("az.backend.configure_backends", lambda *args, **kwargs: backend)
+    monkeypatch.setattr(train, "_evaluate_promotion",
+                        lambda *args, **kwargs: calls.append(kwargs) or None)
+    assert train.main([
+        "--fresh", "--out-dir", str(tmp_path / "checkpoints"),
+        "--db", str(tmp_path / "normal.sqlite"),
+        "--tournament-db", str(tmp_path / "tournament.sqlite"),
+        "--backend", "cpp", "--workers", "3", "--run-id", "gate-wiring",
+    ]) == 0
+    assert calls[0]["backends"] == backend
+    assert calls[0]["workers"] == 3
 
 def test_training_defaults_to_official_resume_and_fresh_is_explicit(tmp_path, monkeypatch):
     from scripts import train
