@@ -64,9 +64,13 @@ class PygameFrontend:
         self._rects: dict[str, pygame.Rect] = {}
 
     def _default_checkpoint(self):
+        preferred = {
+            "normal": ("latest.json", "az_normal_weights.pt"),
+            "renju": ("az_renju_weights.pt",),
+        }[self.ruleset]
         if self.checkpoint_options:
             return next(
-                (path for path in self.checkpoint_options if Path(path).name == f"az_{self.ruleset}_weights.pt"),
+                (path for name in preferred for path in self.checkpoint_options if Path(path).name == name),
                 self.checkpoint_options[0],
             )
         return str(Path(__file__).resolve().parents[1] / "models" / "az_normal_weights.pt")

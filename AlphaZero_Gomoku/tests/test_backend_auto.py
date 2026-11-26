@@ -144,12 +144,12 @@ def test_backend_selection_is_recorded_once_in_primary_sqlite(tmp_path):
     assert payload["run_id"] == "train-001"
     assert payload["backends"]["compiler"] == "g++"
 
-def test_selfplay_and_tournament_cli_default_to_auto():
+def test_train_defers_backend_default_and_tournament_uses_auto():
     from scripts.tournament import build_parser as tournament_parser
     from scripts.train import build_parser as train_parser
 
-    assert train_parser().get_default("backend") == "auto"
-    assert tournament_parser().get_default("backend") == "auto"
+    assert train_parser().parse_args([]).backend is None
+    assert tournament_parser().parse_args([]).backend == "auto"
 
 
 def test_msvc_build_command_targets_python_extension():

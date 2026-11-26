@@ -129,7 +129,7 @@ def test_frontend_prefers_local_checkpoint_to_weights(monkeypatch, tmp_path):
     app = PygameFrontend()
 
     assert app.checkpoints[BLACK] == str(pointer)
-    assert str(weights) in app.checkpoint_options
+    assert app.checkpoint_options.index(str(pointer)) < app.checkpoint_options.index(str(weights))
 
 
 def test_frontend_discovers_renju_weights_and_uses_them_for_renju(monkeypatch, tmp_path):
@@ -147,12 +147,14 @@ def test_frontend_discovers_renju_weights_and_uses_them_for_renju(monkeypatch, t
     app = PygameFrontend()
 
     assert str(renju_weights) in app.checkpoint_options
-    assert app.checkpoints[BLACK] == str(renju_weights)
+    assert app.checkpoints[BLACK] == str(normal_weights)
     app.ruleset = "normal"
     assert app._default_checkpoint() == str(normal_weights)
     app.ruleset = "renju"
     assert app._default_checkpoint() == str(renju_weights)
-    assert app.checkpoint_options.index(str(renju_weights)) < app.checkpoint_options.index(str(normal_weights))
+    app._cycle_checkpoint(BLACK)
+    assert app.checkpoints[BLACK] == str(renju_weights)
+    app.page = "setup"
     app._rects = {"normal": pygame.Rect(0, 0, 1, 1), "renju": pygame.Rect(2, 0, 1, 1)}
     app._event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(0, 0)))
     assert app.checkpoints[BLACK] == str(normal_weights)
