@@ -26,7 +26,7 @@ Mỗi lab có `README.md` riêng liệt kê bài tập. `lab01/README.md` ghi ng
 
 ## Môi trường Python dùng chung
 
-Toàn bộ labs và `AlphaZero_Gomoku` dùng Python 3.12 và một `.venv` ở thư mục gốc. Tạo môi trường, cài dependency một lần:
+Các lab dùng Python 3.12 và một `.venv` ở thư mục gốc. Tạo môi trường, cài dependency một lần:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -40,33 +40,16 @@ cd "lab02 - Searching"
 ..\.venv\Scripts\jupyter-lab
 ```
 
-Chạy Gomoku bằng cùng interpreter:
+Đồ án Gomoku có hướng dẫn cài đặt và chơi riêng tại [`AlphaZero_Gomoku/README.md`](AlphaZero_Gomoku/README.md). Các thí nghiệm Gomoku đã dùng Python 3.10.6; có thể tạo môi trường 3.10 riêng để không thay đổi môi trường Python 3.12 của các lab.
 
-```powershell
-cd AlphaZero_Gomoku
-..\.venv\Scripts\python -m pytest
-..\.venv\Scripts\python -m ui.pygame_app
-```
+## Đồ án Gomoku AlphaZero
 
-Các Python khác trên máy không bị gỡ; `.venv` cố định phiên bản dùng trong repo.
-Máy có GPU NVIDIA thì cài bản CUDA theo hướng dẫn trong `AlphaZero_Gomoku/requirements.txt`.
+Đồ án xây dựng Gomoku 11×11 với luật Normal và Renju, giao diện Pygame, các tác tử tìm kiếm cổ điển và AlphaZero học từ self-play.
 
-## 🚧 Tiến độ đồ án AlphaZero
+- [Báo cáo đồ án](AlphaZero_Gomoku/report/report.md) và [đặc tả kỹ thuật](AlphaZero_Gomoku/SPEC.md).
+- [Kết quả thực nghiệm](AlphaZero_Gomoku/experiment_results.csv): bảng tóm tắt dùng trong báo cáo.
+- [Chi tiết thực nghiệm](AlphaZero_Gomoku/working_details.csv): số liệu theo run, nguồn và cảnh báo bản sao. Hai bảng dùng UTF-8 BOM; tỷ lệ được ghi theo thang 0–100%.
 
-Cập nhật 2026-10-28. Test hiện tại: `71 passed, 2 skipped`.
+Trong lần chạy lại T35 Renju với ngân sách cố định, Heuristic và AZ Renju đồng hạng 83,33% điểm, mỗi tác tử đạt 250/300 điểm trong pool. Đây là kết quả của giao thức đó, không phải thứ hạng chung cho mọi điều kiện.
 
-| Nhóm | Xong | Còn lại |
-|---|---|---|
-| Luật + bàn cờ + người chơi (A) | 3/8 | `gomoku/runner.py`, `players/random.py`, `human.py`, `mcts_pure`, UI, luật Renju, train Renju |
-| Tầng AlphaZero (B) | 6/7 | gom lô 16 ván, log từng ván cho self-play, chạy 20 × 50 ván |
-| Đánh giá + hạ tầng (C) | 2/11 | `az/evaluator.py`, `scripts/arena.py`, Colab, shard, `simulate.py`, tài liệu, báo cáo |
-
-Năm giai đoạn của `az/`: GĐ1 mạng 6×64, GĐ2 PUCT, GĐ3 self-play, GĐ4 trainer + `--resume` + `AZPlayer` — xong, có test. GĐ5 (gom lô, log ván, chạy 1000 ván) chưa làm.
-
-Ba chỗ đang chặn nghiệm thu:
-
-1. `gomoku/runner.py` và `players/random.py` chưa có, nên `AZPlayer` mới được kiểm bằng test cục bộ.
-2. `gomoku/rules/renju.py` chưa có, nên `scripts/train.py` dừng khi `rule_set: renju`.
-3. `az/evaluator.py` chưa có, nên cổng arena (thắng `best` ≥ 55%) chưa chạy được.
-
-Cổng GĐ4 (2 vòng × 50 ván × 200 lượt) chưa chạy. Số đo hiện có là 4 vòng × 10 ván × 100 lượt, ghi ở `AlphaZero_Gomoku/docs/benchmarks.md`.
+Các SQLite, log và checkpoint huấn luyện được lưu cục bộ, không có trong Git clone. Các báo cáo trong repository giữ kết quả và mô tả nguồn; một số thí nghiệm lịch sử không còn SQLite để kiểm tra từng ván. Không cộng các bản sao hoặc các nhánh huấn luyện độc lập.
