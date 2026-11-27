@@ -124,9 +124,26 @@ Python là backend mặc định an toàn nhất cho cài đặt mới. C++ là 
 
 ## Dữ liệu thực nghiệm
 
-`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú. File hiện có 116 dòng dữ liệu mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, W/D/L và `score_pct` là kết quả của tác tử A; score tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. `black_wins` và `white_wins` là số ván thắng của A khi cầm màu tương ứng. Dòng metric và ablation ghi chỉ số ở `metric`/`value`; các phép đánh giá checkpoint có W/D/L thì dùng cùng quy ước của tournament. Ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
+`experiment_results.csv` là bảng thống nhất, mỗi dòng mô tả một kết quả hoặc chỉ số, có nguồn, mục đích, kết luận và ghi chú; file mã hóa UTF-8 BOM để mở bằng Excel. Với dòng tournament, các cột thắng/hòa/thua và `Tỷ lệ điểm của A (%)` là kết quả của tác tử A; điểm tính `(thắng + 0.5 × hòa) / số ván × 100`, khác với tỷ lệ thắng. Hai cột thắng khi Đen/Trắng là số ván thắng của A khi cầm màu tương ứng. Dòng metric và ablation ghi chỉ số và giá trị tương ứng; ô trống nghĩa là số liệu chưa được công bố hoặc không có trong nguồn.
 
-Mỗi dòng trỏ đến `source_file` và `report_section`. T35 chạy lại được đối chiếu với từng game trong SQLite local; Normal 75k và Renju 1.500 được đối chiếu với database và training metrics. Normal 1.000 ván được đối chiếu với JSONL gốc. T35 ban đầu được chép từ bảng trong báo cáo vì database local không có games ngày 14/11. Tactical 25k, chặn Renju và một số đánh giá checkpoint được lấy từ audit/report, không có record từng game trong clone Git. Đường dẫn `data/` và `.audit/` chỉ hoạt động trên máy nghiên cứu có artifact đó; các thư mục này bị bỏ khỏi Git clone. Báo cáo PDF và bảng diễn giải có trong `report/`.
+Mỗi dòng trỏ đến `Nguồn trong Git` và khi có đến `Nguồn SQLite local`. T35 chạy lại được đối chiếu với từng game trong SQLite local; Normal 75k và Renju 1.500 được đối chiếu với database và training metrics. Normal 1.000 ván được đối chiếu với JSONL gốc. T35 ban đầu được chép từ bảng trong báo cáo vì database local không có games ngày 14/11. Tactical 25k, chặn Renju và một số đánh giá checkpoint được lấy từ audit/report, không có record từng game trong clone Git. Đường dẫn `data/` và `.audit/` chỉ hoạt động trên máy nghiên cứu có artifact đó; các thư mục này bị bỏ khỏi Git clone. Báo cáo PDF và bảng diễn giải có trong `report/`.
+
+## Notebook phân tích
+
+Ba notebook trong [`notebooks/`](notebooks/) đọc kết quả đã lưu, không huấn luyện hoặc chạy lại tournament:
+
+1. [Self-play và huấn luyện](notebooks/01_selfplay_training_analysis.ipynb): số liệu training, checkpoint và loss.
+2. [Đánh giá tournament](notebooks/02_tournament_evaluation.ipynb): kết quả đối kháng, màu quân, luật và checkpoint.
+3. [Tối ưu và Renju](notebooks/03_optimization_and_renju_analysis.ipynb): benchmark và phân tích fine-tuning Renju.
+
+Từ thư mục `AlphaZero_Gomoku`, cài thêm các dependency phân tích vào môi trường Python đã tạo rồi mở JupyterLab:
+
+```powershell
+& $python -m pip install jupyterlab ipykernel nbformat nbclient pandas matplotlib
+& $python -m jupyter lab notebooks
+```
+
+Trên macOS/Linux dùng `$PYTHON` thay cho `& $python`. Chọn kernel của môi trường này và chạy các cell theo thứ tự. `experiment_results.csv`, `working_details.csv` và tài liệu được đưa vào Git; phần lớn SQLite, logs và checkpoint huấn luyện chỉ có trên máy nghiên cứu. Vì vậy bản clone có thể thiếu một số phân tích khi chạy lại; output đã lưu trong notebook thể hiện dữ liệu có tại thời điểm thực thi, không thay thế các artifact gốc. Notebook ghi rõ nguồn và giới hạn cho từng kết quả.
 
 ## Tài liệu kỹ thuật
 
